@@ -1,0 +1,217 @@
+Ddoc
+
+$(P 
+    Most Phobos modules do not include requirement specifications in any form. This document is an attempt at this to better understand its scope and usefulness. As well provide clear arguments for and against choices made in the implementation.
+)
+
+$(H3 $(GNAME Table of Contents))
+$(UL
+    $(LI $(GLINK Scope))
+    $(LI $(GLINK Who is it for?))
+
+    $(LI
+        $(GLINK Previous work)
+        $(UL
+            $(LI $(GLINK Specializing the library))
+        )
+    )
+
+    $(LI
+        $(GLINK Problems)
+        $(UL
+            $(LI $(GLINK Template bloat))
+            $(LI $(GLINK Allocation and the GC))
+            $(LI $(GLINK Throwing of exceptions))
+            $(LI $(GLINK Image format != file format))
+        )
+    )
+
+    $(LI
+        $(GLINK Notable information)
+        $(UL
+            $(LI $(GLINK Indicies type))
+        )
+    )
+
+    $(LI $(GLINK Functional requirements))
+    $(LI $(GLINK Following work))
+)
+
+$(H3 $(GNAME Scope))
+$(P
+    The primary function of std.experimental.graphic.image is to provide a general use image library for the D community. In an attempt to bridge existing works and make them work with other libraries such as GUI toolkits.
+    Primarily it will be used on desktop systems with a good resonable amount of memory to give the process. At the very least > 2gb.
+    It can be expected that the file format implementations and manipulations will work out of the box for most users. However more advanced users should rely on either c libraries or their own implementations.
+)
+
+$(H3 $(GNAME Who is it for?))
+$(P
+    This library is a general purpose image library as such it should be usable for these situations:
+    $(UL
+        $(LI Must be usable for a GUI toolkit to represent icons and a drawable surface.)
+        $(LI Usable for both 2D and 3d game developers. Some developers will wish to control the image storage along with specialist manipulations.)
+        $(LI Most developers do not specialize in the field of imagery. Those that do can either use it as a base or will write their own specialist one. Extensions may be submitted to improve compatibility between these libraries.)
+    )
+)
+
+$(H3 $(GNAME Previous work))
+$(P
+    A good place to start in understanding the current situation is to list existing projects that attempt to fill this role.
+
+    $(UL
+        $(LI $(WEB github.com/p0nce/ae-graphics, ae.graphics))
+        $(LI $(WEB github.com/Devisualization/image, Devisualization.Image))
+        $(LI $(WEB github.com/gecko0307/dlib, dlib.image))
+    )
+    There have been many other attempts during $(D D)'s existance. However these are the most recent of such.$(BR)
+
+    $(P 
+        Of these listed none are meant to be highly specialized nor do they attempt to be. Dlib's implementation for example is aware of allocation schemes as well as supporting bit depth, channels, pixel size and pixel format.$(BR)
+        On the other hand ae.graphics is more templated then any other. It understands scanlines and converting between types. It is also quite fast for mutation functions.
+        Lastly is Devisualization.Image. Much newer and with far less work done to it (authors own image library). Is quite dumb with color types but is highly range friendly.
+    )
+
+    $(P
+        There are many other libraries in other languages such as $(WEB https://sites.google.com/site/openimageio/home, OpenImageIO) that also attempt to fill this role. In OpenImageIO's case it attempts to wrap other libraries such as libpng and libjpeg into one single API between many different image file formats. Of note is that it supports both signed integers for indicies as well as runtime "reflection" over the color type.$(BR)
+        Another noteworthy library is $(WEB https://www.libsdl.org/, SDL) which also uses a signed integer to represent the indicies. Although an important distinction is a central premise of SDL is to act as a canvas library.
+    )
+)
+
+$(P 
+    Of course the previous D code can only be used as a starting point. The perils of a D image library can be seen in them. But they cannot be used for meeting everyones needs. While staying innovative is a hard task. $(BR)
+    Even in languages such as Java and C# there are many libraries available with no real clear cut winner. Python is a great example of this divide that can exist. The library $(B P)ython $(B I)mage $(B L)ibrary ($(B PIL)) was forked to add support for Python 3. With the fork being renamed as $(WEB http://pillow.readthedocs.org/en/latest/installation.html, Pillow).
+)
+
+$(H4 $(GNAME Specializing the library))
+$(P
+    Speciailizing the image library is not within the scope. But ensuring good control over the memory model is.
+
+    $(UL
+        $(LI Embedded)
+        $(LI Resource contrained devices)
+        $(LI Mobile)
+        $(LI Very large images)
+        $(LI 3D engines)
+    )
+
+    While it may be able to be used on these platforms, it will not be able to get best performance out of it. For best performance a dedicated to platform library would be needed. With only the features required. This instead is a general image library, that $(I most) people can use.$(BR)
+    As such, a distinction $(B will) be made. The storage unit for an image, file format and interoperability at runtime components will be seen as distinct things that performs the same. What this ends up meaning is that as long as the color format is known, any image storage unit may be used at runtime. In turn limiting the amount of templates used.
+)
+
+$(H3 $(GNAME Problems))
+$(P
+    Like most libraries image libraries have a variety of well known problems. Along with these problems comes D style library problems.
+)
+
+$(H4 $(GNAME Template bloat))
+$(P
+    A major concern for D is templated code. Template bloat as it is known is when there is large amounts of templates being initiated with vast array of compile time arguments.$(BR)
+    For this very reason, template usage $(U must) be constrained to the bare minimum. Keeping in line with other D code of highly reusable code, templates will be used. Be constrained to colors (usage not definition) and constructors as much as possible.
+)
+
+$(H4 $(GNAME Allocation and the GC))
+$(P
+    As well as a vast array of issues such as the Garbage Collector.$(BR)
+    For this reason alone the image library $(U must) support allocators. Allocating vast arrays controlled by the garbage collector could have some very awful performance in terms of disallocation for game engines. As such deallocation should occur in the destructors of the image storage type. When the image storage gets deallocated and have its destructor called is up to the user. This may become a problem if the GC is relyed upon to call the destructor. This cannot however be solved without the GC implementation being fixed or atleast relying upon the user to call the destructor + finalize + free the memory.$(BR)
+    A topic not well discussed is the issue of resizing of images along with there data store with it. There are two options in resizing/scaling. Create a second image with the new size or resize the current image. Resizing the current image requires support in the image storage type.
+)
+
+$(H4 $(GNAME Throwing of exceptions))
+$(P
+    Not all platforms have amazing support for exception handling. Alone this would not warrent not using exception. But what would is non allocations and performance hit to general usage code.$(BR)
+    Most function/methods used should be nothrow. In other works, if it mutates it may throw. If it doesn't mutate it shouldnt. Mutation also includes constructors.
+)
+
+$(H4 $(GNAME Image format != file format))
+$(P
+    Contrary to popular belief among image library developers. An image implementation is not defined by the file format. Instead it is defined more so by the image storage type. Atleast this is possible with D. D has alias this which allows a file format reader/writer to utilise any image storage type given to it. Along with the resulting type to act as if it was the image storage type along with the added fields/methods that the file format type provides.$(BR)
+    This provides a highly swappable file storage mechanism while also allowing the file formats to not be aware of every single one. Assuming of course there is a way to use any image storage type for a specific color in place of each other.
+)
+
+$(H3 $(GNAME Notable information))
+$(P
+    Of the information provided in other parts of this document, this section is more what people believe instead of what is actual will be issues.
+)
+
+$(H4 $(GNAME Indicies type))
+$(P
+    The type that defines what an indicie within an image is. Is and can be quite controversial.$(BR)
+    This can be broken down into 2 major issues.
+    $(UL
+        $(LI
+            Unsigned vs Signed$(BR)
+            $(P
+                If the type is defined as unsigned then it is possible that it will overflow during calculations and manipulations of the X and Y coordinates.$(BR)
+                But if it is signed then it will prevent fully addressing memory that may make up the data store. Otherwise it would have to be atleast double in size of the word size of the CPU. Along with this, for validating if a coordinate is valid it will need to check if it is $(D >= 0).$(BR)
+                Unlike other C family language such as C and C++, D formally defines the behaviour of integer overlow. It is resonable that in D to use unsigned integers where in others signed would have to be used in case of overflow.
+            )
+        )
+
+        $(LI
+            Set size vs word size of CPU/executable$(BR)
+            $(P
+                Differing sizes based upon the word size that the process / cpu is using per build could and will cause errors when not using the alias'ed type. As it will not implicitly cast, in case of loosing precision of the value.$(BR)
+                The word size of the CPU is how it represents a pointer within memory. Specifically how much space it takes up. Using this admits that the backed data is being represented within memory. It also allows for easier porting to higher and lower powered architectures.$(BR)
+                A non set size such as $(D size_t) is well known as a source of errors. For the most part, if dealing with pointers for which arrays are based upon and not using the data type specified by the CPU/binary should be considered the source of the bug and not the usage of $(D size_t).
+            )
+        )
+    )
+    These arguments have been made for a set sized signed integer as the indicie type. However as D does define the behaviour for overflows and it would require a lot more code where it is not required it will not be used. Instead an unsigned type that is the word size ($(D size_t)) will be used as it is better suited for the job at hand. Other libraries built upon this such as a Canvas type may and should use its own indicie system. If it is better to go for a signed type there, then so be it. It will however have a limit to the size of images it can support. In most cases this will be beyond what the hardware can support so this limit should not negatively effect user code in the for-seeable future.
+)
+
+
+$(H3 $(GNAME Functional requirements))
+$(P
+    $(B Should:)
+    $(UL
+        $(LI Allocators + @nogc as much as possible)
+        $(LI No throwing of exceptions, unless mutating)
+        $(LI File format != image storage)
+        $(LI Runtime swapping of image storage types, based upon color)
+        $(LI Use the Cartesian coordinates system using two (X and Y) $(D size_t) integers)
+        $(LI Be similar in layout to (atleast inspired heavily by) $(D std.ranges))
+        $(LI Differentiate between in place modification of images and input range output for mutation)
+    )
+    
+    $(B Optionally:)
+    $(UL
+        $(LI Resizing of an image support in the image storage type instead of creating a new image during scaling and resizing)
+        $(LI Use an offset to get/set a specified pixel. Instead of using X and Y)
+        $(LI For non alpha channel colors, support the alpha channel being on the image instead)
+        $(LI Support an input range over the scanline and each pixels)
+        $(LI Operator overloads to get/set the pixels)
+    )
+
+    $(B Should not:)
+    $(UL
+        $(LI Directly implement features that future libraries may need such as canvas. These are seperate projects with different needs. A canvas is not the same as an image.
+            $(P
+                This library is slightly incompatible with a canvas library to operate upon because it is using unsigned integers for indexing a pixel within an image. This was by design. To make it match as closely to the hardware as possible.$(BR)
+                Instead for a canvas library it has been assumed that it may use a smaller set sized integer, possibly even a floating point value to represent an index. To make this operable, it should be noted that it should wrap the image into a canvas compatible one. It will not support everything that the machine may support, but will fulfil the needs of most developers by doing this. It also seperates quite strongly the difference between a canvas and the image storage type. For this reason it could actually be compared to SwappableImage and a file format.
+            )        
+        )
+    )
+)
+
+$(H3 $(GNAME Following work))
+$(P
+    Following libraries that could be written but depend upon this are:
+    $(UL
+        $(LI Window + context creation library)
+        $(LI GUI toolkit (depends on first))
+        $(LI Image mutation functions)
+        $(LI Optimising mutation functions to image storage types)
+        $(LI Image processing algorithms)
+        $(LI Unifying library for file reading and writing)
+        $(LI Allocator (containers replaces some usage of AA's))
+        $(LI SVG rasterizer)
+        $(LI Font rasterizer)
+        $(LI More file formats)
+        $(LI QR/barcode read/writer)
+        $(LI Canvas (drawing e.g. rectangles))
+        $(LI Fix std.zlib so it will allocate with allocators instead of GC)
+    )
+)
+
+Macros:
+    TITLE=std.experimental.graphic.image Specification

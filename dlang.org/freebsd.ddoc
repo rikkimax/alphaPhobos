@@ -1,0 +1,11 @@
+OS=freebsd
+WINDOWS=
+LINUX=
+OSX=
+FREEBSD=$0
+UNIX=$0
+SEP=/
+OBJEXT=o
+LIBEXT=a
+DMDDIR=dmd2
+_=

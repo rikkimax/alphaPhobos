@@ -1,0 +1,290 @@
+Ddoc
+
+$(D_S The D Style,
+
+$(P
+    $(I The D Style) is a set of style conventions for writing
+    D programs. The D Style is not enforced by the compiler. It is
+    purely cosmetic and a matter of choice. Adhering to the D Style,
+    however, will make it easier for others to work with your
+    code and easier for you to work with others' code.
+    The D Style can form the starting point for a project
+    style guide customized for your project team.
+)
+
+$(P
+    Submissions to Phobos and other official D source code will
+    follow these guidelines.
+)
+
+$(H3 Whitespace)
+
+$(UL
+    $(LI One statement per line.)
+
+    $(LI Use spaces instead of hardware tabs.)
+
+    $(LI Each indentation level will be four columns.)
+)
+
+$(H3 Naming Conventions)
+
+$(DL
+    $(DT General)
+    $(DD Unless listed otherwise below, names should be camelCased (this
+         includes $(I all) variables). So, names formed by joining multiple
+         words have each word other than the first word capitalized. Also, names
+         do not begin with an underscore $(SINGLEQUOTE _) unless they are
+         private.
+
+-------------------------------
+int myFunc();
+string myLocalVar;
+-------------------------------
+    )
+
+    $(DT Modules)
+    $(DD Module and package names should be all lowercase, and only contain
+         the characters [a..z][0..9][_]. This avoids problems when dealing with
+         case-insensitive file systems.
+-------------------------------
+import std.algorithm;
+-------------------------------
+    )
+
+
+
+    $(DT Classes, Interfaces, Structs, Unions, Enums, Non-Eponymous Templates)
+    $(DD The names of user-defined types should be PascalCased, which is the
+         same as camelCased except that the first letter is uppercase.
+
+-------------------------------
+class Foo;
+struct FooAndBar;
+-------------------------------
+    )
+
+    $(DT Eponymous Templates)
+
+    $(DD Templates which have the same name as a symbol within that template
+         (and instantiations of that template are therefore replaced with that
+         symbol) should be capitalized in the same way that that inner symbol
+         would be capitalized if it weren't in a template - e.g. types should be
+         PascalCased and values should be camelCased.
+
+-------------------------
+template GetSomeType(T) { alias GetSomeType = T; }
+template isSomeType(T) { enum isSomeType = is(T == SomeType); }
+template MyType(T) { struct MyType { ... } }
+template map(fun...) { auto map(Range r) { ... } }
+-------------------------
+     )
+
+    $(DT Functions)
+    $(DD Function names should be camelCased, so their first letter is lowercase.
+         This includes properties and member functions.
+
+-------------------------------
+int done();
+int doneProcessing();
+-------------------------------
+    )
+
+    $(DT Constants)
+    $(DD The names of constants should be camelCased just like normal variables.
+
+-------------------------------
+enum secondsPerMinute = 60;
+immutable hexDigits = "0123456789ABCDEF";
+-------------------------------
+    )
+
+    $(DT Enum members)
+    $(DD The members of enums should be camelCased, so their first letter is
+         lowercase.
+
+-------------------------------
+enum Direction { bwd, fwd, both }
+enum OpenRight { no, yes }
+-------------------------------
+    )
+
+    $(DT Keywords)
+    $(DD If a name would conflict with a keyword, and it is desirable to use the
+         keyword rather than pick a different name, a single underscore
+         $(SINGLEQUOTE _) should be appended to it. Names should not be
+         capitalized differently in order to avoid conflicting with keywords.
+
+-------------------------------
+enum Attribute { nothrow_, pure_, safe }
+-------------------------------
+    )
+
+    $(DT Acronyms)
+    $(DD When acronyms are used in symbol names, all letters in the acronym
+         should have the same case. So, if the first letter in the acronym
+         is lowercase, then all of the letters in the acronym are lowercase, and
+         if the first letter in the acronym is uppercase, then all of the
+         letters in the acronym are uppercase.
+
+-------------------------------
+class UTFException;
+ubyte asciiChar;
+-------------------------------
+    )
+
+
+)
+
+$(H3 Type Aliases)
+
+   $(P The D programming languages offers two functionally equivalent syntaxes for type aliases, but ...)
+   
+-------------------------------
+alias size_t = uint;
+-------------------------------
+
+    $(P ... is preferred over ...)
+    
+-------------------------------
+alias uint size_t;
+-------------------------------
+
+    $(P ... because ...)
+    
+    $(UL
+        $(LI It follows the already familiar assignment syntax instead of the inverted typedef syntax from C)
+        $(LI In verbose declarations, it is easier to see what is being declared)
+    )
+    
+-------------------------------
+alias important = someTemplateDetail!(withParameters, andValues);
+alias Callback = ReturnType function(Arg1, Arg2) pure nothrow;
+-------------------------------
+
+    $(P vs.)
+    
+-------------------------------
+alias someTemplateDetail!(withParameters, andValues) important;
+alias ReturnType function(Arg1, Arg2) pure nothrow Callback;
+-------------------------------
+    
+
+    $(P Meaningless type aliases like ...)
+
+-------------------------------
+alias VOID = void;
+alias INT = int;
+alias pint = int*;
+-------------------------------
+
+    $(P ... should be avoided.)
+
+$(H3 Declaration Style)
+
+    $(P Since the declarations are left-associative, left justify them:)
+
+-------------------------------
+int[] x, y; // makes it clear that x and y are the same type
+int** p, q; // makes it clear that p and q are the same type
+-------------------------------
+
+    $(P to emphasize their relationship. Do not use the C style:)
+
+-------------------------------
+int []x, y; // confusing since y is also an int[]
+int **p, q; // confusing since q is also an int**
+-------------------------------
+
+$(H3 Operator Overloading)
+
+    $(P Operator overloading is a powerful tool to extend the basic
+    types supported by the language. But being powerful, it has
+    great potential for creating obfuscated code. In particular,
+    the existing D operators have conventional meanings, such
+    as $(SINGLEQUOTE +) means $(SINGLEQUOTE add) and $(SINGLEQUOTE &lt;&lt;)
+    means $(SINGLEQUOTE shift left).
+    Overloading operator $(SINGLEQUOTE +) with a meaning different from $(SINGLEQUOTE add)
+    is arbitrarily confusing and should be avoided.
+    )
+
+$(H3 Hungarian Notation)
+
+    $(P Using hungarian notation to denote the type of a variable
+    is a bad idea.
+    However, using notation to denote the purpose of a variable
+    (that cannot be expressed by its type) is often a good
+    practice.)
+
+$(H3 Properties)
+
+    $(P Functions should be property functions whenever appropriate. In
+        particular, getters and setters should generally be avoided in favor of
+        property functions. And in general, whereas functions should be verbs,
+        properties should be nouns, just like if they were member variables.
+        Getter properties should $(I not) alter state.)
+
+$(H3 Documentation)
+
+$(P
+    All public declarations will be documented in
+    $(LINK2 ddoc.html, Ddoc) format.
+)
+
+$(H3 Unit Tests)
+
+$(P
+    As much as practical, all functions will be exercised
+    by unit tests using unittest blocks immediately following
+    the function to be tested.
+    Every path of code should be executed at least once,
+    verified by the $(LINK2 code_coverage.html, code coverage analyzer).
+)
+
+$(H2 Additional Requirements for Phobos)
+
+$(P
+    In general, this guide does not try to recommend or require that code
+    conform to any particular formatting guidelines. The small section on
+    whitespace at the top contains its only formatting guidelines. However, for
+    Phobos and other official D source code, there are two additional
+    requirements:
+ )
+
+$(UL
+    $(LI Braces should be on their own line. There are a few exceptions to this
+         (such as when declaring lambda functions), but with any normal function
+         block or type definition, the braces should be on their own line.)
+
+-------------------------------
+void func(int param)
+{
+    if (param < 0)
+    {
+        ...
+    }
+    else
+    {
+        ...
+    }
+}
+-------------------------------
+
+    $(LI Lines have a soft limit of 80 characters and a hard limit of 120
+         characters. This means that most lines of code should be no longer than
+         80 characters long but that they $(I can) exceed 80 characters when
+         appropriate. However, they can $(I never) exceed 120 characters.)
+ )
+
+$(P
+    We are not necessarily recommending that all code follow these two rules.
+    They're both likely to be controversial in any discussion on coding
+    standards. However, they are required in submissions to Phobos and other
+    official D source code.
+ )
+)
+
+Macros:
+    TITLE=The D Style
+    WIKI=DStyle
+

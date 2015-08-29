@@ -1,0 +1,134 @@
+Ddoc
+
+$(SPEC_S Pragmas,
+
+$(GRAMMAR
+$(GNAME Pragma):
+    $(D pragma) $(D $(LPAREN)) $(I Identifier) $(D $(RPAREN))
+    $(D pragma) $(D $(LPAREN)) $(I Identifier) $(D ,) $(GLINK2 expression, ArgumentList) $(D $(RPAREN))
+)
+
+
+        $(P Pragmas are a way to pass special information to the compiler
+        and to add vendor specific extensions to D.
+        Pragmas can be used by themselves terminated with a $(SINGLEQUOTE ;),
+        they can influence a statement, a block of statements, a declaration, or
+        a block of declarations.
+        )
+
+        $(P Pragmas can appear as either declarations,
+        $(I Pragma) $(GLINK2 attribute, DeclarationBlock),
+        or as statements,
+        $(GLINK2 statement, PragmaStatement).
+        )
+
+-----------------
+pragma(ident);        // just by itself
+
+pragma(ident) declaration; // influence one declaration
+
+pragma(ident): // influence subsequent declarations
+    declaration;
+    declaration;
+
+pragma(ident)   // influence block of declarations
+{
+    declaration;
+    declaration;
+}
+
+pragma(ident) statement; // influence one statement
+
+pragma(ident)   // influence block of statements
+{
+    statement;
+    statement;
+}
+-----------------
+
+        $(P The kind of pragma it is determined by the $(I Identifier).
+        $(I ExpressionList) is a comma-separated list of
+        $(ASSIGNEXPRESSION)s. The $(ASSIGNEXPRESSION)s must be
+        parsable as expressions, but what they mean semantically
+        is up to the individual pragma semantics.
+        )
+
+$(H3 $(LEGACY_LNAME2 Predefined-Pragmas, predefined-pragmas, Predefined Pragmas))
+
+        $(P All implementations must support these, even if by just ignoring
+        them:
+        )
+
+    $(DL
+
+    $(DT $(D msg))
+    $(DD Constructs a message from the arguments and prints to the standard error stream while compiling:
+-----------------
+pragma(msg, "compiling...", 1, 1.0);
+-----------------
+    )
+
+    $(DT $(D lib))
+    $(DD Inserts a directive in the object file to link in the library
+        specified by the $(ASSIGNEXPRESSION).
+        The $(ASSIGNEXPRESSION)s must be a string literal:
+-----------------
+pragma(lib, "foo.lib");
+-----------------
+    )
+    $(DT $(D startaddress))
+    $(DD Puts a directive into the object file saying that the
+        function specified in the first argument will be the
+        start address for the program:
+-----------------
+void foo() { ... }
+pragma(startaddress, foo);
+-----------------
+        This is not normally used for application level programming,
+        but is for specialized systems work.
+        For applications code, the start address is taken care of
+        by the runtime library.
+    )
+
+    $(DT $(D mangle))
+    $(DD Overrides the default mangling for a symbol. This allows
+        linking to a symbol which is a D keyword, which would normally
+        be disallowed as a symbol name:
+-----------------
+pragma(mangle, "body")
+extern(C) void body_func();
+-----------------
+    )
+
+    )
+
+$(H3 Vendor Specific Pragmas)
+
+        $(P Vendor specific pragma $(I Identifier)s can be defined if they
+        are prefixed by the vendor's trademarked name, in a similar manner
+        to version identifiers:
+        )
+
+-----------------
+pragma(DigitalMars_funky_extension) { ... }
+-----------------
+
+        $(P Compilers must diagnose an error for unrecognized $(I Pragma)s,
+        even if they are vendor specific ones. This implies that vendor
+        specific pragmas should be wrapped in version statements:
+        )
+
+-----------------
+version (DigitalMars)
+{
+    pragma(DigitalMars_funky_extension)
+    { ... }
+}
+-----------------
+
+)
+
+Macros:
+        TITLE=Pragmas
+        WIKI=Pragma
+

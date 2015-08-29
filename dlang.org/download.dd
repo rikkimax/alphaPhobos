@@ -1,0 +1,80 @@
+Ddoc
+
+<!-- Github ribbon -->
+<a href="http://github.com/D-Programming-Language"><img id="github-ribbon"
+src="images/github-ribbon.png" alt="Fork D on GitHub"></a>
+
+$(D_S Downloads,
+
+$(H2 DMD $(DMDV2))
+$(LINK2 changelog.html, Changelog)
+
+$(DOWNLOAD $(WINDOWS), Windows, $(BTN $(WINEXE), exe) $(BTN $(ZIP windows), zip))
+
+$(DOWNLOAD $(OSX), OS X, $(BTN $(OSXDMG), dmg) $(BTN $(ZIP osx), zip))
+
+$(DOWNLOAD $(UBUNTU) &nbsp; $(DEBIAN), Ubuntu/Debian, $(BTN $(DEB32), i386) $(BTN $(DEB64), x86_64) $(BTN $(ZIP linux), zip))
+
+$(DOWNLOAD $(FEDORA) &nbsp; $(CENTOS), Fedora/CentOS, $(BTN $(RPM32), i386) $(BTN $(RPM64), x86_64) $(BTN $(DLSITE dmd.$(DMDV2).linux.zip), zip))
+
+$(DOWNLOAD $(OPENSUSE), openSUSE, $(BTN $(SUSE32), i386) $(BTN $(SUSE64), x86_64) $(BTN $(DLSITE dmd.$(DMDV2).linux.zip), zip))
+
+$(DOWNLOAD $(FREEBSD), FreeBSD, $(BTN $(FBSD32), i386) $(BTN $(FBSD64), x86_64))
+
+$(H3 $(LINK2 http://ftp.digitalmars.com, Release Archive))
+
+$(HR)
+
+$(H3 $(LINK2 http://gdcproject.org/downloads, GDC - GCC D Compiler))
+$(H3 $(LINK2 http://github.com/ldc-developers/ldc/releases, LDC - LLVM D Compiler))
+
+$(HR)
+
+$(H2 Other Downloads)
+
+$(H3 $(LINK2 http://github.com/D-Programming-Language/visuald/releases, VisualD - D Plugin for Visual Studio))
+
+$(H3I D Programming Language Specification) $(BTN http://dlang.org/dlangspec.pdf, pdf) $(BTN http://dlang.org/dlangspec.mobi, mobi)
+
+$(H3 $(LINK2 http://www.digitalmars.com/download/freecompiler.html, Digital Mars C and C++ Compiler Downloads))
+)
+
+Macros:
+	TITLE=Downloads
+	WIKI=Downloads
+
+    DMDV2=$(LATEST)
+
+	DEB32=$(DLSITE dmd_$(DMDV2)-0_i386.deb)
+	DEB64=$(DLSITE dmd_$(DMDV2)-0_amd64.deb)
+	RPM32=$(DLSITE dmd-$(DMDV2)-0.fedora.i386.rpm)
+	RPM64=$(DLSITE dmd-$(DMDV2)-0.fedora.x86_64.rpm)
+	SUSE32=$(DLSITE dmd-$(DMDV2)-0.openSUSE.i386.rpm)
+	SUSE64=$(DLSITE dmd-$(DMDV2)-0.openSUSE.x86_64.rpm)
+    FBSD32=$(DLSITE dmd.$(DMDV2).freebsd-32.zip)
+    FBSD64=$(DLSITE dmd.$(DMDV2).freebsd-64.zip)
+    OSXDMG=$(DLSITE dmd.$(DMDV2).dmg)
+    WINEXE=$(DLSITE dmd-$(DMDV2).exe)
+    ZIP=$(DLSITE dmd.$(DMDV2).$1.zip)
+
+	LOGO=<img src="images/$1_logo.png" alt="$2">
+	CENTOS=$(LOGO centos, CentOS)
+	DEBIAN=$(LOGO debian, Debian)
+	FEDORA=$(LOGO fedora, Fedora)
+	FREEBSD=$(LOGO freebsd, FreeBSD 8.1)
+	LINUX=$(LOGO linux, Linux)
+	OPENSUSE=$(LOGO opensuse, OpenSUSE)
+	OSX=$(LOGO apple, OSX Lion)
+	UBUNTU=$(LOGO ubuntu, Ubuntu)
+	WINDOWS=$(LOGO windows, Windows)
+
+    BTN=<a href="$1" class="btn">$+</a>
+    H3I=<h3 class="download">$0</h3>
+    DLSITE=http://downloads.dlang.org/releases/2014/$0
+    DOWNLOAD =
+    $(DIV, 
+        $(DIVC download_image, $1)
+        $(DIVC download_paragraph, $(H3 $2) $3)
+    )
+
+    _= for sidebard subnavigation

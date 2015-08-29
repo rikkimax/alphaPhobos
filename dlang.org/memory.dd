@@ -1,0 +1,13 @@
+Ddoc
+
+$(D_S Memory Management,
+
+This page has been moved to 
+$(LINK2 http://wiki.dlang.org/Memory_Management, http://wiki.dlang.org/Memory_Management)
+
+)
+
+Macros:
+	TITLE=Memory Management
+	WIKI=Memory
+

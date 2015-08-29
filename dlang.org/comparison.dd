@@ -1,0 +1,115 @@
+Ddoc
+
+$(COMMUNITY D Concepts Overview,
+
+$(P Navigate D's implementation of a few key programming language concepts.)
+
+$(ITEMIZE
+	$(A garbage.html, Garbage Collection),
+	Functions
+	$(ITEMIZE
+		$(A type.html#delegates, Function Delegates),
+		$(A function.html#function-overloading, Function Overloading),
+		$(A function.html#parameters, `out` parameters for functions),
+		$(A function.html#nested, Nested functions),
+		$(A expression.html#FunctionLiteral, Function literals),
+		$(A function.html#closures, Closures),
+		$(A function.html#variadic, Typesafe variadic arguments),
+		$(A lazy-evaluation.html, Lazy function argument evaluation),
+		$(A function.html#interpretation, Compile time function evaluation),
+		$(A function.html#pseudo-member, Uniform Function Call Syntax),
+		$(A attribute.html#UserDefinedAttribute, User Defined Attributes)
+	),
+	Arrays
+	$(ITEMIZE
+		$(A arrays.html, Lightweight arrays),
+		$(A arrays.html#resize, Resizeable arrays),
+		$(A arrays.html#strings, Built-in strings),
+		$(A arrays.html#slicing, Array slicing),
+		$(A arrays.html#bounds, Array bounds checking),
+		$(A expression.html#ArrayLiteral, Array literals),
+		$(A arrays.html#associative, Associative arrays),
+		$(A statement.html#SwitchStatement, String switches),
+		$(A declaration.html#alias, Aliases)
+	),
+	OOP
+	$(ITEMIZE
+		Object Orientation,
+		Interfaces,
+		Single inheritance of implementation/multiple inheritance of interfaces,
+		$(A operatoroverloading.html, Operator overloading),
+		$(A module.html, Modules),
+		No built-in dynamic class loading,
+		$(A class.html#nested, Nested classes),
+		$(A class.html#nested, Inner (adaptor) classes),
+		$(A function.html, Covariant return types),
+		$(A property.html#classproperties, Properties)
+	),
+	Performance
+	$(ITEMIZE
+		$(A iasm.html, Inline assembler),
+		Direct access to hardware,
+		$(A struct.html, Lightweight objects),
+		$(A memory.html, Explicit memory allocation control),
+		Independent of VM,
+		Direct native code gen
+	),
+	$(A template.html, Generic Programming)
+	$(ITEMIZE
+		Class Templates,
+		Function Templates,
+		Implicit Function Template Instantiation,
+		Partial and Explicit Specialization,
+		Value Template Parameters,
+		Template Template Parameters,
+		Variadic Template Parameters,
+		$(A concepts.html, Template Constraints),
+		$(A template-mixin.html, Mixins),
+		$(A version.html#staticif, static if),
+		$(A expression.html#IsExpression, expressions),
+		$(A declaration.html#Typeof, typeof),
+		$(A statement.html#ForeachStatement, foreach),
+		$(A declaration.html#AutoDeclaration, Implicit Type Inference)
+	),
+	Reliability
+	$(ITEMIZE
+		$(A contracts.html, Contract Programming),
+		$(A unittest.html, Unit testing),
+		$(A module.html#staticorder, Static construction order),
+		$(A statement.html#DeclarationStatement, Guaranteed initialization),
+		$(A memory.html#raii, RAII (automatic destructors)),
+		$(A statement.html#TryStatement, Exception handling),
+		$(A statement.html#ScopeGuardStatement, Scope guards),
+		$(A statement.html#TryStatement, try-catch-finally blocks),
+		$(A statement.html#SynchronizedStatement, Thread synchronization primitives)
+	),
+	Compatibility
+	$(ITEMIZE
+	C-like syntax,
+		$(A enum.html, Enumerated types),
+		$(A type.html, Support for all C types),
+		$(A type.html, 80 bit floating point),
+		$(A phobos/std_complex.html, Complex and Imaginary),
+		$(A attribute.html#linkage, Direct access to C),
+		Use existing debuggers,
+		$(A attribute.html#align, Struct member alignment control),
+		Generates standard object files,
+		$(A pretod.html, Obviates need for a macro text preprocessor)
+	),
+	Other
+	$(ITEMIZE
+		$(A version.html, Conditional compilation),
+		$(A lex.html, Unicode source text),
+		$(A ddoc.html, Documentation comments)
+	)
+)
+
+)
+
+Macros:
+	TITLE=Features Overview
+	NO=<td class="compNo">No</td>
+	NO1=<td class="compNo"><a href="$1">No</a></td>
+	YES=<td class="compYes">Yes</td>
+	YES1=<td class="compYes"><a href="$1">Yes</a></td>
+

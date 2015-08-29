@@ -1,0 +1,141 @@
+!!! 5
+html(lang='en-US')
+  //
+    | Copyright (c) 1999-2015 by Digital Mars
+    | All Rights Reserved Written by Walter Bright
+    | http://digitalmars.com
+  - string root_dir = info.linkTo(null) ~ (req is null ? "../" : "");
+      
+  head
+    meta(charset='utf-8')
+    meta(name='keywords', content='D programming language')
+    meta(name='description', content='D Programming Language')
+    block title
+    title #{title} - D Programming Language - Digital Mars
+    link(rel='stylesheet', href='#{root_dir}css/codemirror.css')
+    link(rel='stylesheet', href='#{root_dir}css/style.css')
+    link(rel='stylesheet', href='#{root_dir}css/print.css', media='print')
+    link(rel='stylesheet', href='#{root_dir}css/cssmenu.css')
+    link(rel='stylesheet', href='#{root_dir}css/ddox.css')
+    link(rel='stylesheet', href='https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css')
+    link(rel='shortcut icon', href='#{root_dir}favicon.ico')
+    script(type="text/javascript", src="#{root_dir}prettify/prettify.js")
+    script(type="text/javascript", src="#{root_dir}js/ddox.js")
+    meta(name='viewport', content='width=device-width, initial-scale=1.0, minimum-scale=0.1, maximum-scale=10.0')
+
+  body.std(id='Phobos Runtime Library')
+    script(type='text/javascript').
+      document.body.className += ' have-javascript';
+    #top
+      #header
+        a.logo(href='#{root_dir}')
+          img#logo(width='125', height='95', alt='D Logo', src='#{root_dir}images/dlogo.svg')
+        | &#x9;&#x9;
+        span#d-language-mobilehelper
+          a#d-language(href='#{root_dir}') D Programming Language
+    #navigation
+      #search-box
+        form(method='get', action='http://google.com/search')
+          input#domains(type='hidden', name='domains', value='dlang.org')
+          |             
+          input#sourceid(type='hidden', name='sourceid', value='google-search')
+          |             
+          span#search-query
+            input#q(name='q', placeholder='Search')
+            input#symbolSearch(style="display: none", type="text", name="symbolSearch", placeholder="API Search", onchange="performSymbolSearch(80);", onkeypress="this.onchange();", onpaste="this.onchange();", oninput="this.onchange();", autofocus)
+          span#search-dropdown
+            select#sitesearch(name='sitesearch', size='1')
+              option(value='dlang.org') Entire D Site
+              |                     
+              option(selected='', value='dlang.org/library') Library Reference
+              |                     
+              option(value='digitalmars.com/d/archives') Newsgroup Archives
+          span#search-submit
+            button(type='submit')
+              i.fa.fa-search
+              span go
+
+      #cssmenu
+        ul
+          li
+            a(href='#{root_dir}index.html')
+              span D Lib 2.066.1
+          | &#x9;
+          li
+            a(href='#{root_dir}library-prerelease/index.html')
+              span Prerelease Version
+          | &#x9;
+          block navigation
+          li
+            a(href='http://code.dlang.org')
+              span 3rd Party Packages
+
+    div(style="position: absolute; height: 0;")
+      include ddox.inc.symbol-search.results
+
+    #content.hyphenate
+      - if( auto modname = info.node.moduleName )
+        #tools
+          - import std.process;
+          - string project, path_prefix, line_suffix;
+          - string target = environment["GIT_TARGET"];
+          - if( modname.startsWith("core.") )
+            - project = "druntime", path_prefix = "src/";
+          - else
+            - project = "phobos", path_prefix = "";
+          - if( auto decl = cast(Declaration)info.node ) line_suffix = "#L"~to!string(decl.line);
+          - string filename = replace(modname, ".", "/") ~ ".d";
+
+          a.tip.button(href='https://github.com/D-Programming-Language/#{project}/blob/#{target}/#{path_prefix}#{filename}#{line_suffix}')
+            | View source code
+            span
+              | Display the source code in #{filename} from which this page was generated on
+              | github.
+
+          a.tip.button(href='https://github.com/D-Programming-Language/#{project}/edit/master/#{path_prefix}#{filename}')
+            | Improve this page
+            span
+              | Quickly fork, edit online, and submit a pull request for this page.
+              | Requires a signed-in GitHub account. This works well for small changes.
+              | If you'd like to make larger changes you may want to consider using
+              | local clone.
+
+          //- a.tip.button(href='http://www.prowiki.org/wiki4d/wiki.cgi?DocComments/Phobos/#{info.node.qualifiedName}')
+          a.tip.button(href='http://wiki.dlang.org/DocComments/Phobos/#{info.node.qualifiedName}')
+            | Page wiki
+            span
+              | View or edit the community-maintained wiki page associated with this page.
+
+      - auto hidx = std.string.indexOf(title, ' ');
+      - if (title.endsWith(" - multiple declarations"))
+        h1 <code><a href="#{info.linkTo(info.mod)}">#{info.mod.qualifiedName}</a>.#{title[0 .. $-24]}</code> #{title[$-24 ..$]}
+      - else if (hidx > 0 && !title.startsWith("Module ") && info.mod)
+        h1 #{title[0 .. hidx]} <code><a href="#{info.linkTo(info.mod)}">#{info.mod.qualifiedName}</a>.#{title[hidx+1 .. $]}</code>
+      - else if (hidx > 0 && title.startsWith("Module ") && info.mod)
+        h1 Module <code>#{info.mod.qualifiedName}</code>
+      - else
+        h1= title
+      block body
+
+      |     
+      #quickindex.quickindex
+
+    #copyright
+      block copyright
+      | | Page generated by <a href="https://github.com/rejectedsoftware/ddox">ddox</a>.
+
+    script(type='text/javascript', src='https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js')
+    |     
+    script(type='text/javascript').
+      window.jQuery || document.write('<script src="#{root_dir}js/jquery-1.7.2.min.js">\\x3C/script>')
+    |     
+    script(type='text/javascript', src='#{root_dir}js/codemirror-compressed.js')
+    |     
+    script(type='text/javascript', src='#{root_dir}js/run.js')
+    |     
+    script(type='text/javascript', src='#{root_dir}js/cssmenu.js')
+    script(type='text/javascript', src='#{root_dir}js/listanchors.js')
+    script(type='text/javascript').
+      jQuery(document).ready(listanchors);
+      setupDdox();
+      prettyPrint();

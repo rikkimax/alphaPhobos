@@ -1,0 +1,12 @@
+
+OS=windows
+WINDOWS=$0
+LINUX=
+FREEBSD=
+OSX=
+UNIX=
+SEP=\
+OBJEXT=obj
+LIBEXT=lib
+DMDDIR=\dmd2
+_=
