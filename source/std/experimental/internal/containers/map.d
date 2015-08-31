@@ -10,18 +10,18 @@ struct AAMap(K, V) {
 		V[] values;
 	}
 
-	~this() {
+    ~this() @trusted {
 		alloc.dispose(keys);
 		alloc.dispose(values);
 	}
 
-	this(IAllocator alloc) {
+    this(IAllocator alloc) @trusted {
 		this.alloc = alloc;
 		keys = alloc.makeArray!K(0);
 		values = alloc.makeArray!V(0);
 	}
 
-	V opIndex(K key) {
+    V opIndex(K key) @trusted {
 		foreach(i, k; keys) {
 			if (k == key)
 				return values[i];
@@ -33,7 +33,7 @@ struct AAMap(K, V) {
 			return V.init;
 	}
 
-	void opIndexAssign(V value, K key) {
+    void opIndexAssign(V value, K key) @trusted {
 		size_t i;
 
 		if (firstEmpty(i)) {
@@ -47,7 +47,7 @@ struct AAMap(K, V) {
 		}
 	}
 
-	void remove(K key) {
+    void remove(K key) @trusted {
 		foreach(i, k; keys) {
 			if (k == key) {
 				static if (is(K == class) || is(K == interface) || isPointer!K) {
@@ -69,7 +69,7 @@ struct AAMap(K, V) {
 		}
 	}
 
-	int opApply(int delegate(ref K, ref V) dg) {
+    int opApply(int delegate(ref K, ref V) dg) @trusted {
         int result = 0;
 
         foreach(i, k; keys) {
@@ -80,12 +80,12 @@ struct AAMap(K, V) {
         return result;
     }
 
-    immutable(K[]) __internalKeys() {
+    immutable(K[]) __internalKeys() @trusted {
     	return cast(immutable)keys;
     }
 
 	private {
-		bool firstEmpty(out size_t idx) {
+        bool firstEmpty(out size_t idx) @trusted {
 			static if (is(K == class) || is(K == interface) || isPointer!K) {
 				foreach(i, k; keys) {
 					if (k is null) {

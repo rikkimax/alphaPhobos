@@ -9,7 +9,6 @@ May require serious work before usable.
 - FileSystemImpl.find
 - FileSystemImpl.remove
 - PNG IDAT chunk
-- iCCP chunk (de)compression
 - Abituary rotation
 - Rotation ranges
 - Image tests

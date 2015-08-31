@@ -6,7 +6,7 @@
  * Provides determinance upon if a type is an image and respective optional functionality.
  *
  * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
- * Authors: $(WEB http://cattermole.co.nz, Richard Andrew Cattermole)
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  */
 module std.experimental.graphic.image.primitives;
 import std.experimental.graphic.image.interfaces;

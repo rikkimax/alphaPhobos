@@ -7,27 +7,27 @@ struct AllocList(T) {
 		T[] values;
 	}
 
-	~this() {
+	~this() @trusted {
 		alloc.dispose(values);
 	}
 
-	this(IAllocator alloc) {
+    this(IAllocator alloc) @trusted {
 		this.alloc = alloc;
 		values = alloc.makeArray!T(0);
 	}
 
-	T opIndex(size_t i)
+    T opIndex(size_t i) @trusted
 	in {
 		assert(i < values.length);
 	} body {
 		return values[i];
 	}
 
-	size_t length() {
+    size_t length() @trusted {
 		return values.length;
 	}
 
-	void length(size_t newlen) {
+    void length(size_t newlen) @trusted {
 		if (newlen > values.length) {
 			alloc.expandArray(values, newlen - values.length);
 		} else if (newlen < values.length) {
@@ -35,14 +35,14 @@ struct AllocList(T) {
 		}
 	}
 
-	void opIndexAssign(T value, size_t i)
+    void opIndexAssign(T value, size_t i) @trusted
 	in {
 		assert(i < values.length);
 	} body {
 		values[i] = value;
 	}
 
-	int opApply(int delegate(ref T) dg) {
+    int opApply(int delegate(ref T) dg) @trusted {
 		int result = 0;
 		
 		foreach(i, v; values) {
@@ -53,7 +53,7 @@ struct AllocList(T) {
 		return result;
 	}
 
-	int opApply(int delegate(size_t i, ref T) dg) {
+    int opApply(int delegate(size_t i, ref T) dg) @trusted {
 		int result = 0;
 
 		foreach(i, v; values) {
@@ -64,7 +64,7 @@ struct AllocList(T) {
 		return result;
 	}
 
-	void opOpAssign(string OP)(T value) if (OP == "~") {
+    void opOpAssign(string OP)(T value) @trusted if (OP == "~") {
 		alloc.expandArray(values, 1);
 		values[$-1] = value;
 	}

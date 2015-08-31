@@ -4,7 +4,7 @@
  * Provides optional interfaces which declares an class based image as well as reusable concepts such as a swappable image implementation dependent upon a provided image implementation.
  *
  * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
- * Authors: $(WEB http://cattermole.co.nz, Richard Andrew Cattermole)
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  */
 module std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.image.primitives;

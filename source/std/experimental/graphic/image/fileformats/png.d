@@ -1,24 +1,11 @@
 /**
- * Init module
+ * PNG file format image loader/exporter
  *
  * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
- * Authors: $(WEB http://cattermole.co.nz, Richard Andrew Cattermole)
- *
- * $(H3 init)
- *
- * Provides something for reasons....
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  * 
- * Short intro example
- * ----------------------
- * ...
- * ----------------------
- * Explanation on what it does
- *
- * Extra support
- * ----------------------
- *
- * ----------------------
- * Reasoning
+ * Standards:
+ *      Close to $(LINK2 http://www.w3.org/TR/PNG/, PNG 1.2) standard
  */
 module std.experimental.graphic.image.fileformats.png;
 import std.experimental.graphic.image.fileformats.defs : HeadersOnly, ImageNotLoadableException, ImageNotExportableException;
@@ -37,13 +24,15 @@ alias HeadersOnlyPNGFileFormat = PNGFileFormat!HeadersOnly;
  * PNG file format representation
  * 
  * Does not actually support color correction/alteration for the chunks: cHRM, sRGB, iCCP and gAMA.
- * Use them once you have already performed the alterations.
+ * Use them once you have already performed the alterations upon IDAT and respective data.
  * 
- * TODO:
- *  -   iCCP decompression (currently only stores the compressed data)
+ * FIXME:
+ *      Reliance on e.g. GC/processAllocator for when compressing/decompressing via zlib.
  */
 struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     import std.bitmanip : bigEndianToNative, nativeToBigEndian;
+    import std.experimental.internal.containers.map;
+    import std.experimental.internal.containers.list;
 
     ///
     IHDR_Chunk IHDR;
@@ -67,9 +56,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     iCCP_Chunk* iCCP;
 
     /// tEXt values are really latin-1 but treated as UTF-8 in D code, may originate from iEXt
-    string[PngTextKeywords] tEXt; // FIXME: needs to be replaced with an allocator map implementation
+    AAMap!(PngTextKeywords, string) tEXt = void;
     /// zEXt values are really latin-1 but treated as UTF-8 in D code, may originate from iEXt
-	string[PngTextKeywords] zEXt; // FIXME: needs to be replaced with an allocator map implementation
+    AAMap!(PngTextKeywords, string) zEXt = void;
 
     ///
     bKGD_Chunk* bKGD;
@@ -81,16 +70,16 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     sBIT_Chunk* sBIT;
 
     ///
-    sPLT_Chunk[] sPLT;
+    AllocList!sPLT_Chunk sPLT = void;
 
     ///
-    ushort[] hIST;
+    AllocList!ushort hIST = void;
 
     ///
     DateTime* tIME;
 
     static if (!is(Color == HeadersOnly)) {
-        ///
+        /// Only available when Color is specified as not HeadersOnly
         SwappableImage!Color value = void;
         alias value this;
 
@@ -143,11 +132,22 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         return cast(string)ret;
     }
 
+    @property {
+        ///
+        IAllocator allocator() {
+            return alloc;
+        }
+    }
+
     private {
-        IAllocator allocator;
+        IAllocator alloc;
 
         this(IAllocator allocator) @safe {
-            this.allocator = allocator;
+            this.alloc = allocator;
+            tEXt = AAMap!(PngTextKeywords, string)(allocator);
+            zEXt = AAMap!(PngTextKeywords, string)(allocator);
+            sPLT = AllocList!sPLT_Chunk(allocator);
+            hIST = AllocList!ushort(allocator);
         }
 
         void delegate(size_t width, size_t height) @trusted theImageAllocator;
@@ -189,10 +189,6 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 				allocator.dispose(sBIT);
 			if (tIME !is null)
 				allocator.dispose(tIME);
-			if (hIST !is null)
-				allocator.dispose(hIST);
-			if (sPLT !is null)
-				allocator.dispose(sPLT);
 
             static if (!is(Color == HeadersOnly)) {
                 if (IDAT !is null)
@@ -403,7 +399,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
                         static if (!is(Color == HeadersOnly)) {
                             case "IDAT":
-                            if (hIST !is null && PLTE.colors.length != hIST.length)
+                            if (hIST.length > 0 && PLTE.colors.length != hIST.length)
                                 throw allocator.make!ImageNotLoadableException("hIST and PLTE chunks must have the same index length");
                             if (IHDR.colorType & PngIHDRColorType.Palette && tRNS.indexAlphas.length < PLTE.colors.length)
                                 allocator.expandArray(tRNS.indexAlphas, tRNS.indexAlphas.length - PLTE.colors.length, 255);
@@ -464,6 +460,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         }
 
         void readChunk_iCCP(ubyte[] chunkData) @trusted {
+            import std.zlib : uncompress;
+
             char[] profileName;
             foreach(i, c; chunkData) {
                 if (i >= 80)
@@ -491,9 +489,12 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             // compression method deflate/inflate
             iCCP.compressionMethod = cast(PngIHDRCompresion)chunkData[0];
 
-            // compressed profile, actual what is in it
-            iCCP.compressedProfile = allocator.makeArray!ubyte(chunkData.length - 1);
-            iCCP.compressedProfile[] = chunkData[1 .. $];
+            //
+            if (iCCP.compressionMethod == PngIHDRCompresion.DeflateInflate) {
+                iCCP.profile = cast(ubyte[])uncompress(chunkData[1 .. $]);
+            } else {
+                throw allocator.make!ImageNotLoadableException("Unknown iCCP chunk compression method");
+            }
         }
 
         void readChunk_PLTE(ubyte[] chunkData) @trusted {
@@ -851,7 +852,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 throw allocator.make!ImageNotLoadableException("sPLT chunk must have a bit depth of either 8 or 16");
             }
 
-            allocator.expandArray(sPLT, 1, chunk);
+            sPLT ~= chunk;
         }
 
         void readChunk_hIST(ubyte[] chunkData) @trusted {
@@ -859,13 +860,11 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 throw allocator.make!ImageNotLoadableException("hIST chunk must be devisible by 2");
             size_t count = chunkData.length / 2;
 
-            allocator.expandArray(hIST, count);
-
             size_t ci;
             foreach(i; hIST.length - count .. hIST.length) {
                 ubyte[2] values;
                 values[] = chunkData[ci .. ci + 2];
-                hIST[i] = bigEndianToNative!ushort(values);
+                hIST ~= bigEndianToNative!ushort(values);
 
                 ci += 2;
             }
@@ -1228,9 +1227,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 writeChunk_pPHs(buffer[4 .. $], &writeChunk);
             if (sBIT !is null)
                 writeChunk_sBIT(buffer[4 .. $], &writeChunk);
-            if (sPLT !is null)
+            if (sPLT.length > 0)
                 writeChunk_sPLT(buffer[4 .. $], &writeChunk);
-            if (hIST !is null)
+            if (hIST.length > 0)
                 writeChunk_hIST(buffer[4 .. $], &writeChunk);
             if (tIME !is null)
                 writeChunk_tIME(buffer[4 .. $], &writeChunk);
@@ -1346,6 +1345,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         }
 
         void writeChunk_iCCP(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            import std.zlib : compress;
             ubyte[] towrite;
 
             towrite = buffer[0 .. iCCP.profileName.length + 2];
@@ -1353,8 +1353,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             towrite[$-2] = '\0';
             towrite[$-1] = cast(ubyte)iCCP.compressionMethod;
 
-            towrite = buffer[0 .. towrite.length + iCCP.compressedProfile.length];
-            towrite[$-iCCP.compressedProfile.length .. $] = iCCP.compressedProfile[];
+            ubyte[] compressed = cast(ubyte[])compress(iCCP.profile);
+            towrite = buffer[0 .. towrite.length + compressed.length];
+            towrite[$-compressed.length .. $] = compressed[];
 
             write(cast(char[4])"iCCP", towrite);
         }
@@ -1546,7 +1547,11 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         }
 
         static if (!is(Color == HeadersOnly)) {
-            void writeChunk_IDAT(ubyte[] buffer, void delegate(char[4], ubyte[])) @trusted {}
+            void writeChunk_IDAT(ubyte[] buffer, void delegate(char[4], ubyte[])) @trusted {
+
+
+
+            }
         }
 
         /*
@@ -1793,10 +1798,12 @@ struct sRGB_Chunk {
 struct iCCP_Chunk {
     ///
     string profileName;
+
     ///
     PngIHDRCompresion compressionMethod;
+
     ///
-    ubyte[] compressedProfile;
+    ubyte[] profile;
 }
 
 ///
