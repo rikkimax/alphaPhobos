@@ -35,6 +35,16 @@ enum RotateDirection : bool {
  * Set rotation 90
  */
 
+/**
+ * Rotates an image 90 degrees in place.
+ * 
+ * Params:
+ *      from        =   The image to rotate
+ *      direction   =   The direction to rotate
+ * 
+ * Returns:
+ *      The input image for chainability reasons.
+ */
 Image rotate90(Image)(Image from, RotateDirection direction = RotateDirection.ClockWise) if (isImage!Image) {
     // 0 => 1
     // 1 => 2
@@ -55,7 +65,16 @@ auto rotate90Range(IR)(IR from, RotateDirection direction = RotateDirection.Cloc
 /*
  * Set rotation 180
  */
-
+/**
+ * Rotates an image 180 degrees in place.
+ * 
+ * Params:
+ *      from        =   The image to rotate
+ *      direction   =   The direction to rotate
+ * 
+ * Returns:
+ *      The input image for chainability reasons.
+ */
 Image rotate180(Image)(Image from, RotateDirection direction = RotateDirection.ClockWise) if (isImage!Image) {
     // 0 => 2
     // 1 => 3
@@ -77,6 +96,16 @@ auto rotate180Range(IR)(IR from, RotateDirection direction = RotateDirection.Clo
  * Set rotation 270
  */
 
+/**
+ * Rotates an image 270 degrees in place.
+ * 
+ * Params:
+ *      from        =   The image to rotate
+ *      direction   =   The direction to rotate
+ * 
+ * Returns:
+ *      The input image for chainability reasons.
+ */
 Image rotate270(Image)(Image from, RotateDirection direction = RotateDirection.ClockWise) if (isImage!Image) {
     // 0 => 3
     // 1 => 0

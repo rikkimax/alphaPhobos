@@ -414,12 +414,12 @@ interface IDirectoryEntry : IFileSystemEntry, IFileSystemProvider {
 ///
 struct ByteArray {
     ///
-	ubyte[] bytes;
+	immutable(ubyte[]) bytes;
 
-    IAllocator allocator;
+    private IAllocator allocator;
 
     ~this() {
         import std.experimental.allocator : dispose;
-        allocator.dispose(bytes);
+        allocator.dispose(cast(ubyte[])bytes);
     }
 }

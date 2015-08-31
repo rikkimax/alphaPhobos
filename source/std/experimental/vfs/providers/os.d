@@ -214,7 +214,7 @@ final class OSFileEntry : IFileEntry {
             buff = f.rawRead(buff);
 
             f.close;
-            return ByteArray(buff, provider.allocator);
+            return ByteArray(cast(immutable)buff, provider.allocator);
         }
     }
 
