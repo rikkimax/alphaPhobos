@@ -1,12 +1,9 @@
 ﻿<Properties StartupItem="dub.json">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Default" PreferredExecutionTarget="plain" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="source\std\experimental\uri.d">
+  <MonoDevelop.Ide.Workbench ActiveDocument="source/std/experimental/uri.d">
     <Files>
-      <File FileName="source\std\experimental\uri.d" Line="664" Column="83" />
-      <File FileName="source\std\experimental\graphic\image\fileformats\png.d.bk" Line="1915" Column="31" />
-      <File FileName="source\std\experimental\allocator\package.d" Line="312" Column="2" />
-      <File FileName="source\std\experimental\graphic\image\fileformats\package.d" Line="26" Column="1" />
-      <File FileName="source\std\experimental\graphic\image\interfaces.d" Line="205" Column="15" />
+      <File FileName="source/std/experimental/uri.d" Line="610" Column="30" />
+      <File FileName="source/std/experimental/vfs/filesystem.d" Line="62" Column="37" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

@@ -3,6 +3,7 @@
  */
 module std.experimental.uri;
 import std.experimental.allocator : IAllocator, makeArray, theAllocator, expandArray, shrinkArray, dispose, make;
+import std.typecons : Nullable;
 
 private static {
     // santisization uses this
@@ -31,7 +32,7 @@ struct URIAddress {
     /**
      * Takes a string that represents a URI path
      * 
-     * Rerpresents a URI in the form of "<protName://>[user[:pass]]@[host/ip[:port]][/]<<drive>:\>][<dir/>...][file[.ext]]".
+     * Rerpresents a URI in the form of "$(LT)protName://$(GT)[user[:pass]]@[host/ip[:port]][/]$(LT)$(LT)drive$(GT):\$(GT)][<dir/>...][file[.ext]]".
      * Will automatically sanitise the input after duplicating it. If not specified file will be set as the protocol.
      * 
      * Can be used to represent a file system entry (such as a Windows drive).
@@ -42,7 +43,6 @@ struct URIAddress {
      */
     this(string value=".", IAllocator alloc=theAllocator()) {
         this.alloc = alloc;
-        arrbuffDirectories = alloc.makeArray!(char[])(0);
 
         // duplicate the value
         this.value = cast(immutable)alloc.makeArray!char(value.length);
@@ -60,7 +60,7 @@ struct URIAddress {
          * Gets the connection information with protocol from the given string.
          * 
          * May commonly be just "file://".
-         * Is of the format "<protName://>[user[:pass]]@[host/ip[:port]]"
+         * Is of the format "$(LT)protName://$(GT)[user[:pass]]@[host/ip[:port]]"
          * 
          * Returns:
          *         The connection string
@@ -68,10 +68,10 @@ struct URIAddress {
         string connectionInfo() {
             import std.string : indexOf;
 
-            // <protName://>
+            // $(LT)protName://$(GT)
             string prot = URIProtocolPrefix(value);
             string value2 = value[prot.length + 3 .. $];
-            // [user[:pass]]@[host/ip[:port]][/][<dir/>...][file[.ext]]
+            // [user[:pass]]@[host/ip[:port]][/][$(LT)dir/$(GT)...][file[.ext]]
 
             if (prot == "file")
                 return value[0 .. 7];
@@ -85,20 +85,67 @@ struct URIAddress {
         }
 
         ///
+        unittest {
+            assert(URIAddress("").connectionInfo == "file://");
+            assert(URIAddress("/abc").connectionInfo == "file://");
+            assert(URIAddress("/abc/def").connectionInfo == "file://");
+            assert(URIAddress("c:\\test.txt").connectionInfo == "file://");
+            
+            assert(URIAddress("smb://test").connectionInfo == "smb://test");
+            assert(URIAddress("smb://test/what").connectionInfo == "smb://test");
+            
+            assert(URIAddress("smb://user@test").connectionInfo == "smb://user@test");
+            assert(URIAddress("smb://user:pass@test").connectionInfo == "smb://user:pass@test");
+            assert(URIAddress("smb://user:pass@test/dir1/dir2").connectionInfo == "smb://user:pass@test");
+        }
+
+        /**
+         * The protocol prefix
+         * 
+         * Otherwise known as being "$(LT)protName://$(GT)"
+         * Forwards call to URIProtocolPrefix.
+         * 
+         * See_Also:
+         *      URIProtocolPrefix
+         * 
+         * Returns:
+         *      Returns the protocol prefix without "://".
+         */
         string protocol() {
             return URIProtocolPrefix(value);
         }
 
-        ///
-        string driveLetter() {
+        /**
+         * The drive letter assigned as part of the directory entries.
+         * 
+         * Returns:
+         *      The drive letter. Null otherwise.
+         */
+        Nullable!char driveLetter() {
             string addr = URIEntries(value);
             if (addr.length > 2 && addr[1] == ':' && addr[2] == '\\')
-                return addr[0 .. 1];
-            else
-                return null;
+                return Nullable!char(addr[0]);
+            else {
+                Nullable!char ret;
+                ret.nullify();
+                return ret;
+            }
         }
 
         ///
+        unittest {
+            assert(URIAddress("C:\\test").driveLetter == 'C');
+            assert(URIAddress("/etc/dir").driveLetter.isNull);
+            assert(URIAddress("smb://server/etc/dir").driveLetter.isNull);
+            assert(URIAddress("smb://server/C:\\test").driveLetter == 'C');
+        }
+
+        /**
+         * The username as part of connection string.
+         * 
+         * Returns:
+         *      The username specified in the connection string, without password or null if not provided.
+         */
         string username() {
             import std.string : indexOf;
             string prefix = URIAuthentication(value);
@@ -114,6 +161,19 @@ struct URIAddress {
         }
 
         ///
+        unittest {
+            assert(URIAddress("smb://:mypass@server").username is null);
+            assert(URIAddress("smb://test@server").username == "test");
+            assert(URIAddress("smb://test:mypass@server").username == "test");
+            assert(URIAddress("smb://test:@server").username == "test");
+        }
+
+        /**
+         * The password as part of the connection string.
+         * 
+         * Returns:
+         *      The password specified in the connection string or null if not provided.
+         */
         string password() {
             import std.string : indexOf;
             string prefix = URIAuthentication(value);
@@ -127,20 +187,48 @@ struct URIAddress {
         }
 
         ///
-        ushort port() {
+        unittest {
+            assert(URIAddress("smb://:mypass@server").password == "mypass");
+            assert(URIAddress("smb://test@server").password is null);
+            assert(URIAddress("smb://test:mypass@server").password == "mypass");
+            assert(URIAddress("smb://test:@server").password is null);
+        }
+
+        /**
+         * The port provided as part of the connections tring.
+         * 
+         * Returns:
+         *      The port specified in the connection string or null if not provided.
+         */
+        Nullable!ushort port() {
             import std.string : indexOf;
             import std.conv : to;
             string prefix = URIConnection(value);
 
             ptrdiff_t i;
-            if ((i = prefix.indexOf(":")) > 0 && prefix.length - i > 1) {
-                return to!ushort(prefix[i + 1 .. $]);
-            } else {
-                return 0;
+            if ((i = prefix.indexOf(":")) > 0 && prefix.length - i > 1)
+                return Nullable!ushort(to!ushort(prefix[i + 1 .. $]));
+            else {
+                Nullable!ushort ret;
+                ret.nullify();
+                return ret;
             }
         }
 
         ///
+        unittest {
+            assert(URIAddress("smb://server:89").port == 89);
+            assert(URIAddress("smb://server:").port.isNull);
+            assert(URIAddress("smb://server").port.isNull);
+        }
+
+        /**
+         * The seperate parts of the directory entries.
+         * 
+         * Returns:
+         *      An array containing each of the different entries.
+         *      Without path seperators. Except after drive letters.
+         */
         immutable(string[]) parts() {
             size_t numDir;
             string addr = URIEntries(value);
@@ -198,6 +286,49 @@ struct URIAddress {
             return cast(immutable(string[]))arrbuffDirectories[0 .. numDir];
         }
 
+        ///
+        unittest {
+            URIAddress addr = URIAddress("/dir1/file.txt");
+            
+            assert(addr.parts.length == 2);
+            assert(addr.parts[0] == "dir1");
+            assert(addr.parts[1] == "file.txt");
+            
+            addr.value = "/dir1/dir2/file.txt";
+            addr.sanitise();
+            
+            assert(addr.parts.length == 3);
+            assert(addr.parts[0] == "dir1");
+            assert(addr.parts[1] == "dir2");
+            assert(addr.parts[2] == "file.txt");
+            
+            addr.value = "/dir1/file.txt";
+            addr.sanitise();
+            
+            assert(addr.parts.length == 2);
+            assert(addr.parts[0] == "dir1");
+            assert(addr.parts[1] == "file.txt");
+            
+            assert(addr.arrbuffDirectories.length == 3);
+            
+            addr = URIAddress("smb://server/dir1/file.txt");
+            immutable(string[]) parts = addr.parts;
+            
+            assert(parts.length == 2);
+            assert(parts[0] == "dir1");
+            assert(parts[1] == "file.txt");
+        }
+
+        /**
+         * Produces parts conjoined together in a stair case format.
+         * So that a 3 directory structure results in 3 different values with 1 to 3 being included.
+         * 
+         * Params:
+         *      reverse =   Should the result be reversed? Only effects the order in the output array, not the indevidual values.
+         * 
+         * Returns:
+         *      The stair cased version of the URI directory entries.
+         */
         immutable(string[]) partsStairCase(bool reverse=false) {
             import std.string : indexOf;
 
@@ -226,9 +357,34 @@ struct URIAddress {
 
             return cast(immutable)ret;
         }
+
+        ///
+        unittest {
+            URIAddress addr = URIAddress("/dir1/dir2/file.ext");
+            immutable(string[]) parts = addr.partsStairCase;
+            
+            assert(parts.length == 3);
+            assert(parts[0] == "/dir1");
+            assert(parts[1] == "/dir1/dir2");
+            assert(parts[2] == "/dir1/dir2/file.ext");
+            
+            addr = URIAddress("/dir1/dir2/file.ext");
+            immutable(string[]) parts2 = addr.partsStairCase(true);
+            
+            assert(parts2.length == 3);
+            assert(parts2[0] == "/dir1/dir2/file.ext");
+            assert(parts2[1] == "/dir1/dir2");
+            assert(parts2[2] == "/dir1");
+        }
     }
 
-    ///
+    /**
+     * Sanitises the input so it meets a predefined formula.
+     * 
+     * Modifies the given input so that all URI strings contain a protocol and are using forward slashes except after drive letters.
+     * Defaulting protocol is "file".
+     * It will allocate the final output and use buffers for manipulating where possible.
+     */
     void sanitise() {
         import std.uni : toUpper;
         char[] temp = cast(char[])value;
@@ -293,15 +449,15 @@ struct URIAddress {
                 preColon = false;
         }
 
+        size_t i = URIProtocolPrefix(value).length;
+
         // remove last / if added
-        if (temp[$-1] == '/' && temp.length > 1)
+        if (temp[$-1] == '/' && temp.length > 1 && temp.length > i + 3)
             alloc.shrinkArray(temp, 1);
 
         // work around, should not be needed
         value = cast(immutable)temp;
-
         size_t dashes;
-        size_t i = URIProtocolPrefix(value).length;
 
         if (i == 1 && temp.length > 4 && temp[4] == '/') {
             char[] temp2 = charBuffer[0 .. temp.length - 5];
@@ -377,6 +533,27 @@ struct URIAddress {
     }
 
     ///
+    unittest {
+        assert(URIAddress("./file.ext") == "file://./file.ext");
+        assert(URIAddress(".file.ext") == "file://.file.ext");
+        assert(URIAddress("~/file.ext") == "file://~/file.ext");
+        assert(URIAddress("~file.ext") == "file://~/file.ext");
+
+        assert(URIAddress("/dir1//dir2/file.ext") == "file:///dir1/dir2/file.ext");
+        assert(URIAddress("C:\\dir1//dir2/file.ext") == "file://C:\\dir1/dir2/file.ext");
+    }
+
+    /**
+     * Expands out an address so that parent and current working directories are no longer part of it.
+     * Also replaces the home directory and current working directory at the start as needed.
+     * 
+     * Params:
+     *      homeDirectory   =   The home directory of the "running" user.
+     *      cwd             =   The current working directory of the "running" application.
+     * 
+     * Returns:
+     *      The expanded form of the current address.
+     */
     URIAddress expand(URIAddress homeDirectory, URIAddress cwd) {
         import std.string : indexOf;
         string prot = URIProtocolPrefix(value);
@@ -385,7 +562,7 @@ struct URIAddress {
         char[] retbuf;
         size_t offsetDirs;
 
-        // grabs <protName://>
+        // grabs $(LT)protName://$(GT)
         if (prot.length > 1) {
             ptrdiff_t offseti;
 
@@ -510,6 +687,41 @@ struct URIAddress {
     }
 
     ///
+    unittest {
+        assert(URIAddress("./test/file.ext").expand(URIAddress("/"), URIAddress("C:\\")) == "file://C:\\test/file.ext");
+        assert(URIAddress("./test/file.ext").expand(URIAddress("/"), URIAddress("/etc")) == "file:///etc/test/file.ext");
+        
+        assert(URIAddress("~/test/file.ext").expand(URIAddress("C:\\"), URIAddress("/")) == "file://C:\\test/file.ext");
+        assert(URIAddress("~/test/file.ext").expand(URIAddress("/etc"), URIAddress("/")) == "file:///etc/test/file.ext");
+        
+        assert(URIAddress("./test/file.ext").expand(URIAddress("C:\\"), URIAddress("/")) == "file:///test/file.ext");
+        assert(URIAddress("./test/file.ext").expand(URIAddress("/etc"), URIAddress("/")) == "file:///test/file.ext");
+        
+        assert(URIAddress("~/test/file.ext").expand(URIAddress("/"), URIAddress("C:\\")) == "file:///test/file.ext");
+        assert(URIAddress("~/test/file.ext").expand(URIAddress("/"), URIAddress("/etc")) == "file:///test/file.ext");
+        
+        assert(URIAddress("./dir1/dir2/../../dir3").expand(URIAddress("/"), URIAddress("C:\\")) == "file://C:\\dir3");
+        assert(URIAddress("./dir1/dir2/../../dir3").expand(URIAddress("C:\\"), URIAddress("/")) == "file:///dir3");
+        assert(URIAddress("~/dir1/dir2/../../dir3").expand(URIAddress("C:\\"), URIAddress("/")) == "file://C:\\dir3");
+        assert(URIAddress("~/dir1/dir2/../../dir3").expand(URIAddress("/"), URIAddress("C:\\")) == "file:///dir3");
+        
+        assert(URIAddress("smb://server/./test").expand(URIAddress("/"), URIAddress("/")) == "smb://server/test");
+        assert(URIAddress("smb://server/test").expand(URIAddress("/"), URIAddress("/")) == "smb://server/test");
+        assert(URIAddress("smb://server/~/test").expand(URIAddress("/etc"), URIAddress("/")) == "smb://server/etc/test");
+        assert(URIAddress("smb://server/./test").expand(URIAddress("/"), URIAddress("/etc")) == "smb://server/etc/test");
+        
+        assert(URIAddress("smb://server/dir1/dir2/../../dir3").expand(URIAddress("/"), URIAddress("/")) == "smb://server/dir3");
+        
+        assert(URIAddress("smb://server/~").expand(URIAddress("C:\\"), URIAddress("/")) ==  "smb://server/C:\\");
+        assert(URIAddress("smb://server/.").expand(URIAddress("/"), URIAddress("C:\\")) == "smb://server/C:\\");
+    }
+
+    /**
+     * The parent directory entry of the current URI address.
+     * 
+     * Returns:
+     *      The parent directories URI address.
+     */
     URIAddress parent() {
         import std.string : indexOf;
         string current = URIEntries(value);
@@ -521,10 +733,26 @@ struct URIAddress {
                 break;
             }
         }
+
         return URIAddress(value[0 .. value.indexOf(current) + start], alloc);
     }
 
     ///
+    unittest {
+        assert(URIAddress(".").parent == "file://");
+        assert(URIAddress("./dir1/dir2").parent == "file://./dir1");
+        assert(URIAddress("~/dir1/dir2").parent == "file://~/dir1");
+        assert(URIAddress("C:\\dir1/dir2").parent == "file://C:\\dir1");
+        assert(URIAddress("smb://server/dir1/dir2").parent == "smb://server/dir1");
+        assert(URIAddress("smb://server/dir1").parent == "smb://server");
+    }
+
+    /**
+     * Gets a child path based upon the child entries
+     * 
+     * Returns:
+     *      A string containing a child path of the current one.
+     */
     URIAddress subPath(URIAddress sub) {
         string suff = URIEntries(sub);
         char[] buff = tCopyBuffer[0 .. value.length + 1];
@@ -539,6 +767,20 @@ struct URIAddress {
     }
 
     ///
+    unittest {
+        assert(URIAddress("/etc/dir1/").subPath(URIAddress("dir2")) == "file:///etc/dir1/dir2");
+        assert(URIAddress("/etc/dir1/").subPath(URIAddress("../dir2")) == "file:///etc/dir1/../dir2");
+    }
+
+    /**
+     * Gets the parent entry and returns the child sub path of it.
+     * 
+     * Params:
+     *      subling =   The child path to add to the parent directory.
+     * 
+     * Returns:
+     *      A URI address of the parent of the current one with child entries of the specified.
+     */
     URIAddress sibling(URIAddress subling) {
         import std.string : indexOf;
         string current = URIEntries(value);
@@ -564,6 +806,13 @@ struct URIAddress {
         return URIAddress(cast(string)buff, alloc);
     }
 
+    ///
+    unittest {
+        assert(URIAddress("/etc/dir1/").sibling(URIAddress("dir2")) == "file:///etc/dir2");
+        assert(URIAddress("/etc/dir1/").sibling(URIAddress("../dir2")) == "file:///etc/../dir2");
+        assert(URIAddress("/etc/dir1/").sibling(URIAddress("dir2/file.ext")) == "file:///etc/dir2/file.ext");
+    }
+
 	/**
 	 * Wraps a string up with an allocator.
 	 * 
@@ -573,6 +822,9 @@ struct URIAddress {
 	 * Params:
 	 * 		from		=	The string to wrap
 	 * 		allocator	=	The allocator to allocate using
+     * 
+     * Returns:
+     *      The URIAddress based upon a given string. Without sanitising.
 	 */
 	static URIAddress using(string from, IAllocator allocator=theAllocator()) {
 		URIAddress ret;
@@ -580,21 +832,6 @@ struct URIAddress {
 		ret.value = from;
 		return ret;
 	}
-}
-
-///
-unittest {
-    assert(URIAddress("").connectionInfo == "file://");
-    assert(URIAddress("/abc").connectionInfo == "file://");
-    assert(URIAddress("/abc/def").connectionInfo == "file://");
-    assert(URIAddress("c:\\test.txt").connectionInfo == "file://");
-
-    assert(URIAddress("smb://test").connectionInfo == "smb://test");
-    assert(URIAddress("smb://test/what").connectionInfo == "smb://test");
-
-    assert(URIAddress("smb://user@test").connectionInfo == "smb://user@test");
-    assert(URIAddress("smb://user:pass@test").connectionInfo == "smb://user:pass@test");
-    assert(URIAddress("smb://user:pass@test/dir1/dir2").connectionInfo == "smb://user:pass@test");
 }
 
 ///
@@ -618,172 +855,13 @@ unittest {
     assert(URIAddress("C:\\") == "file://C:\\");
 }
 
-///
-unittest {
-    assert(URIAddress("smb://:mypass@server").username is null);
-    assert(URIAddress("smb://test@server").username == "test");
-    assert(URIAddress("smb://test:mypass@server").username == "test");
-    assert(URIAddress("smb://test:@server").username == "test");
-
-    assert(URIAddress("smb://:mypass@server").password == "mypass");
-    assert(URIAddress("smb://test@server").password is null);
-    assert(URIAddress("smb://test:mypass@server").password == "mypass");
-    assert(URIAddress("smb://test:@server").password is null);
-}
-
-///
-unittest {
-    assert(URIAddress("smb://server:89").port == 89);
-    assert(URIAddress("smb://server:").port == 0);
-    assert(URIAddress("smb://server").port == 0);
-}
-
-///
-unittest {
-    assert(URIAddress("C:\\test").driveLetter == "C");
-    assert(URIAddress("/etc/dir").driveLetter is null);
-    assert(URIAddress("smb://server/etc/dir").driveLetter is null);
-    assert(URIAddress("smb://server/C:\\test").driveLetter == "C");
-}
-
-///
-unittest {
-    URIAddress addr = URIAddress("/dir1/file.txt");
-
-    assert(addr.parts.length == 2);
-    assert(addr.parts[0] == "dir1");
-    assert(addr.parts[1] == "file.txt");
-
-    addr.value = "/dir1/dir2/file.txt";
-    addr.sanitise();
-
-    assert(addr.parts.length == 3);
-    assert(addr.parts[0] == "dir1");
-    assert(addr.parts[1] == "dir2");
-    assert(addr.parts[2] == "file.txt");
-
-    addr.value = "/dir1/file.txt";
-    addr.sanitise();
-
-    assert(addr.parts.length == 2);
-    assert(addr.parts[0] == "dir1");
-    assert(addr.parts[1] == "file.txt");
-
-    assert(addr.arrbuffDirectories.length == 3);
-}
-
-///
-unittest {
-    URIAddress addr = URIAddress("smb://server/dir1/file.txt");
-    immutable(string[]) parts = addr.parts;
-
-    assert(parts.length == 2);
-    assert(parts[0] == "dir1");
-    assert(parts[1] == "file.txt");
-}
-
-///
-unittest {
-    URIAddress addr = URIAddress("/dir1/dir2/file.ext");
-    immutable(string[]) parts = addr.partsStairCase;
-
-    assert(parts.length == 3);
-    assert(parts[0] == "/dir1");
-    assert(parts[1] == "/dir1/dir2");
-    assert(parts[2] == "/dir1/dir2/file.ext");
-}
-
-///
-unittest {
-    URIAddress addr = URIAddress("/dir1/dir2/file.ext");
-    immutable(string[]) parts = addr.partsStairCase(true);
-
-    assert(parts.length == 3);
-    assert(parts[0] == "/dir1/dir2/file.ext");
-    assert(parts[1] == "/dir1/dir2");
-    assert(parts[2] == "/dir1");
-}
-
-///
-unittest {
-    assert(URIAddress("./file.ext") == "file://./file.ext");
-    assert(URIAddress(".file.ext") == "file://.file.ext");
-    assert(URIAddress("~/file.ext") == "file://~/file.ext");
-    assert(URIAddress("~file.ext") == "file://~/file.ext");
-}
-
-///
-unittest {
-    assert(URIAddress("/dir1//dir2/file.ext") == "file:///dir1/dir2/file.ext");
-    assert(URIAddress("C:\\dir1//dir2/file.ext") == "file://C:\\dir1/dir2/file.ext");
-}
-
-///
-unittest {
-    assert(URIAddress("./test/file.ext").expand(URIAddress("/"), URIAddress("C:\\")) == "file://C:\\test/file.ext");
-    assert(URIAddress("./test/file.ext").expand(URIAddress("/"), URIAddress("/etc")) == "file:///etc/test/file.ext");
-
-    assert(URIAddress("~/test/file.ext").expand(URIAddress("C:\\"), URIAddress("/")) == "file://C:\\test/file.ext");
-    assert(URIAddress("~/test/file.ext").expand(URIAddress("/etc"), URIAddress("/")) == "file:///etc/test/file.ext");
-
-    assert(URIAddress("./test/file.ext").expand(URIAddress("C:\\"), URIAddress("/")) == "file:///test/file.ext");
-    assert(URIAddress("./test/file.ext").expand(URIAddress("/etc"), URIAddress("/")) == "file:///test/file.ext");
-
-    assert(URIAddress("~/test/file.ext").expand(URIAddress("/"), URIAddress("C:\\")) == "file:///test/file.ext");
-    assert(URIAddress("~/test/file.ext").expand(URIAddress("/"), URIAddress("/etc")) == "file:///test/file.ext");
-}
-
-///
-unittest {
-    assert(URIAddress("./dir1/dir2/../../dir3").expand(URIAddress("/"), URIAddress("C:\\")) == "file://C:\\dir3");
-    assert(URIAddress("./dir1/dir2/../../dir3").expand(URIAddress("C:\\"), URIAddress("/")) == "file:///dir3");
-    assert(URIAddress("~/dir1/dir2/../../dir3").expand(URIAddress("C:\\"), URIAddress("/")) == "file://C:\\dir3");
-    assert(URIAddress("~/dir1/dir2/../../dir3").expand(URIAddress("/"), URIAddress("C:\\")) == "file:///dir3");
-}
-
-///
-unittest {
-    assert(URIAddress("smb://server/./test").expand(URIAddress("/"), URIAddress("/")) == "smb://server/test");
-    assert(URIAddress("smb://server/test").expand(URIAddress("/"), URIAddress("/")) == "smb://server/test");
-    assert(URIAddress("smb://server/~/test").expand(URIAddress("/etc"), URIAddress("/")) == "smb://server/etc/test");
-    assert(URIAddress("smb://server/./test").expand(URIAddress("/"), URIAddress("/etc")) == "smb://server/etc/test");
-
-    assert(URIAddress("smb://server/dir1/dir2/../../dir3").expand(URIAddress("/"), URIAddress("/")) == "smb://server/dir3");
-}
-
-///
-unittest {
-    assert(URIAddress("smb://server/~").expand(URIAddress("C:\\"), URIAddress("/")) ==  "smb://server/C:\\");
-    assert(URIAddress("smb://server/.").expand(URIAddress("/"), URIAddress("C:\\")) == "smb://server/C:\\");
-}
-
-///
-unittest {
-    assert(URIAddress("./dir1/dir2").parent == "file://./dir1");
-    assert(URIAddress("~/dir1/dir2").parent == "file://~/dir1");
-    assert(URIAddress("C:\\dir1/dir2").parent == "file://C:\\dir1");
-    assert(URIAddress("smb://server/dir1/dir2").parent == "smb://server/dir1");
-    assert(URIAddress("smb://server/dir1").parent == "smb://server");
-}
-
-///
-unittest {
-    assert(URIAddress("/etc/dir1/").subPath(URIAddress("dir2")) == "file:///etc/dir1/dir2");
-    assert(URIAddress("/etc/dir1/").subPath(URIAddress("../dir2")) == "file:///etc/dir1/../dir2");
-}
-
-unittest {
-    assert(URIAddress("/etc/dir1/").sibling(URIAddress("dir2")) == "file:///etc/dir2");
-    assert(URIAddress("/etc/dir1/").sibling(URIAddress("../dir2")) == "file:///etc/../dir2");
-    assert(URIAddress("/etc/dir1/").sibling(URIAddress("dir2/file.ext")) == "file:///etc/dir2/file.ext");
-}
-
 // FIXME: requires std.string : indexOf be @nogc
 @safe /+@nogc+/:
 
 ///
 string URIProtocolPrefix(string value) {
     bool melformed;
+
     scope(exit)
         assert(!melformed);
 
