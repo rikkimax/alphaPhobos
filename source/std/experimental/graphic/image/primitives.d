@@ -11,6 +11,7 @@
 module std.experimental.graphic.image.primitives;
 import std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.color;
+import std.traits : isPointer, PointerTarget;
 
 /**
  * Determine if a type is an image.
@@ -20,13 +21,16 @@ import std.experimental.graphic.color;
  * See_Also:
  *      ImageStorage
  */
-bool isImage(Image)() {
+bool isImage(Image)() pure if (isPointer!Image) {
+    return isImage!(PointerTarget!Image)();
+}
+
+///
+bool isImage(Image)() pure if (!isPointer!Image) {
     import std.traits : ReturnType;
     import std.experimental.graphic.color : isColor;
 
-    static if (__traits(compiles, {Image image = void;}) && is(Image == class) || is(Image == struct)) {
-        Image image = void;
-
+    static if (__traits(compiles, {Image image = Image.init;}) && is(Image == class) || is(Image == struct)) {
         // check that we can get the color type
         static if (!__traits(compiles, {alias Color = ReturnType!(Image.getPixel);}))
             return false;
@@ -37,13 +41,15 @@ bool isImage(Image)() {
             static if (!isColor!Color)
                 return false;
             else {
-                if (!__traits(compiles, {
+                static if (!__traits(compiles, {
+                    Image image = void;
                     size_t width = image.width;
                     size_t height = image.height;
                 })) {
                     // can we get access to basic elements of the image?
                     return false;
-                } else if (!__traits(compiles, {
+                } else static if (!__traits(compiles, {
+                    Image image = void;
                     Color c = image.getPixel(0, 0);
                     image.setPixel(0, 0, c);
                     c = image[0, 0];
@@ -53,10 +59,10 @@ bool isImage(Image)() {
                 })) {
                     // mutation, is it possible?
                     return false;
-                } else if (!__traits(compiles, {
+                } else static if (!__traits(compiles, {
                     import std.experimental.allocator : theAllocator;
                     auto theImage = new Image(1, 1, theAllocator());
-                })) {
+                }) && !is(SwappableImage!Color == Image)) {
                     // check the constructor is valid
                     return false;
                 } else {
@@ -65,8 +71,9 @@ bool isImage(Image)() {
                 }
             }
         }
-    } else
-       return false;
+    } else {
+        return false;
+    }
 }
 
 version(unittest) private {
@@ -421,7 +428,7 @@ version(unittest) private {
  * See_Also:
  *      PixelPoint
  */
-bool isPixelRange(T)() {
+bool isPixelRange(T)() pure {
     import std.range.interfaces : isInputRange, ElementType;
 
     static if (isInputRange!T) {
@@ -435,6 +442,29 @@ bool isPixelRange(T)() {
 template PixelRangeColor(T) if (isPixelRange!T) {
     alias PixelColor = typeof((ElementType!T).value);
     static assert(isColor!PixelColor);
+}
+
+/**
+ * Copies an image into another image
+ *
+ * Params:
+ *      input       =   The input image
+ *      destination =   The output image
+ *
+ * Returns:
+ *      The destination image for composibility reasons
+ */
+Image2 copyTo(Image1, Image2)(Image1 input, Image2 destination) /+@nogc+/ @safe if (isImage!Image1 && isImage!Image2) {
+    assert(input.width <= destination.width);
+    assert(input.height <= destination.height);
+    
+    foreach(x; 0 .. destination.width) {
+        foreach(y; 0 .. destination.height) {
+            destination[x, y] = input[x, y];
+        }
+    }
+    
+    return destination;
 }
 
 /**

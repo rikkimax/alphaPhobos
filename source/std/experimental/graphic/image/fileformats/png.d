@@ -17,6 +17,7 @@ import std.experimental.graphic.color : isColor, RGB8, RGBA8, convertColor;
 import std.experimental.graphic.color.rgb : RGB;
 import std.range : isInputRange, ElementType; 
 import std.datetime : DateTime;
+import std.traits : isPointer;
 
 alias HeadersOnlyPNGFileFormat = PNGFileFormat!HeadersOnly;
 
@@ -157,7 +158,13 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             SwappableImage!Color* swpInst;
             
             void allocateTheImage(ImageImpl)(size_t width, size_t height) @trusted {
-                auto ret = allocator.make!ImageImpl(width, height, allocator);
+                static if (isPointer!ImageImpl) {
+                    alias ImageImplT = ImageImpl*;
+                } else {
+                    alias ImageImplT = ImageImpl;
+                }
+
+                auto ret = allocator.make!ImageImplT(width, height, allocator);
                 swpInst = allocator.make!(SwappableImage!Color)(ret);
                 value = *swpInst;
             }
@@ -168,35 +175,35 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             void* IDAT = null;
         }
 
-		~this() @trusted {
-			if (PLTE !is null)
-				allocator.dispose(PLTE);
-			if (tRNS !is null)
-				allocator.dispose(tRNS);
-			if (gAMA !is null)
-				allocator.dispose(gAMA);
-			if (cHRM !is null)
-				allocator.dispose(cHRM);
-			if (sRGB !is null)
-				allocator.dispose(sRGB);
-			if (iCCP !is null)
-				allocator.dispose(iCCP);
-			if (bKGD !is null)
-				allocator.dispose(bKGD);
-			if (pPHs !is null)
-				allocator.dispose(pPHs);
-			if (sBIT !is null)
-				allocator.dispose(sBIT);
-			if (tIME !is null)
-				allocator.dispose(tIME);
+        ~this() @trusted {
+            if (PLTE !is null)
+                allocator.dispose(PLTE);
+            if (tRNS !is null)
+                allocator.dispose(tRNS);
+            if (gAMA !is null)
+                allocator.dispose(gAMA);
+            if (cHRM !is null)
+                allocator.dispose(cHRM);
+            if (sRGB !is null)
+                allocator.dispose(sRGB);
+            if (iCCP !is null)
+                allocator.dispose(iCCP);
+            if (bKGD !is null)
+                allocator.dispose(bKGD);
+            if (pPHs !is null)
+                allocator.dispose(pPHs);
+            if (sBIT !is null)
+                allocator.dispose(sBIT);
+            if (tIME !is null)
+                allocator.dispose(tIME);
 
             static if (!is(Color == HeadersOnly)) {
                 if (IDAT !is null)
                     allocator.dispose(IDAT);
-			    if (swpInst !is null)
-				    allocator.dispose(swpInst);
+                if (swpInst !is null)
+                    allocator.dispose(swpInst);
             }
-		}
+        }
 
         /*
          * The importer
@@ -900,14 +907,14 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
                 // the actual color size used (sample size * # of samples)
 
-                if (IHDR.colorType == PngIHDRColorType.Palette || IHDR.colorType == PngIHDRColorType.Grayscale) {
-                    colorSize = 1;
-                } else if (IHDR.colorType == PngIHDRColorType.PalletteWithColorUsed || IHDR.colorType == PngIHDRColorType.AlphaChannelUsed) {
+                if (IHDR.colorType == PngIHDRColorType.PalletteWithColorUsed || IHDR.colorType == PngIHDRColorType.AlphaChannelUsed) {
                     colorSize = 2;
-                } else if (IHDR.colorType == PngIHDRColorType.ColorUsed) {
-                    colorSize = 3;
+                } else if (IHDR.colorType == PngIHDRColorType.Palette || IHDR.colorType == PngIHDRColorType.Grayscale) {
+                    colorSize = 1;
                 } else if (IHDR.colorType == PngIHDRColorType.ColorUsedWithAlpha) {
                     colorSize = 4;
+                } else if (IHDR.colorType == PngIHDRColorType.ColorUsed) {
+                    colorSize = 3;
                 }
 
                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
@@ -1548,8 +1555,137 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
         static if (!is(Color == HeadersOnly)) {
             void writeChunk_IDAT(ubyte[] buffer, void delegate(char[4], ubyte[])) @trusted {
+                import std.zlib : compress;
 
+                // the actual color size used (sample size * # of samples)
+                size_t colorSize;
 
+                if (IHDR.colorType == PngIHDRColorType.PalletteWithColorUsed || IHDR.colorType == PngIHDRColorType.AlphaChannelUsed) {
+                    colorSize = 2;
+                } else if (IHDR.colorType == PngIHDRColorType.Palette || IHDR.colorType == PngIHDRColorType.Grayscale) {
+                    colorSize = 1;
+                } else if (IHDR.colorType == PngIHDRColorType.ColorUsedWithAlpha) {
+                    colorSize = 4;
+                } else if (IHDR.colorType == PngIHDRColorType.ColorUsed) {
+                    colorSize = 3;
+                }
+                
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
+                    colorSize *= 2;
+
+                ubyte[] rawColorData = alloc.makeArray!ubyte(IHDR.width * IHDR.height * colorSize);
+
+                bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
+                bool isGrayScale = (IHDR.colorType & PngIHDRColorType.Grayscale) == PngIHDRColorType.Grayscale;
+                bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
+                bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
+
+                if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
+                    // TODO: Adam7 algo IDAT.unfiltered_uncompressed_pixels
+                    throw allocator.make!ImageNotExportableException("Adam7 interlace method not supported");
+                } else if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
+                    // store
+
+                    size_t pOffset;
+                    foreach(pixelData; rangeOf(&value)) {
+                        if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                            RGBA16 pixToUse = convertColor!RGBA16(pixelData.value);
+
+                            if (isColor) {
+                                rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(pixToUse.r);
+                                rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.g);
+                                rawColorData[pOffset + 4 .. pOffset + 6] = nativeToBigEndian(pixToUse.b);
+
+                                if (withAlpha)
+                                    rawColorData[pOffset + 6 .. pOffset + 8] = nativeToBigEndian(pixToUse.a);
+                            } else if (isPalette) {
+                                /+ushort v = bigEndianToNative!ushort(cast(ubyte[2])pixelData[0 .. 2]);
+                                 
+                                 if (v < PLTE.colors.length)
+                                 throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
+                                 assignPixel(PLTE.colors[v]);+/
+                            } else if (isGrayScale) {
+                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
+                                rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(cast(ushort)pixG);
+
+                                if (withAlpha)
+                                    rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.a);
+                            }
+                        } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                            RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
+
+                            if (isColor) {
+                                rawColorData[pOffset .. pOffset + 1] = pixToUse.r;
+                                rawColorData[pOffset + 1 .. pOffset + 2] = pixToUse.g;
+                                rawColorData[pOffset + 2 .. pOffset + 3] = pixToUse.b;
+                                
+                                if (withAlpha)
+                                    rawColorData[pOffset + 3 .. pOffset + 4] = pixToUse.a;
+                            } else if (isPalette) {
+                                /+ubyte v = pixelData[0];
+                                 
+                                 if (v < PLTE.colors.length)
+                                 throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
+                                 assignPixel(PLTE.colors[v]);+/
+                            } else if (isGrayScale) {
+                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
+                                rawColorData[pOffset] = cast(ubyte)pixG;
+
+                                if (withAlpha)
+                                    rawColorData[pOffset + 1] = pixToUse.a;
+                            }
+                        } else {
+                            // 1, 2, 4 bit depths
+                            RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
+
+                            if (isColor) {
+                                rawColorData[pOffset .. pOffset + 1] = nativeToBigEndian(cast(ubyte)(pixToUse.r * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1)));
+                                rawColorData[pOffset + 1 .. pOffset + 2] = nativeToBigEndian(cast(ubyte)(pixToUse.g * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1)));
+                                rawColorData[pOffset + 2 .. pOffset + 3] = nativeToBigEndian(cast(ubyte)(pixToUse.b * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1)));
+                                
+                                if (withAlpha)
+                                    rawColorData[pOffset + 3 .. pOffset + 4] = nativeToBigEndian(cast(ubyte)(pixToUse.a * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1)));
+                            } else if (isPalette) {
+                                /+ubyte v = cast(ubyte)(pixelData[0] * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                                 
+                                 if (v < PLTE.colors.length)
+                                 throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
+                                 assignPixel(PLTE.colors[v]);+/
+                            } else if (isGrayScale) {
+                                float pixG = (cast(ubyte)(pixToUse.r * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1)) / 3f) +
+                                    (cast(ubyte)(pixToUse.g * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1)) / 3f) +
+                                        (cast(ubyte)(pixToUse.b * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1)) / 3f);
+
+                                rawColorData[pOffset] = cast(ubyte)pixG;
+                                
+                                if (withAlpha)
+                                    rawColorData[pOffset + 1] = cast(ubyte)(pixToUse.a * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                            }
+                        }
+
+                        pOffset += colorSize;
+
+                        /+if (IDAT.offsetX == IHDR.width-1) {
+                         IDAT.offsetX = 0;
+                         IDAT.offsetY++;
+                         } else {
+                         IDAT.offsetX++;
+                         }+/
+                    }
+                }
+
+                /+ubyte[] compressed;
+
+                 // compress
+                 
+                 if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {
+                 compressed = cast(ubyte[])compress(rawData);
+                 } else {
+                 throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
+                 }+/
+
+                
+                alloc.dispose(rawColorData);
 
             }
         }
@@ -1559,7 +1695,11 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
          */
         
         void performCompatConfigure() {
-            // TODO
+            static if (!is(Color == HeadersOnly)) {
+                IHDR.width = cast(uint)value.width;
+                IHDR.height = cast(uint)value.height;
+                // TODO e.g. colorspace
+            }
         }
     }
 }
@@ -1610,7 +1750,7 @@ unittest {
 
 /**
  * Constructs a compatible version of an image as PNG
- *
+ * 
  * Params:
  *      form    =   The image to construct from
  *
@@ -1618,9 +1758,12 @@ unittest {
  *      A compatible PNG image
  */
 PNGFileFormat!Color asPNG(From, Color = ImageColor!From)(From from, IAllocator allocator = theAllocator()) @safe if (isImage!From) {
-    PNGFileFormat!Color ret = PNGFileFormat!Color(allocator);
+    import std.experimental.graphic.image.primitives : copyTo;
 
-    ret.value = SwappableImage!(Color)(from);
+    PNGFileFormat!Color ret = PNGFileFormat!Color(allocator);
+    ret.allocateTheImage!From(from.width, from.height);
+
+    from.copyTo(ret.value);
     ret.performCompatConfigure();
 
     return ret;
