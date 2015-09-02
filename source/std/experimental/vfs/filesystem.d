@@ -1,4 +1,10 @@
-﻿module std.experimental.vfs.filesystem;
+﻿/**
+ * Default implementation of a file system manager
+ *
+ * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
+ */
+module std.experimental.vfs.filesystem;
 import std.experimental.vfs.defs;
 import std.uri;
 import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray;
@@ -18,12 +24,14 @@ class FileSystemImpl : IFileSystem {
 		AAMap!(URIAddress, IFileSystemEntry) mounted_;
 	}
 
+    ///
 	this(IAllocator alloc = theAllocator()) {
 		this.alloc = alloc;
 		providers_ = alloc.makeArray!IFileSystemProvider(0);
 		mounted_ = AAMap!(URIAddress, IFileSystemEntry)(alloc);
 	}
 
+    ///
 	void attachProvider(IFileSystemProvider provider) {
 		if (providers_.length > 0) {
 			foreach(ref p; providers_) {
@@ -38,6 +46,7 @@ class FileSystemImpl : IFileSystem {
 		providers_[$-1] = provider;
 	}
 
+    ///
 	void detachProvider(IFileSystemProvider provider) {
 		foreach(ref p; providers_) {
 			if (p == provider) {
@@ -48,15 +57,18 @@ class FileSystemImpl : IFileSystem {
 	}
 
 	@property {
+        ///
 		immutable(IFileSystemProvider[]) providers() {
 			return cast(immutable)providers_;
 		}
 
+        ///
 		immutable(URIAddress[]) mountedPaths() {
 			return mounted_.__internalKeys();
 		}
 	}
 
+    ///
 	IFileSystemEntry opIndex(URIAddress path) {
         URIAddress childPath;
         path = URIAddress(URIEntries(path), alloc);
@@ -71,6 +83,7 @@ class FileSystemImpl : IFileSystem {
         }
 	}
 
+    ///
 	IFileSystemEntry opSlice(URIAddress mountTo, URIAddress path) {
 		IFileSystemEntry entry = opIndex(path);
 
@@ -81,10 +94,12 @@ class FileSystemImpl : IFileSystem {
 		return entry;
 	}
 
+    ///
 	void unmount(URIAddress path) {
 		mounted_.remove(path);
 	}
 
+    ///
 	IFileEntry createFile(URIAddress path) {
 		URIAddress childPath = URIAddress("/", alloc);
 		IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
@@ -110,6 +125,7 @@ class FileSystemImpl : IFileSystem {
 		return null;
 	}
 
+    ///
 	IDirectoryEntry createDirectory(URIAddress path) {
 		URIAddress childPath = URIAddress("/", alloc);
 		IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
@@ -135,6 +151,7 @@ class FileSystemImpl : IFileSystem {
 		return null;
 	}
 
+    ///
     void find(URIAddress baseDir, string glob, void delegate(IFileSystemEntry) del, bool caseSensitive=true) {
 		// evaluate for mounts
 		URIAddress dircon = baseDir.connectionInfo;
@@ -169,6 +186,7 @@ class FileSystemImpl : IFileSystem {
 		}
 	}
 
+    ///
     void remove(URIAddress baseDir, string glob, bool caseSensitive=true) {
         // evaluate for mounts
         URIAddress dircon = baseDir.connectionInfo;
@@ -200,7 +218,8 @@ class FileSystemImpl : IFileSystem {
 			provider.remove(baseDir, glob, caseSensitive);
 		}
 	}
-
+    
+    ///
 	@property IAllocator allocator() {
 		return alloc;
 	}

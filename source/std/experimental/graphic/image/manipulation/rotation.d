@@ -1,33 +1,23 @@
 ﻿/**
- * Init module
+ * Rotation manipulation feature
  *
  * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
  * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  *
- * $(H3 init)
- *
- * Provides something for reasons....
- * 
- * Short intro example
- * ----------------------
- * ...
- * ----------------------
- * Explanation on what it does
- *
- * Extra support
- * ----------------------
- *
- * ----------------------
- * Reasoning
+ * Supplys rotation manipulation upon images and PixelPoint input ranges.
  */
 module std.experimental.graphic.image.manipulation.rotation;
 import std.experimental.graphic.image.interfaces;
-import std.experimental.graphic.image.primitives : isImage, ImageColor, isPixelRange;
+import std.experimental.graphic.image.primitives : isImage, ImageColor, isPixelRange, PixelRangeColor;
 import std.experimental.graphic.color : isColor;
 import std.experimental.allocator : make, theAllocator, IAllocator;
 
+///
 enum RotateDirection : bool {
+    ///
     ClockWise,
+
+    ///
     AntiClockWise
 }
 
@@ -54,17 +44,42 @@ Image rotate90(Image)(Image from, RotateDirection direction = RotateDirection.Cl
     return perform4WaySwap(from, direction, 1);
 }
 
+/**
+ * Rotates an image 90 degrees
+ * 
+ * Wraps the input range varient of this to take an image instead.
+ * 
+ * Params:
+ *      image       =   The image to rotate
+ *      direction   =   The direction to rotate
+ *      allocator   =   The allocator to allocate an input range from
+ * 
+ * Returns:
+ *      An input range that has an ElementType of PixelPoint.
+ */
 auto rotate90Range(Image)(Image from, RotateDirection direction = RotateDirection.ClockWise, IAllocator allocator = theAllocator()) if (isImage!Image) {
-    assert(0);
+    return rotate90Range(from.rangeOf(allocator), direction);
 }
 
+/**
+ * Rotates an image 90 degrees
+ * 
+ * Params:
+ *      from        =   Input range to take pixels from
+ *      direction   =   The direction to rotate
+ *      allocator   =   The allocator to allocate an input range from
+ * 
+ * Returns:
+ *      An input range that has an ElementType of PixelPoint.
+ */
 auto rotate90Range(IR)(IR from, RotateDirection direction = RotateDirection.ClockWise) if (isPixelRange!IR) {
-    assert(0);
+    return RotateN!(PixelRangeColor!IR, IR)(from, 1, direction);
 }
 
 /*
  * Set rotation 180
  */
+
 /**
  * Rotates an image 180 degrees in place.
  * 
@@ -84,12 +99,36 @@ Image rotate180(Image)(Image from, RotateDirection direction = RotateDirection.C
     return perform4WaySwap(from, direction, 2);
 }
 
+/**
+ * Rotates an image 180 degrees
+ * 
+ * Wraps the input range varient of this to take an image instead.
+ * 
+ * Params:
+ *      image       =   The image to rotate
+ *      direction   =   The direction to rotate
+ *      allocator   =   The allocator to allocate an input range from
+ * 
+ * Returns:
+ *      An input range that has an ElementType of PixelPoint.
+ */
 auto rotate180Range(Image)(Image from, RotateDirection direction = RotateDirection.ClockWise, IAllocator allocator = theAllocator()) if (isImage!Image) {
-    assert(0);
+    return rotate180Range(from.rangeOf(allocator), direction);
 }
 
+/**
+ * Rotates an image 180 degrees
+ * 
+ * Params:
+ *      from        =   Input range to take pixels from
+ *      direction   =   The direction to rotate
+ *      allocator   =   The allocator to allocate an input range from
+ * 
+ * Returns:
+ *      An input range that has an ElementType of PixelPoint.
+ */
 auto rotate180Range(IR)(IR from, RotateDirection direction = RotateDirection.ClockWise) if (isPixelRange!IR) {
-    assert(0);
+    return RotateN!(PixelRangeColor!IR, IR)(from, 2, direction);
 }
 
 /*
@@ -115,12 +154,36 @@ Image rotate270(Image)(Image from, RotateDirection direction = RotateDirection.C
     return perform4WaySwap(from, direction, 3);
 }
 
+/**
+ * Rotates an image 270 degrees
+ * 
+ * Wraps the input range varient of this to take an image instead.
+ * 
+ * Params:
+ *      image       =   The image to rotate
+ *      direction   =   The direction to rotate
+ *      allocator   =   The allocator to allocate an input range from
+ * 
+ * Returns:
+ *      An input range that has an ElementType of PixelPoint.
+ */
 auto rotate270Range(Image)(Image from, RotateDirection direction = RotateDirection.ClockWise, IAllocator allocator = theAllocator()) if (isImage!Image) {
-    assert(0);
+    return rotate270Range(from.rangeOf(allocator), direction);
 }
 
+/**
+ * Rotates an image 270 degrees
+ * 
+ * Params:
+ *      from        =   Input range to take pixels from
+ *      direction   =   The direction to rotate
+ *      allocator   =   The allocator to allocate an input range from
+ * 
+ * Returns:
+ *      An input range that has an ElementType of PixelPoint.
+ */
 auto rotate270Range(IR)(IR from, RotateDirection direction = RotateDirection.ClockWise) if (isPixelRange!IR) {
-    assert(0);
+    return RotateN!(PixelRangeColor!IR, IR)(from, 3, direction);
 }
 
 /*
@@ -210,13 +273,13 @@ private {
         return tuple(cast(size_t)x, cast(size_t)y);
     }
 
-    size_t[4][2] coords4WaySwap(size_t width, size_t height, size_t x, size_t y, RotateDirection direction)
+    size_t[4][2] coords4WaySwap(size_t width, size_t height, size_t x, size_t y, RotateDirection direction) @safe
     in {
-        import std.math : ceilf;
+        import std.math : floorf;
         import std.exception : enforce;
 
-        enforce(x < (width-1));
-        enforce(y <= ceilf(height / 2));
+        enforce(x <= floorf(width / 2));
+        enforce(y <= floorf(height / 2));
     } body {
         if (direction == RotateDirection.ClockWise) {
             // 0 1 2 3
@@ -292,12 +355,11 @@ private {
         assert(v[0][1] == 1);
         assert(v[1][0] == 1);
         assert(v[1][1] == 2);
-
     }
 
     // TODO: unittests!
     Image perform4WaySwap(Image)(Image from, RotateDirection direction, ubyte idxAdd) if (isImage!Image) {
-        foreach(x; 0 .. (from.width-1)) {
+        foreach(x; 0 .. (from.width / 2)) {
             foreach(y; 0 .. cast(size_t)(from.height / 2)) {
                 size_t[4][2] coords = coords4WaySwap(from.width, from.height, x, y, direction);
                 
@@ -320,5 +382,59 @@ private {
         }
         
         return from;
+    }
+
+    // TODO: unittests
+    struct RotateN(Color, IRRange) {
+        IRRange input;
+        PixelPoint!Color current;
+        ubyte idxToAdd;
+        RotateDirection direction;
+
+        this(IRRange input, ubyte idxToAdd, RotateDirection direction) {
+            this.input = input;
+            this.idxToAdd = idxToAdd;
+            this.direction = direction;
+            popFront;
+        }
+
+        @property {
+            PixelPoint!Color front() {
+                return current;
+            }
+
+            bool empty() {
+                return input.empty;
+            }
+        }
+
+        void popFront() {
+            if (!empty) {
+                PixelPoint got = input.front;
+
+                size_t[4][2] coords = coords4WaySwap(got.width, got.height, got.x, got.y, direction);
+                ubyte corner;
+
+                if (got.x < got.width / 2) {
+                    if (got.y < got.height / 2) {
+                        corner = 0;
+                    } else {
+                        corner = 3;
+                    }
+                } else {
+                    if (got.y < got.height / 2) {
+                        corner = 1;
+                    } else {
+                        corner = 2;
+                    }
+                }
+
+                ubyte nidx;
+                nidx = (corner + idxAdd) % 4;
+                current = PixelPoint!Color(got.value, coords[0][nidx], coords[1][nidx], got.width, got.height);
+
+                input.popFront;
+            }
+        }
     }
 }

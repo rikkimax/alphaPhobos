@@ -1,9 +1,16 @@
-﻿module std.experimental.vfs.providers.os;
+﻿/**
+ * OS file system provider implementation
+ *
+ * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
+ */
+module std.experimental.vfs.providers.os;
 import std.experimental.vfs.defs;
 import std.uri;
 import std.datetime : SysTime;
 import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray, shrinkArray, make, dispose;
 
+///
 final class OSFileSystemProvider : IFileSystemProvider {
     private {
         URIAddress homeAddress;
@@ -11,6 +18,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
         IAllocator alloc;
     }
 
+    ///
     this(IAllocator allocator=theAllocator, string homeDirectory=null, string cwd=null) {
         import std.process : environment;
         import std.file : getcwd;
@@ -30,12 +38,14 @@ final class OSFileSystemProvider : IFileSystemProvider {
         alloc = allocator;
     }
 
+    ///
     this(URIAddress homeDirectory, URIAddress cwd, IAllocator allocator=theAllocator) {
         homeAddress = homeDirectory;
         cwdAddress = cwd;
         alloc = allocator;
     }
 
+    ///
     IFileSystemEntry mount(URIAddress path, IFileSystemEntry from=null) {
         import std.file : exists, isFile, isDir;
         
@@ -51,6 +61,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
             return null;
     }
 
+    ///
     IFileEntry createFile(URIAddress path) {
         import std.file : FileException, write, exists;
         path = path.expand(homeAddress, cwdAddress);
@@ -69,6 +80,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
         }
     }
 
+    ///
     IDirectoryEntry createDirectory(URIAddress path) {
         import std.file : FileException, mkdirRecurse, exists;
         path = path.expand(homeAddress, cwdAddress);
@@ -87,6 +99,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
         }
     }
 
+    ///
     void find(URIAddress baseDir, string glob, void delegate(IFileSystemEntry) del, bool caseSensitive=true) {
         import std.file : dirEntries, SpanMode;
         baseDir = baseDir.expand(homeAddress, cwdAddress);
@@ -101,6 +114,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
         }
     }
 
+    ///
     void remove(URIAddress baseDir, string glob, bool caseSensitive=true) {
         import std.file : dirEntries, SpanMode, isFile, isDir;
         import std.file : remove;
@@ -113,12 +127,16 @@ final class OSFileSystemProvider : IFileSystemProvider {
     }
 
     @property {
+        ///
         IAllocator allocator() { return alloc; }
+        ///
         URIAddress currentWorkingDirectory() { return cwdAddress; }
+        ///
         URIAddress homeDirectory() { return homeAddress; }
     }
 }
 
+///
 final class OSFileEntry : IFileEntry {
     private {
         URIAddress path;
@@ -127,17 +145,20 @@ final class OSFileEntry : IFileEntry {
         string[] nameParts;
     }
 
-    this(OSFileSystemProvider provider, URIAddress path) {
+    // emplace requires access to constructor, so package not private grrr
+    package(std) this(OSFileSystemProvider provider, URIAddress path) {
         this.provider_ = provider;
         this.path = path;
         nameParts = cast(string[])path.parts;
     }
 
     @property {
+        ///
         string name() {
             return nameParts[$-1];
         }
 
+        ///
         void name(URIAddress to) {
             import std.file : rename;
 
@@ -149,8 +170,10 @@ final class OSFileEntry : IFileEntry {
             path = to;
         }
 
+        ///
         URIAddress absolutePath() { return path; }
 
+        ///
         ubyte permissions() {
             import std.file : append, read;
 
@@ -179,17 +202,21 @@ final class OSFileEntry : IFileEntry {
                 return FileSystemPermissions.Unknown;
         }
 
+        /// Not supported
         void permissions(ubyte) {
             // does nothing which is ok, atleast for now
         }
 
+        ///
         IFileSystemProvider provider() { return provider_; }
 
+        ///
         SysTime lastModified() {
             import std.file : timeLastModified;
             return timeLastModified(path);
         }
 
+        ///
         bool remove() {
             import std.file : remove;
 
@@ -201,6 +228,7 @@ final class OSFileEntry : IFileEntry {
             }
         }
 
+        ///
         ByteArray bytes() {
             import std.file : getSize;
             import std.stdio : File;
@@ -218,17 +246,20 @@ final class OSFileEntry : IFileEntry {
         }
     }
 
+    ///
     void write(ubyte[] buff) {
         import std.file : write;
         write(path, buff);
     }
 
+    ///
     void append(ubyte[] buff) {
         import std.file : append;
         append(path, buff);
     }
 }
 
+///
 final class OSDirectoryEntry : IDirectoryEntry {
     private {
         URIAddress path;
@@ -236,18 +267,21 @@ final class OSDirectoryEntry : IDirectoryEntry {
         
         string[] nameParts;
     }
-    
-    this(OSFileSystemProvider provider, URIAddress path) {
+
+    // emplace requires access to constructor, so package not private grrr
+    package(std) this(OSFileSystemProvider provider, URIAddress path) {
         this.provider_ = provider;
         this.path = path;
         nameParts = cast(string[])path.parts;
     }
     
     @property {
+        ///
         string name() {
             return nameParts[$-1];
         }
-        
+
+        ///
         void name(URIAddress to) {
             import std.file : rename;
             
@@ -258,48 +292,30 @@ final class OSDirectoryEntry : IDirectoryEntry {
             path.__dtor;
             path = to;
         }
-        
+
+        ///
         URIAddress absolutePath() { return path; }
-        
+
+        /// Not supported
         ubyte permissions() {
-            import std.file : append, read;
-            
-            bool readable, writable;
-            try {
-                auto got = read(path, 0);
-                readable = true;
-            } catch (Exception) {
-                readable = false;
-            }
-            
-            try {
-                append(path, null);
-                writable = true;
-            } catch (Exception) {
-                writable = false;
-            }
-            
-            if (readable && writable)
-                return FileSystemPermissions.Read | FileSystemPermissions.Write | FileSystemPermissions.Unknown;
-            else if (readable)
-                return FileSystemPermissions.Read | FileSystemPermissions.Unknown;
-            else if (writable)
-                return FileSystemPermissions.Write | FileSystemPermissions.Unknown;
-            else
-                return FileSystemPermissions.Unknown;
+            return FileSystemPermissions.Unknown;
         }
-        
+
+        /// Not supported
         void permissions(ubyte) {
             // does nothing which is ok, atleast for now
         }
-        
+
+        ///
         IFileSystemProvider provider() { return provider_; }
-        
+
+        ///
         SysTime lastModified() {
             import std.file : timeLastModified;
             return timeLastModified(path);
         }
-        
+
+        ///
         bool remove() {
             import std.file : remove;
             
@@ -311,31 +327,42 @@ final class OSDirectoryEntry : IDirectoryEntry {
             }
         }
 
+        ///
         IAllocator allocator() { return allocator; }
+
+        ///
         URIAddress currentWorkingDirectory() { return provider.currentWorkingDirectory; }
+
+        ///
         URIAddress homeDirectory() { return provider.homeDirectory; }
     }
 
+    ///
     IFileSystemEntry opIndex(URIAddress path) {
         return provider_.mount(this.path.subPath(path));
     }
-    
+
+    ///
     IFileSystemEntry mount(URIAddress path, IFileSystemEntry from=null) {
         return provider_.mount(this.path.subPath(path), from);
     }
 
+    ///
     IFileEntry createFile(URIAddress path) {
         return provider_.createFile(this.path.subPath(path));
     }
 
+    ///
     IDirectoryEntry createDirectory(URIAddress path) {
         return provider_.createDirectory(this.path.subPath(path));
     }
 
+    ///
     void find(URIAddress baseDir, string glob, void delegate(IFileSystemEntry) del, bool caseSensitive=true) {
         provider_.find(path.subPath(baseDir), glob, del, caseSensitive);
     }
 
+    ///
     void remove(URIAddress baseDir, string glob, bool caseSensitive=true) {
         provider_.remove(path.subPath(baseDir), glob, caseSensitive);
     }

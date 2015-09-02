@@ -1,9 +1,8 @@
 ﻿<Properties StartupItem="dub.json">
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Default" PreferredExecutionTarget="plain" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="source/std/experimental/uri.d">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Default" PreferredExecutionTarget="unittest" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="source/std/experimental/graphic/image/package.d">
     <Files>
-      <File FileName="source/std/experimental/uri.d" Line="610" Column="30" />
-      <File FileName="source/std/experimental/vfs/filesystem.d" Line="62" Column="37" />
+      <File FileName="source/std/experimental/graphic/image/package.d" Line="2" Column="54" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

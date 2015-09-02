@@ -68,6 +68,7 @@ interface IWindowCreator {
 		void location(Point);
 		void display(IDisplay);
 	}
+
 	IWindow init();
 }
 

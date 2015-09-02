@@ -1,4 +1,10 @@
-﻿module std.experimental.vfs.defs;
+﻿/**
+ * The definitions of file system interfaces
+ *
+ * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
+ */
+module std.experimental.vfs.defs;
 import std.uri;
 import std.range.interfaces : InputRange;
 import std.range.primitives : isOutputRange, ElementType;

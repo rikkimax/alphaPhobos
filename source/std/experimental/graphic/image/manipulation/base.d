@@ -10,6 +10,7 @@ module std.experimental.graphic.image.manipulation.base;
 import std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.image.primitives : isImage, ImageColor, isPixelRange;
 import std.experimental.graphic.color : isColor;
+import std.experimental.allocator : IAllocator, theAllocator;
 
 /**
  * Fills an image storage instance with a single color
@@ -221,7 +222,8 @@ unittest {
  * Will allocate a new range as the input image.
  *
  * Params:
- *      image   =   The image to flip
+ *      image       =   The image to flip
+ *      allocator   =   Allocator to allocate the wrapper range for
  *
  * Returns:
  *      An input range that returns value for each pixel in the image
@@ -353,7 +355,8 @@ unittest {
  * Will allocate a new range as the input image.
  *
  * Params:
- *      image   =   The image to flip
+ *      image       =   The image to flip
+ *      allocator   =   Allocator to allocate the wrapper range for
  *
  * Returns:
  *      An input range that returns value for each pixel in the image
@@ -361,8 +364,8 @@ unittest {
  * See_Also:
  *      rangeOf
  */
-auto flipVerticalRange(Image)(Image image) @safe if (isImage!Image) {
-    return flipVerticalRange(rangeOf(image));
+auto flipVerticalRange(Image)(Image image, IAllocator allocator=theAllocator()) @safe if (isImage!Image) {
+    return flipVerticalRange(image.rangeOf(allocator));
 }
 
 /**

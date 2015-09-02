@@ -1,24 +1,8 @@
 /**
- * Init module
+ * Common scan line storage implementations
  *
  * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
  * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
- *
- * $(H3 init)
- *
- * Provides something for reasons....
- * 
- * Short intro example
- * ----------------------
- * ...
- * ----------------------
- * Explanation on what it does
- *
- * Extra support
- * ----------------------
- *
- * ----------------------
- * Reasoning
  */
 module std.experimental.graphic.image.storage.base;
 import std.experimental.graphic.color : isColor;
@@ -26,6 +10,9 @@ import std.experimental.allocator : IAllocator, theAllocator;
 
 /**
  * A fairly simple image storage type using a horizontal scan line memory order.
+ * 
+ * See_Also:
+ *      ImageStorage
  */
 struct ImageStorageHorizontal(Color) if (isColor!Color) {
     private {
@@ -128,6 +115,9 @@ unittest {
 
 /**
  * A fairly simple image storage type using a vertical scan line memory order.
+ * 
+ * See_Also:
+ *      ImageStorage
  */
 struct ImageStorageVertical(Color) if (isColor!Color) {
     private {
