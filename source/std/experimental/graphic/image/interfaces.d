@@ -204,7 +204,7 @@ interface ImageStorageOffset(Color) {
  */
 struct SwappableImage(Color) if (isColor!Color) {
 	this() @disable;
-    this(size_t width, size_t height) @disable;
+    this(size_t width, size_t height, IAllocator alloc=theAllocator()) @disable;
 
     ~this() @safe {
 		if (destroyerDel !is null) {
@@ -702,8 +702,7 @@ final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == st
         value = allocator.make!Impl(width, height, allocator);
     }
 
-    ///
-    this(Impl instance) @nogc nothrow @safe {
+    private this(Impl instance) @nogc nothrow @safe {
         value = instance;
     }
 }

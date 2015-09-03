@@ -13,5 +13,4 @@ May require serious work before usable.
 - Image tests
 	- PNG
 	- Rotation
-- Image skewing
 - Image primitives unittests

@@ -12,6 +12,7 @@ module std.experimental.graphic.image.primitives;
 import std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.color;
 import std.traits : isPointer, PointerTarget;
+import std.experimental.allocator : IAllocator, theAllocator;
 
 /**
  * Determine if a type is an image.
@@ -77,8 +78,6 @@ bool isImage(Image)() pure if (!isPointer!Image) {
 }
 
 version(unittest) private {
-    import std.experimental.allocator : IAllocator, theAllocator;
-
     /*
      * Tests isImage with a class that inherits from Image storage.
      * Confirming that it works with that interface.
@@ -507,4 +506,44 @@ Image copyInto(IRRange, Image)(IRRange input, Image destination) @nogc @safe if 
     return destination;
 }
 
-// TODO: unittests for copyInto, isPixelRange, PixelRangeColor
+/**
+ * Copies an pixel image range into a new image
+ * 
+ * Params:
+ *      input       = The pixel input range
+ *      destination = The output image that will be created, determines type to create as
+ *      allocator   = The allocator to allocate the new image by
+ * 
+ * Returns:
+ *      The pixel input range for composibility reasons
+ */
+IR createImageFrom(ImageImpl, IR)(IR input, out ImageImpl destination, IAllocator allocator=theAllocator()) @safe if (isImage!ImageImpl && isPixelRange!IR) {
+    import std.experimental.allocator : make;
+
+    size_t width = input.front.width;
+    size_t height = input.front.height;
+
+    destination = allocator.make!ImageImpl(width, height, allocator);
+
+    return input;
+}
+
+/**
+ * Copies an input ranges buffer into an image, ahead of time assigns all pixels to a specific color
+ * 
+ * Params:
+ *      input       = The pixel input range
+ *      destination = The output image that will be created, determines type to create as
+ *      fillAs      = The color to assign to each pixel
+ * 
+ * See_Also:
+ *      createImageFrom, copyInto, fillOn
+ * 
+ * Returns:
+ *      The destination image for composibility reasons
+ */
+Image assignTo(IR, Image, Color)(IR input, ref Image destination, Color fillAs) @nogc @safe if (isImage!ImageImpl && isPixelRange!IR && isColor!Color) {
+    return input.copyInto(destination.fillOn(fillAs));
+}
+
+// TODO: unittests for copyInto, isPixelRange, PixelRangeColor, createImageFrom, assignTo
