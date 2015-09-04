@@ -153,70 +153,127 @@ class FileSystemImpl : IFileSystem {
 
     ///
     void find(URIAddress baseDir, string glob, void delegate(IFileSystemEntry) del, bool caseSensitive=true) {
-		// evaluate for mounts
+        import std.experimental.vfs.internal;
+        import std.path : globMatch, CaseSensitive;
+
 		URIAddress dircon = baseDir.connectionInfo;
         string baseDirPath = URIEntries(dircon);
 
-		foreach(addr, mount; mounted_) {
-			import std.path : globMatch, CaseSensitive;
-            string addrpath = URIEntries(addr);
+        auto globMatcher = &globMatch!(CaseSensitive.no, char, string);
+        if (caseSensitive)
+            globMatcher = &globMatch!(CaseSensitive.yes, char, string);
 
-            if (addr.connectionInfo == dircon) {
+        size_t globPartsI = globPartCount(glob);
+        size_t i;
+        // evaluate for mounts
+        foreach(glo; prefixGlobParts(glob)) {
+            if (globPartsI - i < globPartsI) {
+                // ok now all parts have been matched ehhh
+                string subG = subGlob(glob, globPartsI - i);
 
+                // check mounts, does it match?
+                foreach(ref addr, mount; mounted_) {
+                    import std.path : globMatch, CaseSensitive;
+                    string addrpath = URIEntries(addr);
 
-				// smb://anon@server/*
-                /+if ((caseSensitive && globMatch!(CaseSensitive.yes)(addrpath, baseDirPath)) || (!caseSensitive && globMatch!(CaseSensitive.no)(addrpath, baseDirPath))) {
-					del(mount);
-				}+/
+                    // if they match, del(mnt)
+                    if (!globMatcher(addrpath, glo)) {
+                        del(mount);
 
-				// smb://anon@server/dir1
-				// 		/dir2/*
-				/+IDirectoryEntry dir;
-				if ((dir = cast(IDirectoryEntry)mount) !is null) {
-                    if (addrpath.length + 1 < baseDirPath.length && baseDirPath[0 .. addrpath.length] == addrpath && baseDirPath[addrpath.length] == '/') {
-						dir.find(URIAddress(baseDirPath[addrpath.length + 1 .. $], alloc), glob, del, caseSensitive);
-					}
-				}+/
-                // FIXME: sub glob paths, not supported right now
-			}
-		}
+                        // if directory call find with the sub glob
+                        if (IDirectoryEntry dir = cast(IDirectoryEntry)mount) {
+                            if (addrpath.length + 1 < baseDirPath.length && baseDirPath[0 .. addrpath.length] == addrpath && baseDirPath[addrpath.length] == '/') {
+                                string subP = baseDirPath[addrpath.length + 1 .. $];
+                                dir.find(URIAddress(subP, alloc), subG, del, caseSensitive);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // check mounts, does it match?
+                foreach(ref addr, mount; mounted_) {
+                    import std.path : globMatch, CaseSensitive;
+                    string addrpath = URIEntries(addr);
+                    
+                    // if they match, del(mnt)
+                    if (!addrpath.globMatch!(CaseSensitive.osDefault)(glo)) {
+                        del(mount);
+                    }
+                }
+            }
 
-		foreach(provider; providers_) {
-			provider.find(baseDir, glob, del);
-		}
+            i++;
+        }
+
+        //  if found, del(mnt)
+        foreach(provider; providers_) {
+            // call upon each provider
+            provider.find(baseDir, glob, del, caseSensitive);
+        }
 	}
 
     ///
     void remove(URIAddress baseDir, string glob, bool caseSensitive=true) {
-        // evaluate for mounts
+        import std.experimental.vfs.internal;
+        import std.path : globMatch, CaseSensitive;
+
         URIAddress dircon = baseDir.connectionInfo;
         string baseDirPath = URIEntries(dircon);
-        
-        /+foreach(addr, mount; mounted_) {
-            import std.path : globMatch, CaseSensitive;
-            string addrpath = URIEntries(addr);
 
-            if (addr.connectionInfo == dircon) {
-                // smb://anon@server/*
-                if ((caseSensitive && globMatch!(CaseSensitive.yes)(addrpath, baseDirPath)) || (!caseSensitive && globMatch!(CaseSensitive.no)(addrpath, baseDirPath))) {
-                    mount.remove(); // FIXME: assert? if false
-                }
+        auto globMatcher = &globMatch!(CaseSensitive.no, char, string);
+        if (caseSensitive)
+            globMatcher = &globMatch!(CaseSensitive.yes, char, string);
 
-                // smb://anon@server/dir1
-                //      /dir2/*
-                /+IDirectoryEntry dir;
-                if ((dir = cast(IDirectoryEntry)mount) !is null) {
-                    if (addrpath.length + 1 < baseDirPath.length && baseDirPath[0 .. addrpath.length] == addrpath && baseDirPath[addrpath.length] == '/') {
-                        dir.remove(URIAddress(baseDirPath[addrpath.length + 1 .. $], alloc), glob, caseSensitive);
+        size_t globPartsI = globPartCount(glob);
+        size_t i;
+        // evaluate for mounts
+        foreach(glo; prefixGlobParts(glob)) {
+            if (globPartsI - i < globPartsI) {
+                // ok now all parts have been matched ehhh
+                string subG = subGlob(glob, globPartsI - i);
+                
+                // check mounts, does it match?
+                foreach(ref addr, mount; mounted_) {
+                    import std.path : globMatch, CaseSensitive;
+                    string addrpath = URIEntries(addr);
+                    
+                    // if they match, del(mnt)
+                    if (!globMatcher(addrpath, glo)) {
+                        // if directory call find with the sub glob
+                        if (IDirectoryEntry dir = cast(IDirectoryEntry)mount) {
+                            if (addrpath.length + 1 < baseDirPath.length && baseDirPath[0 .. addrpath.length] == addrpath && baseDirPath[addrpath.length] == '/') {
+                                string subP = baseDirPath[addrpath.length + 1 .. $];
+                                dir.remove(URIAddress(subP, alloc), subG, caseSensitive);
+                            }
+                        }
+
+                        // FIXME: unmount this!
+                        mount.remove();
                     }
-                }+/
-                // FIXME: sub glob paths, not supported right now
+                }
+            } else {
+                // check mounts, does it match?
+                foreach(ref addr, mount; mounted_) {
+                    import std.path : globMatch, CaseSensitive;
+                    string addrpath = URIEntries(addr);
+                    
+                    // if they match, del(mnt)
+                    if (!addrpath.globMatch!(CaseSensitive.osDefault)(glo)) {
+                        // FIXME: unmount this!
+                        mount.remove();
+                    }
+                }
             }
-        }+/
 
-		foreach(provider; providers_) {
-			provider.remove(baseDir, glob, caseSensitive);
-		}
+            i++;
+        }
+
+
+        //  if found, del(mnt)
+        foreach(provider; providers_) {
+            // call upon each provider
+            provider.remove(baseDir, glob, caseSensitive);
+        }
 	}
     
     ///

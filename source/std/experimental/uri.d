@@ -1059,6 +1059,7 @@ string URIQuery(string value) {
     }
 }
 
+///
 unittest {
     assert(URIQuery("abc/d?b=e&z=y") == "b=e&z=y");
     assert(URIQuery("smb://abc/d?b=e&z=y") == "b=e&z=y");
