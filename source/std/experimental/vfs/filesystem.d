@@ -7,7 +7,7 @@
 module std.experimental.vfs.filesystem;
 import std.experimental.vfs.defs;
 import std.uri;
-import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray;
+import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray, dispose;
 
 alias FileSystem = final FileSystemImpl;
 
@@ -70,18 +70,27 @@ class FileSystemImpl : IFileSystem {
 
     ///
 	IFileSystemEntry opIndex(URIAddress path) {
-        URIAddress childPath;
+        URIAddress t = URIAddress("file:///", alloc);
+        URIAddress* childPath = &t;
         path = URIAddress(URIEntries(path), alloc);
-		IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
+        IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
 
-        if (childPath == "/") {
-            return parent;
-        } else if (parent !is null) {
-            return parent[childPath.parts[0]];
+        if (parent is null) {
+            foreach(provider; providers_) {
+                IFileSystemEntry entry = provider.mount(path, null);
+                if (entry !is null)
+                    return entry;
+            }
         } else {
-            return null;
+            if (*childPath == "/") {
+                return parent;
+            } else if (parent !is null) {
+                return parent[(*childPath).parts[0]];
+            }
         }
-	}
+
+        return null;
+    }
 
     ///
 	IFileSystemEntry opSlice(URIAddress mountTo, URIAddress path) {
@@ -101,11 +110,12 @@ class FileSystemImpl : IFileSystem {
 
     ///
 	IFileEntry createFile(URIAddress path) {
-		URIAddress childPath = URIAddress("/", alloc);
+        URIAddress t = URIAddress("file:///", alloc);
+        URIAddress* childPath = &t;
 		IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
 
 		if (parent is null) {
-			if (childPath == "/") {
+			if (*childPath == "/") {
 				assert(0);
 			} else {
 				foreach(provider; providers_) {
@@ -115,10 +125,10 @@ class FileSystemImpl : IFileSystem {
 				}
 			}
 		} else {
-			if (childPath == "/") {
+			if (*childPath == "/") {
 				return null; // dir name == file name
 			} else {
-				return parent.createFile(childPath);
+				return parent.createFile(*childPath);
 			}
 		}
 
@@ -128,7 +138,7 @@ class FileSystemImpl : IFileSystem {
     ///
 	IDirectoryEntry createDirectory(URIAddress path) {
 		URIAddress childPath = URIAddress("/", alloc);
-		IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
+		IDirectoryEntry parent = locateTopMostDirectory(path, &childPath, null);
 
 		if (parent is null) {
 			if (childPath == "/") {
@@ -217,6 +227,9 @@ class FileSystemImpl : IFileSystem {
         import std.experimental.vfs.internal;
         import std.path : globMatch, CaseSensitive;
 
+        URIAddress[] allRemoveBuffer = alloc.makeArray!URIAddress(mounted_.__internalKeys.length);
+        URIAddress[] removeBuffer;
+
         URIAddress dircon = baseDir.connectionInfo;
         string baseDirPath = URIEntries(dircon);
 
@@ -247,8 +260,8 @@ class FileSystemImpl : IFileSystem {
                             }
                         }
 
-                        // FIXME: unmount this!
-                        mount.remove();
+                        removeBuffer = allRemoveBuffer[0 .. removeBuffer.length + 1];
+                        removeBuffer[$-1] = addr;
                     }
                 }
             } else {
@@ -259,8 +272,8 @@ class FileSystemImpl : IFileSystem {
                     
                     // if they match, del(mnt)
                     if (!addrpath.globMatch!(CaseSensitive.osDefault)(glo)) {
-                        // FIXME: unmount this!
-                        mount.remove();
+                        removeBuffer = allRemoveBuffer[0 .. removeBuffer.length + 1];
+                        removeBuffer[$-1] = addr;
                     }
                 }
             }
@@ -268,6 +281,13 @@ class FileSystemImpl : IFileSystem {
             i++;
         }
 
+        // removes everything that needs to be
+        foreach(toRemove; removeBuffer) {
+            mounted_[toRemove].remove();
+            unmount(toRemove);
+        }
+
+        alloc.dispose(allRemoveBuffer);
 
         //  if found, del(mnt)
         foreach(provider; providers_) {
@@ -282,31 +302,32 @@ class FileSystemImpl : IFileSystem {
 	}
 
 	private {
-		IDirectoryEntry locateTopMostDirectory(URIAddress path, out URIAddress childPath, IDirectoryEntry parent=null) {
+		IDirectoryEntry locateTopMostDirectory(ref URIAddress path, URIAddress* childPath, IDirectoryEntry parent=null) {
 			IFileSystemEntry entry;
 			IDirectoryEntry entryd;
 
 			if (parent is null) {
 				// 1. I don't have a parent (specified atleast), now check the mount points
 
-				if ((entryd = cast(IDirectoryEntry)mounted_[path]) !is null) {
-					childPath = URIAddress("/");
+                if ((entryd = cast(IDirectoryEntry)mounted_[path]) !is null) {
+                    *childPath = URIAddress("/", alloc);
 					return entryd;
 				} else {
 					immutable(string[]) parts = path.partsStairCase(true);
 
 					foreach(i, p; parts) {
-						if (i == 0) {
-							childPath = URIAddress("/", alloc);
-						} else {
-							childPath = URIAddress(path[p.length + 1 .. $], alloc);
-						}
+                        if (i == 0) {
+                            *childPath = URIAddress("file:///", alloc);
+                        } else {
+                            *childPath = URIAddress(path.connectionInfo, alloc)
+                                .subPath(URIAddress(path[p.length + 1 .. $], alloc));
+                        }
 
-						entryd = locateTopMostDirectory(childPath, childPath, null);
-						if (entryd !is null)
+                        entryd = locateTopMostDirectory(*childPath, childPath, null);
+                        if (entryd !is null)
 							return entryd;
 					}
-				}
+                }
 			} else {
 				// 2. we have a parent, so lets ask
 
@@ -322,26 +343,26 @@ class FileSystemImpl : IFileSystem {
 
 				immutable(string[]) parts = path.partsStairCase(true);
 
-				foreach(i, p; parts) {
+                foreach(i, p; parts) {
 					if ((entry = parent[URIAddress(p, alloc)]) !is null) {
 						if ((entryd = cast(IDirectoryEntry)entry) !is null) {
 							if (i == 0) {
-								childPath = URIAddress("/", alloc);
+								*childPath = URIAddress("/", alloc);
 								return entryd;
 							}
 						}
 
 						if (i == 0)
-							childPath = URIAddress("/", alloc);
+							*childPath = URIAddress("/", alloc);
 						else
-							childPath = URIAddress(path[p.length + 1 .. $], alloc);
+							*childPath = URIAddress(path[p.length + 1 .. $], alloc);
 						
 						foreach(provider; providers_) {
-							if ((entryd = cast(IDirectoryEntry)provider.mount(childPath, entry)) !is null) {
-								if (childPath == "/") {
+							if ((entryd = cast(IDirectoryEntry)provider.mount(*childPath, entry)) !is null) {
+								if (*childPath == "/") {
 									return entryd;
 								} else {
-									return locateTopMostDirectory(childPath, childPath, entryd);
+									return locateTopMostDirectory(*childPath, childPath, entryd);
 								}
 							}
 						}

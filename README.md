@@ -6,8 +6,7 @@ Just some of my to be Phobos code. Includes dependencies on e.g. not included wi
 May require serious work before usable.
 
 ## TODO
-- FileSystemImpl.find
-- FileSystemImpl.remove
+- VFS testing
 
 - Image abituary rotation
 - Image tests

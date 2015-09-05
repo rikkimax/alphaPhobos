@@ -24,6 +24,14 @@ struct URIAddress {
         char[][] arrbuffDirectories;
     }
 
+    this(this) {
+        arrbuffDirectories = alloc.makeArray!(char[])(arrbuffDirectories.length);
+
+        auto t = alloc.makeArray!char(value.length);
+        t[0 .. $] = value[];
+        value = cast(string)t;
+    }
+
     ~this() {
         alloc.dispose(cast(char[])value);
         alloc.dispose(arrbuffDirectories);

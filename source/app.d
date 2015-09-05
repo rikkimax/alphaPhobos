@@ -2,7 +2,7 @@ import std.stdio;
 import std.experimental.allocator;
 
 void main() {
-	//VFSTest();
+	VFSTest();
 	//WindowTest();
 }
 
@@ -37,6 +37,28 @@ void VFSTest() {
 		URIPath path = mount.key;
 		IEntry entry = mount.value;
 	}+/
+
+    IFileSystemEntry theEntry = fs["./mytestfile.txt"];
+
+    if (theEntry is null) {
+        theEntry = fs.createFile("./mytestfile.txt");
+        if (IFileEntry theFile = cast(IFileEntry)theEntry)
+            theFile.write(cast(ubyte[])"Some awesome text here!");
+    }
+
+    if (IFileEntry theFile = cast(IFileEntry)theEntry) {
+        import std.process : thisProcessID;
+        import std.conv : text;
+        import std.datetime;
+
+        theFile.append(cast(ubyte[])("\nHi from process " ~ thisProcessID.text ~ " @" ~ Clock.currTime.toSimpleString));
+
+        writeln(cast(string)theFile.bytes);
+
+        if (theFile.size > 150) {
+            theFile.remove();
+        }
+    }
 }
 
 void WindowTest() {

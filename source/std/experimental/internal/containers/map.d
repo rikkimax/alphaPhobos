@@ -21,8 +21,8 @@ struct AAMap(K, V) {
 		values = alloc.makeArray!V(0);
 	}
 
-    V opIndex(K key) @trusted {
-		foreach(i, k; keys) {
+    V opIndex(ref K key) @trusted {
+		foreach(i, ref k; keys) {
 			if (k == key)
 				return values[i];
 		}
@@ -72,7 +72,7 @@ struct AAMap(K, V) {
     int opApply(int delegate(ref K, ref V) dg) @trusted {
         int result = 0;
 
-        foreach(i, k; keys) {
+        foreach(i, ref k; keys) {
             result = dg(k, values[i]);
             if (result)
                 break;
@@ -87,14 +87,14 @@ struct AAMap(K, V) {
 	private {
         bool firstEmpty(out size_t idx) @trusted {
 			static if (is(K == class) || is(K == interface) || isPointer!K) {
-				foreach(i, k; keys) {
+				foreach(i, ref k; keys) {
 					if (k is null) {
 						idx = i;
 						return true;
 					}
 				}
 			} else {
-				foreach(i, k; keys) {
+				foreach(i, ref k; keys) {
 					if (k == K.init) {
 						idx = i;
 						return true;

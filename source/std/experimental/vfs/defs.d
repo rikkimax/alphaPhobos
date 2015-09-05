@@ -357,6 +357,9 @@ interface IFileEntry : IFileSystemEntry {
     @property {
     	///
         ByteArray bytes();
+
+        ///
+        size_t size();
     }
 
     ///
@@ -421,6 +424,7 @@ interface IDirectoryEntry : IFileSystemEntry, IFileSystemProvider {
 struct ByteArray {
     ///
 	immutable(ubyte[]) bytes;
+    alias bytes this;
 
     private IAllocator allocator;
 
