@@ -10,6 +10,7 @@ import std.range.interfaces : InputRange;
 import std.range.primitives : isOutputRange, ElementType;
 import std.datetime : SysTime;
 import std.experimental.allocator : IAllocator;
+import std.experimental.internal.dummyRefCount;
 
 /**
  * The VFS central interface.
@@ -356,7 +357,7 @@ interface IFileSystemEntry {
 interface IFileEntry : IFileSystemEntry {
     @property {
     	///
-        ByteArray bytes();
+        DummyRefCount!(ubyte[]) bytes();
 
         ///
         size_t size();
@@ -418,18 +419,4 @@ interface IDirectoryEntry : IFileSystemEntry, IFileSystemProvider {
 	final IFileSystemEntry opIndex(string path) {
         return opIndex(URIAddress(path, allocator));
 	}
-}
-
-///
-struct ByteArray {
-    ///
-	immutable(ubyte[]) bytes;
-    alias bytes this;
-
-    private IAllocator allocator;
-
-    ~this() {
-        import std.experimental.allocator : dispose;
-        allocator.dispose(cast(ubyte[])bytes);
-    }
 }

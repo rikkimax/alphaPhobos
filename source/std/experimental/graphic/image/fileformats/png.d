@@ -15,6 +15,7 @@ import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
 import std.experimental.allocator : IAllocator, theAllocator, makeArray, make, expandArray, dispose;
 import std.experimental.graphic.color : isColor, RGB8, RGBA8, convertColor;
 import std.experimental.graphic.color.rgb : RGB;
+import std.experimental.internal.dummyRefCount;
 import std.range : isInputRange, ElementType; 
 import std.datetime : DateTime;
 import std.traits : isPointer;
@@ -1193,7 +1194,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
          * The exporter
          */
 
-        ubyte[] performExport() @trusted {
+        DummyRefCount!(ubyte[]) performExport() @trusted {
             import std.digest.crc : crc32Of;
             ubyte[] buffer = allocator.makeArray!ubyte((1024 * 1024 * 8) + 4); // 8mb
 
@@ -1250,7 +1251,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             writeChunk(cast(char[4])"IEND", null);
 
             allocator.dispose(buffer);
-            return ret;
+            return DummyRefCount!(ubyte[])(ret, alloc);
         }
 
         void writeChunk_IHDR(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {

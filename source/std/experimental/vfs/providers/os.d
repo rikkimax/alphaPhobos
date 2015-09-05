@@ -9,6 +9,7 @@ import std.experimental.vfs.defs;
 import std.uri;
 import std.datetime : SysTime;
 import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray, shrinkArray, make, dispose;
+import std.experimental.internal.dummyRefCount;
 
 ///
 final class OSFileSystemProvider : IFileSystemProvider {
@@ -233,7 +234,7 @@ final class OSFileEntry : IFileEntry {
         }
 
         ///
-        ByteArray bytes() {
+        DummyRefCount!(ubyte[]) bytes() {
             import std.file : getSize;
             import std.stdio : File;
 
@@ -247,7 +248,7 @@ final class OSFileEntry : IFileEntry {
             buff = f.rawRead(buff);
 
             f.close;
-            return ByteArray(cast(immutable)buff, provider.allocator);
+            return DummyRefCount!(ubyte[])(buff, provider.allocator);
         }
 
         ///
