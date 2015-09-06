@@ -17,6 +17,7 @@ May require serious work before usable.
 - Image primitives unittests
 - Fix PNG/load export
 	Must support < 8 bits per sample in decompression/compression
+- Fix PNG multiple IDAT's
 
 # Phobos TODO list
 
