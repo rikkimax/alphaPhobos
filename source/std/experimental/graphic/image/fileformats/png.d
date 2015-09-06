@@ -107,11 +107,42 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             }
         }
 
-        addText("PNGFileFormat!", Color.stringof, "\n\tChunks: [\n");
+        addText("PNGFileFormat!", Color.stringof, " [\n\tChunks: [\n");
 
         addText("\t\t", IHDR.text, ",\n");
 
-        addText("\n\t]\n");
+        if (tEXt.__internalKeys.length > 0)
+            addText("\t\ttEXt(", tEXt.text, "),\n");
+        if (zEXt.__internalKeys.length > 0)
+            addText("\t\tzEXt(", tEXt.text, "),\n");
+
+        if (PLTE !is null)
+            addText("\t\t", (*PLTE).text, ",\n");
+        if (tRNS !is null)
+            addText("\t\t", (*tRNS).text, ",\n");
+        if (gAMA !is null)
+            addText("\t\t", (*gAMA).text, ",\n");
+        if (cHRM !is null)
+            addText("\t\t", (*cHRM).text, ",\n");
+        if (sRGB !is null)
+            addText("\t\t", (*sRGB).text, ",\n");
+        if (iCCP !is null)
+            addText("\t\t", (*iCCP).text, ",\n");
+        if (bKGD !is null)
+            addText("\t\t", (*bKGD).text, ",\n");
+        if (pPHs !is null)
+            addText("\t\t", (*pPHs).text, ",\n");
+        if (sBIT !is null)
+            addText("\t\t", (*sBIT).text, ",\n");
+        if (tIME !is null)
+            addText("\t\t", (*tIME).text, ",\n");
+
+        if (sPLT.length > 0)
+            addText("\t\t", sPLT.text, ",\n");
+        if (hIST.length > 0)
+            addText("\t\t", hIST.text, ",\n");
+
+        addText("\t]\n");
         static if (!is(Color == HeadersOnly)) {
             addText("\tData: [\n");
 
@@ -131,6 +162,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
             addText("\t]\n");
         }
+
         addText("]");
         return cast(string)ret;
     }
@@ -905,7 +937,6 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
                 size_t colorSize;
                 ubyte[] decompressed;
-                ubyte[] adaptiveOffsets = allocator.makeArray!ubyte(IHDR.height);
 
                 // the actual color size used (sample size * # of samples)
 
@@ -922,28 +953,42 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
                     colorSize *= 2;
 
-                ubyte[] rawData = allocator.makeArray!ubyte(IHDR.width * IHDR.height * colorSize);
-                
+                size_t widthLength = IHDR.width * colorSize;
+                size_t totalSize = widthLength * IHDR.height;
+
                 // decompress
 
                 if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {
-                    decompressed = cast(ubyte[])uncompress(chunkData);
+                    decompressed = cast(ubyte[])uncompress(chunkData, totalSize);
                 } else {
                     throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
                 }
-
+            import std.stdio;
+            writeln(colorSize, " ", chunkData.length);
                 // adaptive offset + pixel data get
 
                 size_t offset;
                 size_t offseta;
-                size_t widthLength = IHDR.width * colorSize;
+            
+                ubyte[] rawData = allocator.makeArray!ubyte(totalSize);
+                ubyte[] adaptiveOffsets = allocator.makeArray!ubyte(IHDR.height);
+            
+                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                    foreach(y; 0 .. IHDR.height) {
+                        adaptiveOffsets[y] = decompressed[offseta];
+                        
+                    writeln("\t", decompressed.length, " ", offseta, " ", widthLength);
+                    
+                        auto slice = decompressed[offseta + 1 .. offseta + 1 + widthLength];
+                        
+                        writeln("\t", rawData.length, " ", offset, " ", slice.length);
+                        rawData[offset .. offset + widthLength] = slice;
 
-                foreach(y; 0 .. IHDR.height) {
-                    adaptiveOffsets[y] = decompressed[offseta];
-                    rawData[offset .. offset + widthLength] = decompressed[offseta + 1 .. offseta + 1 + widthLength];
-
-                    offset += widthLength;
-                    offseta += widthLength + ((IHDR.filterMethod == PngIHDRFilter.Adaptive) ? 1 : 0);
+                        offset += widthLength;
+                        offseta += widthLength + 1;
+                    }
+                } else {
+                    assert(0);
                 }
                 
                 // unfilter
@@ -1559,7 +1604,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             void writeChunk_IDAT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
                 import std.zlib : compress;
 
-                ubyte findPLTEColor(Color c) {
+                ubyte findPLTEColor(Color c1) {
+                    RGB8 c = convertColor!RGB8(c1);
+
                     foreach(i, c2; PLTE.colors) {
                         if (i >= 256)
                             break;

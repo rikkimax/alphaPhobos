@@ -1,10 +1,9 @@
 ﻿<Properties StartupItem="dub.json">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Default" PreferredExecutionTarget="unittest" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="source/std/experimental/vfs/filesystem.d">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tests/png/basic.d">
     <Files>
-      <File FileName="source/std/experimental/vfs/filesystem.d" Line="174" Column="21" />
-      <File FileName="source/std/experimental/vfs/internal.d" Line="1" Column="1" />
-      <File FileName="source/std/experimental/vfs/providers/os.d" Line="1" Column="1" />
+      <File FileName="tests/png/basic.d" Line="4" Column="1" />
+      <File FileName="source/std/experimental/graphic/image/fileformats/png.d" Line="1899" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

@@ -3,6 +3,15 @@
 	"description": "A minimal D application.",
 	"copyright": "Copyright © 2015, rikki",
 	"authors": ["rikki"],
-	"dependencies": {
-	}
+    "subPackages": [
+        {
+            "name": "tests",
+            "sourcePaths": ["tests"],
+            "targetType": "executable",
+            "dependencies": {
+                "alphaphobos": "*"
+            },
+            
+        }
+    ]
 }

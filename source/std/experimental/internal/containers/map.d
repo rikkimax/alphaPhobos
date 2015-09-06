@@ -33,6 +33,18 @@ struct AAMap(K, V) {
 			return V.init;
 	}
 
+    V opIndex(K key) @trusted {
+        foreach(i, ref k; keys) {
+            if (k == key)
+                return values[i];
+        }
+        
+        static if (is(V == class) || is(V == interface) || isPointer!V)
+            return null;
+        else
+            return V.init;
+    }
+
     void opIndexAssign(V value, K key) @trusted {
 		size_t i;
 
