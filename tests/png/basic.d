@@ -1,7 +1,8 @@
 module tests.png.basic;
 import tests.png.defs;
 import std.experimental.graphic.image;
-import std.file : read, write;
+import std.file : read, write, remove;
+import std.path : baseName;
 
 unittest {
     string file = "tests/png/assets/basi0g01.png";
@@ -83,11 +84,15 @@ unittest {
     check(image1);
 
     // export
-    write("", image1.toBytes());
+    write(baseName(file).tempLocation, image1.toBytes());
 
     // import 2
-    auto image2 = loadPNG!RGB16(cast(ubyte[])read(""));
+    auto image2 = loadPNG!RGB16(cast(ubyte[])read(baseName(file).tempLocation));
     check(image2);
 
+    // TODO: compare import1 with import2
+
+    // cleanup
+    baseName(file).tempLocation.remove();
     exitTest(file);
 }
