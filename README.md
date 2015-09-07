@@ -15,8 +15,6 @@ May require serious work before usable.
 	- PNG
 	- Rotation
 - Image primitives unittests
-- Fix PNG/load export
-	Must support < 8 bits per sample in decompression/compression
 
 # Phobos TODO list
 

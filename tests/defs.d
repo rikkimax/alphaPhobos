@@ -37,9 +37,13 @@ void testOutput(string mod = __MODULE__, int line = __LINE__, T...)(T args) {
 
 string tempLocation(string for_) {
     import std.path : buildPath;
-    import std.file : tempDir;
+    import std.file : tempDir, exists, mkdirRecurse;
     import std.process : thisProcessID;
     import std.conv : text;
 
-    return buildPath(tempDir(), thisProcessID.text, for_);
+    string tempLoc = buildPath(tempDir(), thisProcessID.text);
+    if (!exists(tempLoc))
+        mkdirRecurse(tempLoc);
+
+    return buildPath(tempLoc, for_);
 }
