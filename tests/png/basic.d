@@ -40,8 +40,6 @@ unittest {
     exitTest(file);
 }
 
-version(none):
-
 unittest {
     string file = "tests/png/assets/basn0g01.png";
     entryTest(file);
@@ -75,18 +73,23 @@ unittest {
         assert(image.hIST.length == 0);
     }
 
+    testOutput("headers");
+
     HeadersOnlyPNGFileFormat headerImage = loadPNGHeaders(cast(ubyte[])read(file));
     testOutput(headerImage.toString());
     check(headerImage);
 
     // import 1
+    testOutput("import 1");
     auto image1 = loadPNG!RGB16(cast(ubyte[])read(file));
     check(image1);
 
     // export
+    testOutput("export");
     write(baseName(file).tempLocation, image1.toBytes());
 
     // import 2
+    testOutput("import 2");
     auto image2 = loadPNG!RGB16(cast(ubyte[])read(baseName(file).tempLocation));
     check(image2);
 

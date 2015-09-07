@@ -232,8 +232,11 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 allocator.dispose(tIME);
 
             static if (!is(Color == HeadersOnly)) {
-                if (IDAT !is null)
+                if (IDAT !is null) {
+                    allocator.dispose(IDAT.data);
                     allocator.dispose(IDAT);
+                }
+
                 if (swpInst !is null)
                     allocator.dispose(swpInst);
             }
@@ -444,16 +447,24 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 throw allocator.make!ImageNotLoadableException("hIST and PLTE chunks must have the same index length");
                             if (IHDR.colorType & PngIHDRColorType.Palette && tRNS.indexAlphas.length < PLTE.colors.length)
                                 allocator.expandArray(tRNS.indexAlphas, tRNS.indexAlphas.length - PLTE.colors.length, 255);
+
                             if (IDAT is null) {// allocate the image storage
                                 IDAT = allocator.make!(IDAT_Chunk!Color);
                                 theImageAllocator(IHDR.width, IHDR.height);
                             }
 
-                            readChunk_IDAT(chunkData);
+                            allocator.expandArray(IDAT.data, chunkData.length);
+                            IDAT.data[$-chunkData.length .. $] = chunkData[];
                             break;
                         }
 
                     case "IEND":
+                        static if (!is(Color == HeadersOnly)) {
+                            if (IDAT is null)
+                                throw allocator.make!ImageNotLoadableException("No IDAT chunk present");
+                            readChunk_IDAT(IDAT.data);
+                        }
+
                         readChunk_IEND(chunkData);
                         break WL;
                     default:
@@ -974,18 +985,81 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 ubyte[] adaptiveOffsets = allocator.makeArray!ubyte(IHDR.height);
             
                 if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                    foreach(y; 0 .. IHDR.height) {
-                        adaptiveOffsets[y] = decompressed[offseta];
-                        
-                    writeln("\t", decompressed.length, " ", offseta, " ", widthLength);
-                    
-                        auto slice = decompressed[offseta + 1 .. offseta + 1 + widthLength];
-                        
-                        writeln("\t", rawData.length, " ", offset, " ", slice.length);
-                        rawData[offset .. offset + widthLength] = slice;
+                    if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8 || IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                        foreach(y; 0 .. IHDR.height) {
+                            adaptiveOffsets[y] = decompressed[offseta];
+                            
+                            auto slice = decompressed[offseta + 1 .. offseta + 1 + widthLength];
+                            rawData[offset .. offset + widthLength] = slice;
+                            
+                            offset += widthLength;
+                            offseta += widthLength + 1;
+                        }
+                    } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
+                        size_t bitWidthLength = widthLength / 2;
 
-                        offset += widthLength;
-                        offseta += widthLength + 1;
+                        foreach(y; 0 .. IHDR.height) {
+                            adaptiveOffsets[y] = decompressed[offseta];
+                            
+                            auto slice = decompressed[offseta + 1 .. offseta + 1 + bitWidthLength];
+
+                            size_t offsetSample;
+                            foreach(i, samples; slice) {
+                                rawData[offset + offsetSample] = samples & 15;
+                                rawData[offset + offsetSample + 1] = samples & 240;
+
+                                offsetSample += 2;
+                            }
+                            
+                            offset += widthLength;
+                            offseta += bitWidthLength + 1;
+                        }
+                    } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
+                        size_t bitWidthLength = widthLength / 4;
+                        
+                        foreach(y; 0 .. IHDR.height) {
+                            adaptiveOffsets[y] = decompressed[offseta];
+                            
+                            auto slice = decompressed[offseta + 1 .. offseta + 1 + bitWidthLength];
+                            
+                            size_t offsetSample;
+                            foreach(i, samples; slice) {
+                                rawData[offset + offsetSample] = samples & 3;
+                                rawData[offset + offsetSample + 1] = samples & 12;
+                                rawData[offset + offsetSample + 2] = samples & 48;
+                                rawData[offset + offsetSample + 3] = samples & 192;
+                                
+                                offsetSample += 4;
+                            }
+                            
+                            offset += widthLength;
+                            offseta += bitWidthLength + 1;
+                        }
+                    } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
+                        size_t bitWidthLength = widthLength / 8;
+                        
+                        foreach(y; 0 .. IHDR.height) {
+                            adaptiveOffsets[y] = decompressed[offseta];
+                            
+                            auto slice = decompressed[offseta + 1 .. offseta + 1 + bitWidthLength];
+                            
+                            size_t offsetSample;
+                            foreach(i, samples; slice) {
+                                rawData[offset + offsetSample] = samples & 1;
+                                rawData[offset + offsetSample + 1] = samples & 2;
+                                rawData[offset + offsetSample + 2] = samples & 4;
+                                rawData[offset + offsetSample + 3] = samples & 8;
+                                rawData[offset + offsetSample + 4] = samples & 16;
+                                rawData[offset + offsetSample + 5] = samples & 32;
+                                rawData[offset + offsetSample + 6] = samples & 64;
+                                rawData[offset + offsetSample + 7] = samples & 128;
+                                
+                                offsetSample += 8;
+                            }
+                            
+                            offset += widthLength;
+                            offseta += bitWidthLength + 1;
+                        }
                     }
                 } else {
                     assert(0);
@@ -1119,11 +1193,13 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
                     bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
 
+                    size_t offsetX, offsetY;
+
                     void assignPixel(ColorP)(ColorP valuec) {
                         static if (is(ColorP == Color))
-                            value.setPixel(IDAT.offsetX, IDAT.offsetY, valuec);
+                            value.setPixel(offsetX, offsetY, valuec);
                         else
-                            value.setPixel(IDAT.offsetX, IDAT.offsetY, valuec.convertColor!Color);
+                            value.setPixel(offsetX, offsetY, valuec.convertColor!Color);
                     }
 
                     foreach(offsetp, pixelData; pixels) {
@@ -1205,16 +1281,16 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             }
                         }
 
-                        if (IDAT.offsetX == IHDR.width-1) {
-                            IDAT.offsetX = 0;
-                            IDAT.offsetY++;
+                        if (offsetX == IHDR.width-1) {
+                            offsetX = 0;
+                            offsetY++;
                         } else {
-                            IDAT.offsetX++;
+                            offsetX++;
                         }
                     }
 
                     // ehh bug, will not be able to use interlacing with this
-                    if (IDAT.offsetX > 0)
+                    if (offsetX > 0)
                         throw allocator.make!ImageNotLoadableException("IDAT chunk leaves x offset into an erronous state");
                 } else {
                     throw allocator.make!ImageNotLoadableException("IDAT unknown interlace method");
@@ -2108,7 +2184,7 @@ alias RGB16 = RGB!("rgb", ushort);
 
 private {
     struct IDAT_Chunk(Color) {
-        size_t offsetX, offsetY;
+        ubyte[] data;
     }
 
     ubyte PaethPredictor(ubyte a, ubyte b, ubyte c) {
