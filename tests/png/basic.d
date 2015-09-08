@@ -127,8 +127,6 @@ unittest {
     }("tests/png/assets/basn0g01.png", true);
 
     png_test1!q{
-        //import std.stdio;writeln(image.toString());
-
         assert(image.checkIDHR(32, 32,
                 PngIHDRBitDepth.BitDepth2,
                 PngIHDRColorType.Grayscale,

@@ -976,10 +976,6 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
                 }
 
-                import std.file : write;
-                import std.conv : text;
-                write("/tmp/mypng.txt", decompressed.text);
-
                 // adaptive offset + pixel data get
 
                 size_t offset;
