@@ -976,6 +976,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
                 }
 
+                import std.file : write;
+                import std.conv : text;
+                write("/tmp/mypng.txt", decompressed.text);
+
                 // adaptive offset + pixel data get
 
                 size_t offset;
@@ -1005,8 +1009,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
                             size_t offsetSample;
                             foreach(i, samples; slice) {
-                                rawData[offset + offsetSample] = samples & 15;
-                                rawData[offset + offsetSample + 1] = samples & 240;
+                                rawData[offset + offsetSample] = cast(ubyte)(((samples & 15) >> 0) * 256);
+                                rawData[offset + offsetSample + 1] = cast(ubyte)(((samples & 240) >> 4) * 256);
 
                                 offsetSample += 2;
                             }
@@ -1024,10 +1028,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             
                             size_t offsetSample;
                             foreach(i, samples; slice) {
-                                rawData[offset + offsetSample] = samples & 3;
-                                rawData[offset + offsetSample + 1] = samples & 12;
-                                rawData[offset + offsetSample + 2] = samples & 48;
-                                rawData[offset + offsetSample + 3] = samples & 192;
+                                rawData[offset + offsetSample] = cast(ubyte)(((samples & 3) >> 0) * 256);
+                                rawData[offset + offsetSample + 1] = cast(ubyte)(((samples & 12) >> 2) * 256);
+                                rawData[offset + offsetSample + 2] = cast(ubyte)(((samples & 48) >> 4) * 256);
+                                rawData[offset + offsetSample + 3] = cast(ubyte)(((samples & 192) >> 6) * 256);
                                 
                                 offsetSample += 4;
                             }
@@ -1040,20 +1044,21 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                         
                         foreach(y; 0 .. IHDR.height) {
                             adaptiveOffsets[y] = decompressed[offseta];
-                            
                             auto slice = decompressed[offseta + 1 .. offseta + 1 + bitWidthLength];
                             
                             size_t offsetSample;
                             foreach(i, samples; slice) {
-                                rawData[offset + offsetSample] = samples & 1;
-                                rawData[offset + offsetSample + 1] = samples & 2;
-                                rawData[offset + offsetSample + 2] = samples & 4;
-                                rawData[offset + offsetSample + 3] = samples & 8;
-                                rawData[offset + offsetSample + 4] = samples & 16;
-                                rawData[offset + offsetSample + 5] = samples & 32;
-                                rawData[offset + offsetSample + 6] = samples & 64;
-                                rawData[offset + offsetSample + 7] = samples & 128;
-                                
+                                ubyte aV = samples & 1 ? 255 : 0;
+
+                                rawData[offset + offsetSample] = cast(ubyte)(((samples & 2) >> 0) * 256);
+                                rawData[offset + offsetSample + 1] = cast(ubyte)(((samples & 2) >> 1) * 256);
+                                rawData[offset + offsetSample + 2] = cast(ubyte)(((samples & 4) >> 1) * 256);
+                                rawData[offset + offsetSample + 3] = cast(ubyte)(((samples & 8) >> 1) * 256);
+                                rawData[offset + offsetSample + 4] = cast(ubyte)(((samples & 16) >> 1) * 256);
+                                rawData[offset + offsetSample + 5] = cast(ubyte)(((samples & 32) >> 1) * 256);
+                                rawData[offset + offsetSample + 6] = cast(ubyte)(((samples & 64) >> 1) * 256);
+                                rawData[offset + offsetSample + 7] = cast(ubyte)(((samples & 128) >> 1) * 256);
+
                                 offsetSample += 8;
                             }
                             
@@ -1273,6 +1278,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 assignPixel(PLTE.colors[v]);
                             } else if (isGrayScale) {
                                 ubyte v = cast(ubyte)(pixelData[0] * cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+
 
                                 if (withAlpha)
                                     assignPixel(RGBA8(v, v, v, v));
@@ -1712,7 +1718,19 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
                     colorSize *= 2;
 
-                ubyte[] rawColorData = alloc.makeArray!ubyte(IHDR.width * IHDR.height * colorSize);
+                ubyte samplesPerPixel;
+
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
+                    samplesPerPixel = 2;
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
+                    samplesPerPixel = 4;
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
+                    samplesPerPixel = 8;
+                }
+
+                // allocate the output buffer
+            
+                ubyte[] rawColorData = alloc.makeArray!ubyte((IHDR.width * IHDR.height * colorSize) / samplesPerPixel);
 
                 if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
                     // allows the "filter" to store its adaptive offsets
@@ -1723,6 +1741,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 bool isGrayScale = (IHDR.colorType & PngIHDRColorType.Grayscale) == PngIHDRColorType.Grayscale;
                 bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
                 bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
+
+                // peform encoding
 
                 if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
                     // TODO: Adam7 algo IDAT.unfiltered_uncompressed_pixels
@@ -1807,25 +1827,28 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                         }
 
                         ubyte byteToOffset;
-                        foreach(pixelData; rangeOf(&value)) {
-                            if (pixelData.x == 0) {
-                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                                    // performs the "filter" process
-                                    
-                                    rawColorData[pOffset] = 0;
-                                    pOffset++;
-                                }
-                            }
+                        ubyte bitByteCount = cast(ubyte)(8 / IHDR.bitDepth);
+                        uint scanLineByteCount = cast(uint)(IHDR.width / samplesPerPixel);
 
+                        foreach(pixelData; rangeOf(&value)) {
                             void storeChannel(ubyte v) {
+                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                                    if ((pOffset % (scanLineByteCount + 1)) == 0) {
+                                        // performs the "filter" process
+                                        
+                                        rawColorData[pOffset] = 0;
+                                        pOffset++;
+                                    }
+                                }
+
                                 if (byteToOffset > 0) {
                                     v <<= (IHDR.bitDepth * byteToOffset);
-                                    rawColorData[pOffset] &= v;
+                                    rawColorData[pOffset] |= v;
                                 } else
                                     rawColorData[pOffset] = v;
 
                                 byteToOffset++;
-                                if (byteToOffset == IHDR.bitDepth) {
+                                if (byteToOffset == bitByteCount) {
                                     byteToOffset = 0;
                                     pOffset++;
                                 }
