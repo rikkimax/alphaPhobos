@@ -1,7 +1,7 @@
 ﻿module std.experimental.ui.window.defs;
-import std.datetime : Duration, seconds;
 import std.experimental.graphic.image.interfaces : SwappableImage;
 import std.experimental.graphic.color.rgb : RGB8, RGBA8;
+import std.experimental.platform : IPlatform;
 
 /+
  + FIXME: remove
@@ -30,6 +30,7 @@ interface IWindow {
 	void close();
 }
 
+// something feels off with IDisplay's location, can it be moved?
 interface IDisplay {
 	@property {
 		string name();
@@ -44,24 +45,6 @@ interface IContext {
 	void swapBuffers();
 }
 
-shared interface IPlatform {
-	IWindowCreator createWindow();
-	IWindow createAWindow(); // completely up to platform implementation to what the defaults are
-	
-	@property {
-		immutable(IDisplay) primaryDisplay();
-		immutable(IDisplay[]) displays();
-		immutable(IWindow[]) windows();
-	}
-	
-	void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null);
-	bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false);
-	
-	final void setAsDefault() {
-		thePlatform_ = this;
-	}
-}
-
 interface IWindowCreator {
 	@property {
 		void size(Point);
@@ -70,23 +53,4 @@ interface IWindowCreator {
 	}
 
 	IWindow init();
-}
-
-private {
-	import std.experimental.ui.window.internal : ImplPlatform;
-	shared(IPlatform) defaultPlatform_;
-	shared(IPlatform) thePlatform_;
-
-	shared static this() {
-		defaultPlatform_ = new shared ImplPlatform();
-		thePlatform_ = defaultPlatform_;
-	}
-}
-
-shared(IPlatform) thePlatform() {
-	return thePlatform_;
-}
-
-shared(IPlatform) defaultPlatform() {
-	return defaultPlatform_;
 }
