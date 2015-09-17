@@ -675,7 +675,7 @@ unittest
 
     assert(lerp(vec2f(-10, -1), vec2f(10, 1), 0.5) == vec2f(0, 0));
 
-    // vectors of user-defined types
+    /+// vectors of user-defined types
     import std.experimental.math.linearalgerbra.half;
     alias Vector!(half, 2) vec2h;
     vec2h k = vec2h(1.0f, 2.0f);
@@ -683,6 +683,6 @@ unittest
     // larger vectors
     alias Vector!(float, 5) vec5f;
     vec5f l = vec5f(1, 2.0f, 3.0, k.x.toFloat(), 5.0L);
-    l = vec5f(l.xyz, vec2i(1, 2));
+    l = vec5f(l.xyz, vec2i(1, 2));+/
 }
 
