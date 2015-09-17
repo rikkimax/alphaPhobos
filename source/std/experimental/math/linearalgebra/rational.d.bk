@@ -1,4 +1,4 @@
-module std.experimental.math.linearalgerbra.rational;
+module std.experimental.math.linearalgebra.rational;
 
 import std.traits,
     std.string;

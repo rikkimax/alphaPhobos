@@ -1,4 +1,4 @@
-module std.experimental.math.linearalgerbra.matrix;
+module std.experimental.math.linearalgebra.matrix;
 
 import std.math,
     std.typetuple,
@@ -7,9 +7,9 @@ import std.math,
     std.typecons,
     std.conv;
 
-import std.experimental.math.linearalgerbra.vector,
-    std.experimental.math.linearalgerbra.shapes,
-    std.experimental.math.linearalgerbra.quaternion;
+import std.experimental.math.linearalgebra.vector,
+    std.experimental.math.linearalgebra.shapes,
+    std.experimental.math.linearalgebra.quaternion;
 
 /// Generic non-resizeable matrix with R rows and C columns.
 /// Intended for 3D use (size 3x3 and 4x4).
@@ -759,7 +759,7 @@ unittest
     }
 
     /+// Support user-defined types
-    import std.experimental.math.linearalgerbra.half;
+    import std.experimental.math.linearalgebra.half;
     alias mat2h = Matrix!(half, 2, 2);
     mat2h b = mat2h(1, 2.0, 3.0L, 4.0f);
 

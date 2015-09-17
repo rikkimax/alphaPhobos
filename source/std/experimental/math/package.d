@@ -1,2 +1,2 @@
 ﻿module std.experimental.math;
-public import std.experimental.math.linearalgerbra;
+public import std.experimental.math.linearalgebra;

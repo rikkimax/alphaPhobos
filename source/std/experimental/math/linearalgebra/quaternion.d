@@ -1,11 +1,11 @@
-module std.experimental.math.linearalgerbra.quaternion;
+module std.experimental.math.linearalgebra.quaternion;
 
 import std.math,
     std.string;
 
-import std.experimental.math.linearalgerbra.vector,
-    std.experimental.math.linearalgerbra.matrix,
-    funcs = std.experimental.math.linearalgerbra.funcs;
+import std.experimental.math.linearalgebra.vector,
+    std.experimental.math.linearalgebra.matrix,
+    funcs = std.experimental.math.linearalgebra.funcs;
 
 /// Quaternion implementation.
 /// Holds a rotation + angle in a proper but wild space.

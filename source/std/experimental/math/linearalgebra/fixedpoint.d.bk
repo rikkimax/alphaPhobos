@@ -1,9 +1,9 @@
-module std.experimental.math.linearalgerbra.fixedpoint;
+module std.experimental.math.linearalgebra.fixedpoint;
 
 import std.traits;
 
-import std.experimental.math.linearalgerbra.wideint,
-    std.experimental.math.linearalgerbra.funcs;
+import std.experimental.math.linearalgebra.wideint,
+    std.experimental.math.linearalgebra.funcs;
 
 /**
  M.N fixed point integer.

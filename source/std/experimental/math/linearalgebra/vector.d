@@ -1,4 +1,4 @@
-module std.experimental.math.linearalgerbra.vector;
+module std.experimental.math.linearalgebra.vector;
 
 import std.traits,
     std.math,
@@ -6,7 +6,7 @@ import std.traits,
     std.array,
     std.string;
 
-import std.experimental.math.linearalgerbra.funcs;
+import std.experimental.math.linearalgebra.funcs;
 
 /**
  * Generic 1D small vector.
@@ -676,7 +676,7 @@ unittest
     assert(lerp(vec2f(-10, -1), vec2f(10, 1), 0.5) == vec2f(0, 0));
 
     /+// vectors of user-defined types
-    import std.experimental.math.linearalgerbra.half;
+    import std.experimental.math.linearalgebra.half;
     alias Vector!(half, 2) vec2h;
     vec2h k = vec2h(1.0f, 2.0f);
 

@@ -1,10 +1,10 @@
-module std.experimental.math.linearalgerbra.box;
+module std.experimental.math.linearalgebra.box;
 
 import std.math,
     std.traits;
 
-import std.experimental.math.linearalgerbra.vector,
-    std.experimental.math.linearalgerbra.funcs;
+import std.experimental.math.linearalgebra.vector,
+    std.experimental.math.linearalgebra.funcs;
 
 /// N-dimensional half-open interval [a, b[.
 struct Box(T, int N)
@@ -255,7 +255,7 @@ struct Box(T, int N)
         /// Returns: Expanded box.
         @nogc Box expand(bound_t point) pure const nothrow
         {
-            import vector = std.experimental.math.linearalgerbra.vector;
+            import vector = std.experimental.math.linearalgebra.vector;
             return Box(vector.min(min, point), vector.max(max, point));
         }
 

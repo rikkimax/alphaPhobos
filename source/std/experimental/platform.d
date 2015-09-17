@@ -1,6 +1,6 @@
 ﻿module std.experimental.platform;
 import std.experimental.ui.window.defs : IWindow, IWindowCreator;
-import std.experimental.math.linearalgerbra.vector : vec2;
+import std.experimental.math.linearalgebra.vector : vec2;
 import std.datetime : Duration, seconds;
 
 shared interface IPlatform {

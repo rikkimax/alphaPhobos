@@ -3,7 +3,7 @@
 
  If you need real statistics, consider using the $(WEB github.com/dsimcha/dstats,Dstats) library.
  */
-module std.experimental.math.linearalgerbra.funcs;
+module std.experimental.math.linearalgebra.funcs;
 
 import std.math,
     std.traits,

@@ -1,4 +1,4 @@
-module std.experimental.math.linearalgerbra.half;
+module std.experimental.math.linearalgebra.half;
 
 import std.traits,
     std.string;

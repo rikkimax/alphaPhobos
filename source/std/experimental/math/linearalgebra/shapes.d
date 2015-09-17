@@ -9,13 +9,13 @@
  $(LI Frustum)
  )
  */
-module std.experimental.math.linearalgerbra.shapes;
+module std.experimental.math.linearalgebra.shapes;
 
 import std.math,
     std.traits;
 
-import std.experimental.math.linearalgerbra.vector,
-    std.experimental.math.linearalgerbra.box;
+import std.experimental.math.linearalgebra.vector,
+    std.experimental.math.linearalgebra.box;
 
 /// A Segment is 2 points.
 /// When considered like a vector, it represents the arrow from a to b.

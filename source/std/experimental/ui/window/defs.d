@@ -2,7 +2,7 @@
 import std.experimental.graphic.image.interfaces : SwappableImage;
 import std.experimental.graphic.color.rgb : RGB8, RGBA8;
 import std.experimental.platform : IPlatform, IDisplay;
-import std.experimental.math.linearalgerbra.vector : vec2;
+import std.experimental.math.linearalgebra.vector : vec2;
 
 alias UIPoint = vec2!int;
 
