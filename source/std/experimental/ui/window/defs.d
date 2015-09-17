@@ -2,25 +2,16 @@
 import std.experimental.graphic.image.interfaces : SwappableImage;
 import std.experimental.graphic.color.rgb : RGB8, RGBA8;
 import std.experimental.platform : IPlatform, IDisplay;
+import std.experimental.math.linearalgerbra.vector : vec2;
 
-/+
- + FIXME: remove
- +/
-
-struct Point {
-	uint x, y;
-}
-
-/+
- + FIXME: remove
- +/
+alias UIPoint = vec2!int;
 
 interface IWindow {
 	@property {
-		Point size();
-		Point location();
-		void size(Point);
-		void location(Point);
+        UIPoint size();
+        UIPoint location();
+        void size(UIPoint);
+        void location(UIPoint);
 		IDisplay display();
 		IContext context();
 	}
@@ -36,8 +27,8 @@ interface IContext {
 
 interface IWindowCreator {
 	@property {
-		void size(Point);
-		void location(Point);
+        void size(UIPoint);
+        void location(UIPoint);
 		void display(IDisplay);
 	}
 

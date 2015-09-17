@@ -275,11 +275,11 @@ private {
 
     size_t[4][2] coords4WaySwap(size_t width, size_t height, size_t x, size_t y, RotateDirection direction) @safe
     in {
-        import std.math : floorf;
+        import std.math : floor;
         import std.exception : enforce;
 
-        enforce(x <= floorf(width / 2));
-        enforce(y <= floorf(height / 2));
+        enforce(x <= floor(width / 2f));
+        enforce(y <= floor(height / 2f));
     } body {
         if (direction == RotateDirection.ClockWise) {
             // 0 1 2 3

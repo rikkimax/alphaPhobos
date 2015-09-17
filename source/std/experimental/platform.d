@@ -1,5 +1,6 @@
 ﻿module std.experimental.platform;
-import std.experimental.ui.window.defs : IWindow, IWindowCreator, Point;
+import std.experimental.ui.window.defs : IWindow, IWindowCreator;
+import std.experimental.math.linearalgerbra.vector : vec2;
 import std.datetime : Duration, seconds;
 
 shared interface IPlatform {
@@ -31,7 +32,7 @@ shared(IPlatform) defaultPlatform() {
 interface IDisplay {
     @property {
         string name();
-        Point size();
+        vec2!ushort size();
         uint refreshRate();
         uint dotsPerInch();
         immutable(IWindow[]) windows();
