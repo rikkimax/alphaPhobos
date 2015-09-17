@@ -255,7 +255,11 @@ final class OSFileEntry : IFileEntry {
         size_t size() {
             import std.file : getSize;
             string pathS = URIEntries(path);
-            return getSize(pathS);
+
+			ulong v = getSize(pathS);
+			assert(v < size_t.max);
+
+			return cast(size_t)v;
         }
     }
 
