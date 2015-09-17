@@ -1,5 +1,5 @@
 ﻿module std.experimental.platform;
-import std.experimental.ui.window.defs : IDisplay, IWindow, IWindowCreator;
+import std.experimental.ui.window.defs : IWindow, IWindowCreator, Point;
 import std.datetime : Duration, seconds;
 
 shared interface IPlatform {
@@ -28,6 +28,16 @@ shared(IPlatform) defaultPlatform() {
     return defaultPlatform_;
 }
 
+interface IDisplay {
+    @property {
+        string name();
+        Point size();
+        uint refreshRate();
+        uint dotsPerInch();
+        immutable(IWindow[]) windows();
+    }
+}
+
 private {
     shared(IPlatform) defaultPlatform_;
     shared(IPlatform) thePlatform_;
@@ -41,7 +51,6 @@ private {
      * Do not forget when implementing the event loop on non Windows
      *      it will be necessary to process a second event loop e.g. kqueue or epoll.
      */
-
     
     version(Windows) {
         extern(System) {

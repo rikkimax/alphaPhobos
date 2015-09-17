@@ -1,7 +1,7 @@
 ﻿module std.experimental.ui.window.defs;
 import std.experimental.graphic.image.interfaces : SwappableImage;
 import std.experimental.graphic.color.rgb : RGB8, RGBA8;
-import std.experimental.platform : IPlatform;
+import std.experimental.platform : IPlatform, IDisplay;
 
 /+
  + FIXME: remove
@@ -28,17 +28,6 @@ interface IWindow {
 	void hide();
 	void show();
 	void close();
-}
-
-// something feels off with IDisplay's location, can it be moved?
-interface IDisplay {
-	@property {
-		string name();
-		Point size();
-		uint refreshRate();
-		uint dotsPerInch();
-		immutable(IWindow[]) windows();
-	}
 }
 
 interface IContext {
