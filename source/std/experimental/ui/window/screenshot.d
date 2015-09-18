@@ -1,4 +1,4 @@
-﻿module std.experimental.ui.window.features.screenshot;
+﻿module std.experimental.ui.window.screenshot;
 import std.experimental.ui.window.defs;
 
 interface Have_ScreenShot {

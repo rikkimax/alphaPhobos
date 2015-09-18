@@ -1,4 +1,4 @@
-﻿module std.experimental.ui.window.features.notification;
+﻿module std.experimental.ui.window.notification;
 import std.experimental.ui.window.defs;
 
 interface Have_Notification {
