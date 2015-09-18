@@ -601,8 +601,8 @@ auto rangeOf(Color)(SwappableImage!Color* from) @nogc nothrow @safe {
  *      An input range to get every pixel along with its X and Y coordinates.
  */
 auto rangeOf(Image)(Image from, IAllocator allocator = theAllocator()) @trusted if (isImage!Image) {
-    alias Color = ImageColor!Image;
     import std.experimental.allocator : make;
+    alias Color = ImageColor!Image;
 
     SwappableImage!Color* inst = allocator.make!(SwappableImage!Color)(from);
     return RangeOf!Color(inst, 0, 0, allocator);
@@ -694,16 +694,39 @@ struct PixelPoint(Color) if (isColor!Color) {
 
 /// Wraps a struct image storage type into a class
 final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == struct)) {
-    Impl value = void;
-    alias value this;
+    alias Color = ImageColor!Impl;
 
     ///
-    this(size_t width, size_t height, IAllocator allocator = theAllocator()) @safe {
-        value = allocator.make!Impl(width, height, allocator);
+    this(size_t width, size_t height, IAllocator allocator = theAllocator()) @trusted {
+        import std.experimental.allocator : make;
+        swpInst = allocator.make!Impl(width, height, allocator);
+        _alloc = allocator;
     }
 
-    private this(Impl instance) @nogc nothrow @safe {
-        value = instance;
+    @property {
+        size_t width() @nogc nothrow @safe {return swpInst.width;}
+        size_t height() @nogc nothrow @safe {return swpInst.height;}
+    }    
+    
+    Color getPixel(size_t x, size_t y) @nogc @safe {return swpInst.getPixel(x, y);}
+    void setPixel(size_t x, size_t y, Color value) @nogc @safe {swpInst.setPixel(x, y, value);}
+    Color opIndex(size_t x, size_t y) @nogc @safe {return swpInst.opIndex(x, y);}
+    void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe {swpInst.opIndexAssign(value, x, y);}
+    bool resize(size_t newWidth, size_t newHeight) @safe {return swpInst.resize(newWidth, newHeight);}
+
+    private {
+        IAllocator _alloc;
+        Impl* swpInst;
+
+        this(Impl* instance) @nogc nothrow @safe {
+            swpInst = instance;
+        }
+
+        ~this() {
+            import std.experimental.allocator : dispose;
+            if (_alloc !is null)
+                _alloc.dispose(swpInst);
+        }
     }
 }
 
@@ -721,7 +744,8 @@ final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == st
  * See_Also:
  *      ImageObject
  */
-auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAllocator) @safe {
+auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct)) {
+    import std.experimental.allocator : make;
     return allocator.make!(ImageObject!Impl)(width, height, allocator);
 }
 
@@ -738,6 +762,7 @@ auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAl
  * See_Also:
  *      ImageObject
  */
-auto imageObject(Impl)(Impl instance, IAllocator allocator = theAllocator) @safe {
+auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct)) {
+    import std.experimental.allocator : make;
     return allocator.make!(ImageObject!Impl)(instance);
 }

@@ -31,7 +31,7 @@ bool isImage(Image)() pure if (!isPointer!Image) {
     import std.traits : ReturnType;
     import std.experimental.graphic.color : isColor;
 
-    static if (__traits(compiles, {Image image = Image.init;}) && is(Image == class) || is(Image == struct)) {
+    static if (__traits(compiles, {Image image = Image.init;}) && is(Image == class) || is(Image == interface) || is(Image == struct)) {
         // check that we can get the color type
         static if (!__traits(compiles, {alias Color = ReturnType!(Image.getPixel);}))
             return false;
@@ -63,7 +63,7 @@ bool isImage(Image)() pure if (!isPointer!Image) {
                 } else static if (!__traits(compiles, {
                     import std.experimental.allocator : theAllocator;
                     auto theImage = new Image(1, 1, theAllocator());
-                }) && !is(SwappableImage!Color == Image)) {
+                }) && !(is(SwappableImage!Color == Image) || is(ImageStorage!Color == Image))) {
                     // check the constructor is valid
                     return false;
                 } else {

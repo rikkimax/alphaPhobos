@@ -83,7 +83,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
     static if (!is(Color == HeadersOnly)) {
         /// Only available when Color is specified as not HeadersOnly
-        SwappableImage!Color value = void;
+        ImageStorage!Color value;
         alias value this;
 
         ///
@@ -189,18 +189,13 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
         static if (!is(Color == HeadersOnly)) {
             IDAT_Chunk!Color* IDAT;
-            SwappableImage!Color* swpInst;
             
             void allocateTheImage(ImageImpl)(size_t width, size_t height) @trusted {
-                static if (isPointer!ImageImpl) {
-                    alias ImageImplT = ImageImpl*;
+                static if (is(ImageImpl : ImageStorage!Color)) {
+                    value = allocator.make!ImageImpl(width, height, allocator);
                 } else {
-                    alias ImageImplT = ImageImpl;
+                    value = imageObject!ImageImpl(width, height, allocator);
                 }
-
-                auto ret = allocator.make!ImageImplT(width, height, allocator);
-                swpInst = allocator.make!(SwappableImage!Color)(ret);
-                value = *swpInst;
             }
         } else {
             // this gets checked for so many places, that it would be a pain to actually fix it there.
@@ -235,10 +230,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 if (IDAT !is null) {
                     allocator.dispose(IDAT.data);
                     allocator.dispose(IDAT);
+                    allocator.dispose(value);
                 }
-
-                if (swpInst !is null)
-                    allocator.dispose(swpInst);
             }
         }
 
@@ -1722,7 +1715,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     samplesPerPixel = 4;
                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
                     samplesPerPixel = 8;
-                }
+                } else
+                    samplesPerPixel = 1;
 
                 // allocate the output buffer
             
@@ -1748,7 +1742,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     size_t pOffset;
 
                     if (isPalette) {
-                        foreach(pixelData; rangeOf(&value)) {
+                        foreach(pixelData; rangeOf(value)) {
                             if (pixelData.x == 0) {
                                 if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
                                     // performs the "filter" process
@@ -1762,7 +1756,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             pOffset += colorSize;
                         }
                     } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8 || IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                        foreach(pixelData; rangeOf(&value)) {
+                        foreach(pixelData; rangeOf(value)) {
                             if (pixelData.x == 0) {
                                 if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
                                     // performs the "filter" process
@@ -1826,7 +1820,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                         ubyte bitByteCount = cast(ubyte)(8 / IHDR.bitDepth);
                         uint scanLineByteCount = cast(uint)(IHDR.width / samplesPerPixel);
 
-                        foreach(pixelData; rangeOf(&value)) {
+                        foreach(pixelData; rangeOf(value)) {
                             void storeChannel(ubyte v) {
                                 if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
                                     if ((pOffset % (scanLineByteCount + 1)) == 0) {
