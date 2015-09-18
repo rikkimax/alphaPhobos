@@ -1179,6 +1179,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
                 if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
                     // TODO: un Adam7 algo IDAT.unfiltered_uncompressed_pixels
+                    throw allocator.make!ImageNotLoadableException("Unable to import for Adam7 interlace method");
                 } else if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
                     // store
 
