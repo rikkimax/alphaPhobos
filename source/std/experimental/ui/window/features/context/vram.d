@@ -1,4 +1,4 @@
-﻿module std.experimental.ui.window.context.vram;
+﻿module std.experimental.ui.window.features.context.vram;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8, RGBA8;

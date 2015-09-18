@@ -1,4 +1,4 @@
-﻿module std.experimental.ui.window.icon;
+﻿module std.experimental.ui.window.features.icon;
 import std.experimental.ui.window.defs;
 
 interface Have_Icon {

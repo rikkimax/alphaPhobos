@@ -1,4 +1,4 @@
-﻿module std.experimental.ui.window.menu;
+﻿module std.experimental.ui.window.features.menu;
 import std.experimental.ui.window.defs;
 
 interface Have_Menu {
