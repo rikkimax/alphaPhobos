@@ -20,7 +20,7 @@ May require serious work before usable.
 
 ## No dependencies
 - ``std.string : indexOf`` @nogc varient
-- Linear algerbra abstraction e.g. vec2 for Point struct
+- Complete overhaul of std.math, into a package with linear algerbra support (gfm:math)
 
 ## Allocators dependency
 - ``std.typecons : RefCounted`` IAllocator support to deallocate/allocate
