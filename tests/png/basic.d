@@ -19,7 +19,8 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
     testOutput("import 1");
     auto image1 = loadPNG!RGBA16(cast(ubyte[])read(file));
     check(image1);
-    
+
+    testOutput(image1.toString());
     image1.IHDR.interlaceMethod = PngIHDRInterlaceMethod.NoInterlace;
 
     // export

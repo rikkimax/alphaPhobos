@@ -939,109 +939,78 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         static if (!is(Color == HeadersOnly)) {
             void readChunk_IDAT(ubyte[] chunkData) @trusted {
                 import std.zlib : uncompress; // FIXME: std.zlib allocates without using the allocator *grumbles*
-                import std.math : ceil;
-                
-                ubyte sampleSize, pixelSampleSize;
-                ubyte[] decompressed;
-                
-                // the actual color size used (sample size * # of samples)
-                
-                if (IHDR.colorType == PngIHDRColorType.PalletteWithColorUsed || IHDR.colorType == PngIHDRColorType.AlphaChannelUsed) {
-                    sampleSize = 2;
-                } else if (IHDR.colorType == PngIHDRColorType.Palette || IHDR.colorType == PngIHDRColorType.Grayscale) {
-                    sampleSize = 1;
-                } else if (IHDR.colorType == PngIHDRColorType.ColorUsedWithAlpha) {
-                    sampleSize = 4;
-                } else if (IHDR.colorType == PngIHDRColorType.ColorUsed) {
-                    sampleSize = 3;
-                }
-                
-                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
-                    pixelSampleSize = cast(ubyte)(sampleSize + sampleSize);
-                else
-                    pixelSampleSize = sampleSize;
-                
-                // buffer sizes
-                
-                //size_t widthLength = IHDR.width * colorSize;
-                size_t totalSize = IHDR.width * pixelSampleSize * IHDR.height;
-                //size_t numberOfPixels = IHDR.width * IHDR.height;
-                
-                // a pixel sample size
-                
-                /+if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1)
-                 pixelSize = ceil(widthLength / 8f);
-                 else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2)
-                 pixelSize = ceil(widthLength / 4f);
-                 else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4)
-                 pixelSize = ceil(widthLength / 2f);
-                 else
-                 pixelSize = colorSize;+/
-                //size_t bytesPerComponent = ceil((IHDR.width * IHDR.bitDepth + 7) / 8f);
-                
-                // decompress
-                
-                if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {
-                    decompressed = cast(ubyte[])uncompress(chunkData, totalSize);
-                } else {
-                    throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
-                }
-                
-                // adaptive offset + pixel data get
-                
-                //ubyte[] rawData = allocator.makeArray!ubyte(totalSize);
-                //ubyte[] adaptiveOffsets = allocator.makeArray!ubyte(IHDR.height);
-                //ubyte[][] pixels = allocator.makeArray!(ubyte[])(IHDR.height * IHDR.width);
-                
-                size_t offsetX, offsetY;
-                
-                // grab the scanlines from the stream
+                import std.math : ceil, floor;
+
+                // a simple check
                 if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7 || IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace)
                 {} else
                     throw allocator.make!ImageNotLoadableException("IDAT unknown interlace method");
-                
-                size_t offset;
-                ubyte pass;
-                
-                // do something with a scanline
-                
-                void handleScanLine(ubyte[] scanLine) {
-                    import std.stdio;writeln(" ", scanLine);
-                    
-                    // defilter
-                    
-                    // use pass and position in scan line to calcuate x, y coordinates
-                    // store result
+
+                if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {}
+                else
+                    throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
+
+                // constants
+                size_t pixelPreviousByteAmount;
+                size_t totalSize;
+                size_t[7] rowsPerPass, scanLinesSize;
+
+                bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
+                bool isGrayScale = (IHDR.colorType & PngIHDRColorType.Grayscale) == PngIHDRColorType.Grayscale;
+                bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
+                bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
+
+                // some needed variables, in future processing
+                ubyte[] decompressed, previousScanLine, tempBitDepth124;
+                ubyte pass, sampleSize, pixelSampleSize;
+                size_t offsetX, offsetY, offset, currentRow;
+
+                final switch(IHDR.colorType) {
+                    case PngIHDRColorType.PalletteWithColorUsed:
+                    case PngIHDRColorType.AlphaChannelUsed:
+                        sampleSize = 2;
+                        break;
+                    case PngIHDRColorType.Palette:
+                    case PngIHDRColorType.Grayscale:
+                        sampleSize = 1;
+                        break;
+                    case PngIHDRColorType.ColorUsedWithAlpha:
+                        sampleSize = 4;
+                        break;
+                    case PngIHDRColorType.ColorUsed:
+                        sampleSize = 3;
+                        break;
                 }
-                
-    import std.stdio;writeln(decompressed);
-    
-                // precompute pass scan line lengths
-                // uses col_increment and starting_col heavily
-    
-                // single pass over image
-                foreach(ubyte pass; 0 .. 7) {
-                    size_t rowsPerPass = (IHDR.height - starting_row[pass]) / row_increment;
-                    //  while row < height
-                    //   row += row_increment
-                    //   grab scan line
-                    //   offset += scan line length
+
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                    pixelSampleSize = cast(ubyte)(sampleSize + sampleSize);
+                    pixelPreviousByteAmount = pixelSampleSize;
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                    pixelSampleSize = sampleSize;
+                    pixelPreviousByteAmount = sampleSize;
+                } else {
+                    pixelSampleSize = sampleSize;
+                    pixelPreviousByteAmount = 1;
+                    tempBitDepth124 = alloc.makeArray!ubyte(8);
                 }
-    
-                for(;;) {
-                    // calculate the size of the scan line
+
+                totalSize = IHDR.width * pixelSampleSize * IHDR.height;
+
+                // calculates the number of rows per to read per pass
+                // and the length of each scan line
+                for(pass = 0; pass < 7; pass++) {
+                    // number or rows per pass
+                    rowsPerPass[pass] = cast(size_t)ceil((IHDR.height - starting_row[pass]) / cast(float)row_increment[pass]);
+                    
+                    // now the scan line
                     float scanLineSize = IHDR.width;
-        import std.stdio;write("pass: ", pass);
-        
-                    // modify the width based upon Adam7 increments
+                    
                     if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7)
-                        scanLineSize = (scanLineSize - starting_col[pass]) / col_increment[pass];
-        import std.stdio;write(" 1:", scanLineSize);
-        
+                        scanLineSize = ceil((scanLineSize - starting_col[pass]) / col_increment[pass]);
+                    
                     // fix up pixel sample size
                     scanLineSize *= pixelSampleSize;
-        import std.stdio;write(" 2:", scanLineSize);
-        
+                    
                     // change the number of bytes per set of samples
                     if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1)
                         scanLineSize /= 8f;
@@ -1049,884 +1018,732 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                         scanLineSize /= 4f;
                     else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4)
                         scanLineSize /= 2f;
-        import std.stdio;write(" 3:", scanLineSize);
-        
+                    
                     // add adaptive offset byte
                     scanLineSize += (IHDR.filterMethod == PngIHDRFilter.Adaptive ? 1 : 0);
+                    
+                    scanLinesSize[pass] = cast(size_t)ceil(scanLineSize);
+                }
+                
+                // decompress
+                decompressed = cast(ubyte[])uncompress(chunkData, totalSize);
 
-        import std.stdio;write(" 4:", scanLineSize);
-        
-                    // do something useful with the scan line
-                    handleScanLine(decompressed[offset .. offset + cast(size_t)ceil(scanLineSize)]);
-
-                    // reset/change to the next pass phase
-                    pass++;
-                    if (pass == 7)
-                        pass = 0;
-
-                    // go to next scan line if applicable
-                    offset += cast(size_t)ceil(scanLineSize);
-                    if (offset >= decompressed.length)
-                        break;
+                if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
+                    offsetY = size_t.max;
                 }
 
-                //size_t offset;
-                //size_t offseta;
-                
-                /+if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8 || IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                 foreach(y; 0 .. IHDR.height) {
-                 adaptiveOffsets[y] = decompressed[offseta];
-                 
-                 auto slice = decompressed[offseta + 1 .. offseta + 1 + widthLength];
-                 rawData[offset .. offset + widthLength] = slice;
-                 
-                 offset += widthLength;
-                 offseta += widthLength + 1;
-                 }
-                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
-                 size_t bitWidthLength = widthLength / 2;
-                 
-                 foreach(y; 0 .. IHDR.height) {
-                 adaptiveOffsets[y] = decompressed[offseta];
-                 
-                 auto slice = decompressed[offseta + 1 .. offseta + 1 + bitWidthLength];
-                 
-                 size_t offsetSample;
-                 foreach(i, samples; slice) {
-                 rawData[offset + offsetSample] = cast(ubyte)(((samples & 15) >> 0) * 17);
-                 rawData[offset + offsetSample + 1] = cast(ubyte)(((samples & 240) >> 4) * 17);
-                 
-                 offsetSample += 2;
-                 }
-                 
-                 offset += widthLength;
-                 offseta += bitWidthLength + 1;
-                 }
-                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
-                 size_t bitWidthLength = widthLength / 4;
-                 
-                 foreach(y; 0 .. IHDR.height) {
-                 adaptiveOffsets[y] = decompressed[offseta];
-                 
-                 auto slice = decompressed[offseta + 1 .. offseta + 1 + bitWidthLength];
-                 
-                 size_t offsetSample;
-                 foreach(i, samples; slice) {
-                 rawData[offset + offsetSample] = cast(ubyte)(((samples & 3) >> 0) * 85);
-                 rawData[offset + offsetSample + 1] = cast(ubyte)(((samples & 12) >> 2) * 85);
-                 rawData[offset + offsetSample + 2] = cast(ubyte)(((samples & 48) >> 4) * 85);
-                 rawData[offset + offsetSample + 3] = cast(ubyte)(((samples & 192) >> 6) * 85);
-                 
-                 offsetSample += 4;
-                 }
-                 
-                 offset += widthLength;
-                 offseta += bitWidthLength + 1;
-                 }
-                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
-                 size_t bitWidthLength = widthLength / 8;
-                 
-                 foreach(y; 0 .. IHDR.height) {
-                 adaptiveOffsets[y] = decompressed[offseta];
-                 auto slice = decompressed[offseta + 1 .. offseta + 1 + bitWidthLength];
-                 
-                 size_t offsetSample;
-                 foreach(i, samples; slice) {
-                 rawData[offset + offsetSample] = cast(ubyte)(((samples & 1) >> 0) * 255);
-                 rawData[offset + offsetSample + 1] = cast(ubyte)(((samples & 2) >> 1) * 255);
-                 rawData[offset + offsetSample + 2] = cast(ubyte)(((samples & 4) >> 1) * 255);
-                 rawData[offset + offsetSample + 3] = cast(ubyte)(((samples & 8) >> 1) * 255);
-                 rawData[offset + offsetSample + 4] = cast(ubyte)(((samples & 16) >> 1) * 255);
-                 rawData[offset + offsetSample + 5] = cast(ubyte)(((samples & 32) >> 1) * 255);
-                 rawData[offset + offsetSample + 6] = cast(ubyte)(((samples & 64) >> 1) * 255);
-                 rawData[offset + offsetSample + 7] = cast(ubyte)(((samples & 128) >> 1) * 255);
-                 
-                 offsetSample += 8;
-                 }
-                 
-                 offset += widthLength;
-                 offseta += bitWidthLength + 1;
-                 }
-                 }
-                 } else {
-                 assert(0);
-                 }
-                 
-                 // unfilter
-                 
-                 size_t scanLine = 0;
-                 ubyte[][] pixels = allocator.makeArray!(ubyte[])(IHDR.height * IHDR.width);
-                 ubyte[][] lastPixelData = allocator.makeArray!(ubyte[])(IHDR.height * IHDR.width);
-                 
-                 offset = 0;
-                 for(size_t offsetp; offsetp < rawData.length; offsetp += colorSize) {
-                 const(ubyte[]) pixelData = rawData[offsetp .. offsetp + colorSize];
-                 
-                 ubyte[] thePixel = allocator.makeArray!ubyte(colorSize);
-                 thePixel[] = pixelData[];
-                 size_t pI = offset % IHDR.width;
-                 
-                 // the filters
-                 switch(adaptiveOffsets[scanLine]) {
-                 case 1: // sub
-                 // Sub(x) + Raw(x-bpp)
-                 
-                 if (pI > 0) {
-                 foreach(j; 0 .. colorSize) {
-                 ubyte rawSub = lastPixelData[offset-1][j];
-                 thePixel[j] = cast(ubyte)(pixelData[j] + rawSub);
-                 }
-                 } else {
-                 // no changes needed
-                 }
-                 
-                 break;
-                 
-                 case 2: // up
-                 // Up(x) + Prior(x)
-                 
-                 if (scanLine > 0) {
-                 foreach(j; 0 .. pixelData.length) {
-                 ubyte prior = lastPixelData[(scanLine - 1) * IHDR.width + pI][j];
-                 thePixel[j] = cast(ubyte)(pixelData[j] + prior);
-                 }
-                 } else {
-                 // no changes needed
-                 }
-                 break;
-                 
-                 case 3: // average
-                 import std.math : floor;
-                 // Average(x) + floor((Raw(x-bpp)+Prior(x))/2)
-                 
-                 if (scanLine > 0 && pI > 0) {
-                 foreach(j; 0 .. colorSize) {
-                 ubyte prior = lastPixelData[(scanLine - 1) * IHDR.width + pI][j];
-                 ubyte rawSub = lastPixelData[offset-1][j];
-                 thePixel[j] = cast(ubyte)(pixelData[j] + floor(cast(real)(rawSub + prior) / 2f));
-                 }
-                 } else if (scanLine > 0 && pI == 0) {
-                 foreach(j; 0 .. colorSize) {
-                 ubyte prior = lastPixelData[(scanLine - 1) * IHDR.width + pI][j];
-                 ubyte rawSub = 0;
-                 thePixel[j] = cast(ubyte)(pixelData[j] + floor(cast(real)(rawSub + prior) / 2f));
-                 }
-                 } else if (scanLine == 0 && pI > 0) {
-                 foreach(j; 0 .. colorSize) {
-                 ubyte prior = 0;
-                 ubyte rawSub = lastPixelData[offset-1][j];
-                 thePixel[j] = cast(ubyte)(pixelData[j] + floor(cast(real)(rawSub + prior) / 2f));
-                 }
-                 } else {
-                 // no changes needed
-                 }
-                 break;
-                 
-                 case 4: // paeth
-                 //  Paeth(x) + PaethPredictor(Raw(x-bpp), Prior(x), Prior(x-bpp))
-                 
-                 if (scanLine > 0 && pI > 0) {
-                 foreach(j; 0 .. colorSize) {
-                 ubyte prior = lastPixelData[(scanLine - 1) * IHDR.width + pI][j];
-                 ubyte rawSub = lastPixelData[offset-1][j];
-                 ubyte priorRawSub = lastPixelData[(scanLine - 1) * IHDR.width + (pI-1)][j];
-                 
-                 thePixel[j] = cast(ubyte)(pixelData[j] + PaethPredictor(rawSub, prior, priorRawSub));
-                 }
-                 } else if (scanLine > 0 && pI == 0) {
-                 foreach(j; 0 .. colorSize) {
-                 ubyte prior = lastPixelData[(scanLine - 1) * IHDR.width + pI][j];
-                 ubyte rawSub = 0;
-                 ubyte priorRawSub = 0;
-                 
-                 thePixel[j] = cast(ubyte)(pixelData[j] + PaethPredictor(rawSub, prior, priorRawSub));
-                 }
-                 } else if (scanLine == 0 && pI > 0) {
-                 foreach(j; 0 .. colorSize) {
-                 ubyte prior = 0;
-                 ubyte rawSub = lastPixelData[offset-1][j];
-                 ubyte priorRawSub = 0;
-                 
-                 thePixel[j] = cast(ubyte)(pixelData[j] + PaethPredictor(rawSub, prior, priorRawSub));
-                 }
-                 } else {
-                 // no changes needed
-                 }
-                 break;
-                 
-                 default:
-                 case 0: // none
-                 break;
-                 }
-                 
-                 lastPixelData[offset] = thePixel;
-                 pixels[offset] = thePixel;
-                 
-                 offset++;
-                 if (pI == IHDR.width-1) {
-                 scanLine++;
-                 }
-                 }
-                 
-                 // uninterlace
-                 bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
-                 bool isGrayScale = (IHDR.colorType & PngIHDRColorType.Grayscale) == PngIHDRColorType.Grayscale;
-                 bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
-                 bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
-                 
-                 size_t offsetX, offsetY;
-                 
-                 void assignPixel(ColorP)(ColorP valuec) {
-                 static if (is(ColorP == Color))
-                 value.setPixel(offsetX, offsetY, valuec);
-                 else
-                 value.setPixel(offsetX, offsetY, valuec.convertColor!Color);
-                 }
-                 
-                 void grabAssignPixel(ubyte[] pixelData) {
-                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                 if (isColor) {
-                 ushort[4] values;
-                 values[0] = bigEndianToNative!ushort(cast(ubyte[2])pixelData[0 .. 2]);
-                 values[1] = bigEndianToNative!ushort(cast(ubyte[2])pixelData[2 .. 4]);
-                 values[2] = bigEndianToNative!ushort(cast(ubyte[2])pixelData[4 .. 6]);
-                 if (withAlpha) {
-                 values[3] = bigEndianToNative!ushort(cast(ubyte[2])pixelData[6 .. 8]);
-                 assignPixel(RGBA16(values[0], values[1], values[2], values[3]));
-                 } else {
-                 assignPixel(RGB16(values[0], values[1], values[2]));
-                 }
-                 } else if (isPalette) {
-                 ushort v = bigEndianToNative!ushort(cast(ubyte[2])pixelData[0 .. 2]);
-                 
-                 if (v < PLTE.colors.length)
-                 throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
-                 assignPixel(PLTE.colors[v]);
-                 } else if (isGrayScale) {
-                 ushort v = bigEndianToNative!ushort(cast(ubyte[2])pixelData[0 .. 2]);
-                 
-                 if (withAlpha)
-                 assignPixel(RGBA16(v, v, v, v));
-                 else
-                 assignPixel(RGB16(v, v, v));
-                 }
-                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
-                 if (isColor) {
-                 if (withAlpha) {
-                 assignPixel(RGBA8(pixelData[0], pixelData[1], pixelData[2], pixelData[3]));
-                 } else {
-                 assignPixel(RGB8(pixelData[0], pixelData[1], pixelData[2]));
-                 }
-                 } else if (isPalette) {
-                 ubyte v = pixelData[0];
-                 
-                 if (v < PLTE.colors.length)
-                 throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
-                 assignPixel(PLTE.colors[v]);
-                 } else if (isGrayScale) {
-                 ubyte v = pixelData[0];
-                 
-                 if (withAlpha)
-                 assignPixel(RGBA8(v, v, v, v));
-                 else
-                 assignPixel(RGB8(v, v, v));
-                 }
-                 } else {
-                 // 1, 2, 4 bit depths
-                 
-                 if (isColor) {
-                 if (withAlpha) {
-                 assignPixel(RGBA8(pixelData[0], pixelData[1], pixelData[2], pixelData[3]));
-                 } else {
-                 assignPixel(RGB8(pixelData[0], pixelData[1], pixelData[2]));
-                 }
-                 } else if (isPalette) {
-                 ubyte v = pixelData[0];
-                 
-                 if (v < PLTE.colors.length)
-                 throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
-                 assignPixel(PLTE.colors[v]);
-                 } else if (isGrayScale) {
-                 ubyte v = pixelData[0];
-                 
-                 if (withAlpha)
-                 assignPixel(RGBA8(v, v, v, v));
-                 else
-                 assignPixel(RGB8(v, v, v));
-                 }
-                 }
-                 }
-                 
-                 if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
-                 ubyte pass = 0;
-                 
-                 while(pass < 7) {
-                 offsetY = starting_row[pass];
-                 
-                 while(offsetY < IHDR.height) {
-                 size_t row_offset = offsetY * IHDR.width;
-                 offsetX = starting_col[pass];
-                 
-                 while(offsetX < IHDR.width) {
-                 grabAssignPixel(pixels[offsetX + row_offset]);
-                 
-                 offsetX += col_increment[pass];
-                 }
-                 
-                 offsetY += row_increment[pass];
-                 }
-                 
-                 pass++;
-                 }
-                 } else if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
-                 foreach(pixelData; pixels) {
-                 grabAssignPixel(pixelData);
-                 
-                 if (offsetX == IHDR.width-1) {
-                 offsetX = 0;
-                 offsetY++;
-                 } else {
-                 offsetX++;
-                 }
-                 }
-                 } else {
-                 throw allocator.make!ImageNotLoadableException("IDAT unknown interlace method");
-                 }+/
-                
-                // deallocate
-                
-                //allocator.dispose(adaptiveOffsets);
-            //allocator.dispose(rawData);
-            //allocator.dispose(pixels);
-            //allocator.dispose(lastPixelData);
-        }
-    }
-    
-    void readChunk_IEND(ubyte[] chunkData) @safe {
-        // IEND chunk should be the last one.
-        // It doesn't do anything special other then say, this is the end.
-        // Now stop looking for more chunks!
-    }
-    
-    /*
-     * The exporter
-     */
-    
-    DummyRefCount!(ubyte[]) performExport() @trusted {
-        import std.digest.crc : crc32Of;
-        ubyte[] buffer = allocator.makeArray!ubyte((1024 * 1024 * 8) + 4); // 8mb
-        
-        ubyte[] ret = allocator.makeArray!ubyte(8);
-        ret[0 .. 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-        
-        void writeChunk(char[4] name, ubyte[] data) @trusted {
-            size_t len = data.length + 12; // name + length + crc
-            allocator.expandArray(ret, len);
-            
-            ret[$-len .. $][0 .. 4] = nativeToBigEndian(cast(uint)data.length);
-            ret[$-len .. $][4 .. 8] = cast(ubyte[4])name[];
-            ret[$-len .. $][8 .. $-4] = data[];
-            
-            buffer[0 .. 4] = cast(ubyte[4])name[];
-            ret[$-4 .. $] = nativeToBigEndian(*cast(uint*)crc32Of(buffer[0 .. data.length + 4]).ptr);
-        }
-        
-        writeChunk_IHDR(buffer[4 .. $], &writeChunk);
-        if (PLTE !is null)
-            writeChunk_PLTE(buffer[4 .. $], &writeChunk);
-        if (tRNS !is null)
-            writeChunk_tRNS(buffer[4 .. $], &writeChunk);
-        if (gAMA !is null)
-            writeChunk_gAMA(buffer[4 .. $], &writeChunk);
-        if (cHRM !is null)
-            writeChunk_cHRM(buffer[4 .. $], &writeChunk);
-        if (sRGB !is null)
-            writeChunk_sRGB(buffer[4 .. $], &writeChunk);
-        if (iCCP !is null)
-            writeChunk_iCCP(buffer[4 .. $], &writeChunk);
-        
-        writeChunk_tEXt(buffer[4 .. $], &writeChunk);
-        writeChunk_zEXt(buffer[4 .. $], &writeChunk);
-        
-        if (bKGD !is null)
-            writeChunk_bKGD(buffer[4 .. $], &writeChunk);
-        if (pPHs !is null)
-            writeChunk_pPHs(buffer[4 .. $], &writeChunk);
-        if (sBIT !is null)
-            writeChunk_sBIT(buffer[4 .. $], &writeChunk);
-        if (sPLT.length > 0)
-            writeChunk_sPLT(buffer[4 .. $], &writeChunk);
-        if (hIST.length > 0)
-            writeChunk_hIST(buffer[4 .. $], &writeChunk);
-        if (tIME !is null)
-            writeChunk_tIME(buffer[4 .. $], &writeChunk);
-        
-        static if (!is(Color == HeadersOnly)) {
-            writeChunk_IDAT(buffer[4 .. $], &writeChunk);
-        }
-        
-        // it contains nothing, so why bother having a dedicated method?
-        writeChunk(cast(char[4])"IEND", null);
-        
-        allocator.dispose(buffer);
-        return DummyRefCount!(ubyte[])(ret, alloc);
-    }
-    
-    void writeChunk_IHDR(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite;
-        
-        if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7)
-            throw allocator.make!ImageNotExportableException("Unable to export PNG image using Adam7 interlace.");
-        
-        towrite = buffer[0 .. 13];
-        towrite[0 .. 4] = nativeToBigEndian(IHDR.width);
-        towrite[4 .. 8] = nativeToBigEndian(IHDR.height);
-        towrite[8 .. 9] = nativeToBigEndian(IHDR.bitDepth);
-        towrite[9 .. 10] = nativeToBigEndian(IHDR.colorType);
-        towrite[10 .. 11] = nativeToBigEndian(IHDR.compressionMethod);
-        towrite[11 .. 12] = nativeToBigEndian(IHDR.filterMethod);
-        towrite[12 .. 13] = nativeToBigEndian(IHDR.interlaceMethod);
-        
-        write(cast(char[4])"IHDR", towrite);
-    }
-    
-    void writeChunk_PLTE(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite;
-        
-        towrite = buffer[0 .. PLTE.colors.length * 3];
-        
-        ubyte offset;
-        foreach(c; PLTE.colors) {
-            towrite[offset] = c.r;
-            towrite[offset + 1] = c.g;
-            towrite[offset + 2] = c.b;
-            
-            offset += 3;
-        }
-        
-        write(cast(char[4])"PLTE", towrite);
-    }
-    
-    void writeChunk_tRNS(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite;
-        
-        if (IHDR.colorType & PngIHDRColorType.Palette) {
-            towrite = buffer[0 .. tRNS.indexAlphas.length];
-            towrite[] = tRNS.indexAlphas[];
-        } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
-            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                towrite = buffer[0 .. 2];
-                towrite[] = nativeToBigEndian(tRNS.b16.r);
-            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
-                towrite = buffer[0 .. 2];
-                towrite[0] = tRNS.b8.r;
-            } else {
-                towrite = buffer[0 .. 2];
-                towrite[0] = cast(ubyte)(tRNS.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-            }
-        } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
-            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                towrite = buffer[0 .. 6];
-                towrite[0 .. 2] = nativeToBigEndian(tRNS.b16.r);
-                towrite[2 .. 4] = nativeToBigEndian(tRNS.b16.g);
-                towrite[4 .. 6] = nativeToBigEndian(tRNS.b16.b);
-            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
-                towrite = buffer[0 .. 6];
-                towrite[0] = tRNS.b8.r;
-                towrite[2] = tRNS.b8.g;
-                towrite[4] = tRNS.b8.b;
-            } else {
-                towrite = buffer[0 .. 6];
-                towrite[0] = cast(ubyte)(tRNS.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                towrite[2] = cast(ubyte)(tRNS.b8.g / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                towrite[4] = cast(ubyte)(tRNS.b8.b / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                void assignPixel(ColorP)(ColorP valuec) {
+                    // compute x and y coordinates
+                    if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
+                        size_t t = starting_row[pass] + (row_increment[pass] * currentRow);
+
+                        if (t == offsetY) {
+                            offsetX += col_increment[pass];
+                        } else {
+                            offsetY = t;
+                            offsetX = starting_col[pass];
+                        }
+                    }
+
+                    // store color at coordinate
+                    static if (is(ColorP == Color))
+                        value.setPixel(offsetX, offsetY, valuec);
+                    else
+                        value.setPixel(offsetX, offsetY, valuec.convertColor!Color);
+
+                    // changes x and y coordinates for no interlace
+                    if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
+                        offsetX++;
+                        
+                        if (offsetX == IHDR.width) {
+                            offsetX = 0;
+                            offsetY++;
+                        }
+                    }
+                }
+
+                void grabPixelsFromScanLine(ubyte[] scanLine) {
+                    bool useMultiByte = IHDR.bitDepth == PngIHDRBitDepth.BitDepth16;
+
+                    void handleSamples(ubyte[] samples) {
+                        while(samples.length > 0) {
+                            if (useMultiByte) {
+                                if (isColor) {
+                                    ushort[4] values;
+                                    values[0] = bigEndianToNative!ushort(cast(ubyte[2])samples[0 .. 2]);
+                                    values[1] = bigEndianToNative!ushort(cast(ubyte[2])samples[2 .. 4]);
+                                    values[2] = bigEndianToNative!ushort(cast(ubyte[2])samples[4 .. 6]);
+                                    
+                                    if (withAlpha) {
+                                        values[3] = bigEndianToNative!ushort(cast(ubyte[2])samples[6 .. 8]);
+                                        assignPixel(RGBA16(values[0], values[1], values[2], values[3]));
+                                        samples = samples[8 .. $];
+                                    } else {
+                                        assignPixel(RGB16(values[0], values[1], values[2]));
+                                        samples = samples[6 .. $];
+                                    }
+                                } else if (isPalette) {
+                                    ushort v = bigEndianToNative!ushort(cast(ubyte[2])samples[0 .. 2]);
+                                    
+                                    if (v < PLTE.colors.length)
+                                        throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
+                                    assignPixel(PLTE.colors[v]);
+                                    
+                                    samples = samples[2 .. $];
+                                } else if (isGrayScale) {
+                                    ushort v = bigEndianToNative!ushort(cast(ubyte[2])samples[0 .. 2]);
+                                    
+                                    if (withAlpha)
+                                        assignPixel(RGBA16(v, v, v, v));
+                                    else
+                                        assignPixel(RGB16(v, v, v));
+                                    
+                                    samples = samples[2 .. $];
+                                }
+                            } else {
+                                if (isColor) {
+                                    if (withAlpha) {
+                                        assignPixel(RGBA8(samples[0], samples[1], samples[2], samples[3]));
+                                        samples = samples[3 .. $];
+                                    } else {
+                                        assignPixel(RGB8(samples[0], samples[1], samples[2]));
+                                        samples = samples[2 .. $];
+                                    }
+                                } else if (isPalette) {
+                                    ubyte v = samples[0];
+                                    
+                                    if (v < PLTE.colors.length)
+                                        throw allocator.make!ImageNotLoadableException("IDAT unknown palette color");
+                                    assignPixel(PLTE.colors[v]);
+                                    
+                                    samples = samples[1 .. $];
+                                } else if (isGrayScale) {
+                                    ubyte v = samples[0];
+                                    
+                                    if (withAlpha) {
+                                        assignPixel(RGBA8(v, v, v, samples[1]));
+                                        samples = samples[2 .. $];
+                                    } else {
+                                        assignPixel(RGB8(v, v, v));
+                                        samples = samples[1 .. $];
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16 || IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                        handleSamples(scanLine);
+                    } else {
+                        size_t maxSamples = IHDR.width;
+                        if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7)
+                            maxSamples = cast(size_t)floor((maxSamples - starting_col[pass]) / cast(float)col_increment[pass]);
+                        maxSamples *= sampleSize;
+
+                        // 1, 2, 4 bit depths
+                        foreach(scb; scanLine) {
+                            ubyte[] samples;
+                            
+                            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
+                                samples = tempBitDepth124[0 .. 2];
+
+                                samples[0] = cast(ubyte)(((scb & 15) >> 0) * 17);
+                                samples[1] = cast(ubyte)(((scb & 240) >> 4) * 17);
+                            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
+                                samples = tempBitDepth124[0 .. 4];
+
+                                samples[0] = cast(ubyte)(((scb & 3) >> 0) * 85);
+                                samples[1] = cast(ubyte)(((scb & 12) >> 2) * 85);
+                                samples[2] = cast(ubyte)(((scb & 48) >> 4) * 85);
+                                samples[3] = cast(ubyte)(((scb & 192) >> 6) * 85);
+                            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
+                                samples = tempBitDepth124[0 .. 8];
+
+                                samples[0] = cast(ubyte)(((scb & 1) >> 0) * 255);
+                                samples[1] = cast(ubyte)(((scb & 2) >> 1) * 255);
+                                samples[2] = cast(ubyte)(((scb & 4) >> 1) * 255);
+                                samples[3] = cast(ubyte)(((scb & 8) >> 1) * 255);
+                                samples[4] = cast(ubyte)(((scb & 16) >> 1) * 255);
+                                samples[5] = cast(ubyte)(((scb & 32) >> 1) * 255);
+                                samples[6] = cast(ubyte)(((scb & 64) >> 1) * 255);
+                                samples[7] = cast(ubyte)(((scb & 128) >> 1) * 255);
+                            }
+
+                            if (samples.length <= maxSamples)
+                                handleSamples(samples);
+                            else
+                                handleSamples(samples[0 .. maxSamples]);
+                            maxSamples -= samples.length;
+                        }
+                    }
+                }
+
+                // defilters the scan line
+                void scanLineDefilter(ubyte[] scanLine) {
+                    // defilter
+                    assert(scanLine.length > 1);
+                    
+                    if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                        ubyte adaptiveOffset = scanLine[0];
+                        scanLine = scanLine[1 .. $];
+
+                        foreach(i; 0 .. scanLine.length) {
+                            switch(adaptiveOffset) {
+                                case 1: // sub
+                                    // Sub(x) + Raw(x-bpp)
+                                    
+                                    if (i >= pixelPreviousByteAmount) {
+                                        ubyte rawSub = scanLine[i-pixelPreviousByteAmount];
+                                        scanLine[i] = cast(ubyte)(scanLine[i] + rawSub);
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    
+                                    break;
+                                    
+                                case 2: // up
+                                    // Up(x) + Prior(x)
+                                    
+                                    if (previousScanLine !is null) {
+                                        ubyte prior = previousScanLine[i];
+                                        scanLine[i] = cast(ubyte)(scanLine[i] + prior);
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    break;
+                                    
+                                case 3: // average
+                                    // Average(x) + floor((Raw(x-bpp)+Prior(x))/2)
+                                    
+                                    if (previousScanLine !is null) {
+                                        if (i >= pixelPreviousByteAmount) {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = scanLine[i-pixelPreviousByteAmount];
+                                            scanLine[i] = cast(ubyte)(scanLine[i] + floor(cast(real)(rawSub + prior) / 2f));
+                                        } else {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = 0;
+                                            scanLine[i] = cast(ubyte)(scanLine[i] + floor(cast(real)(rawSub + prior) / 2f));
+                                        }
+                                    } else if (i >= pixelPreviousByteAmount) {
+                                        ubyte prior = 0;
+                                        ubyte rawSub = scanLine[i-pixelPreviousByteAmount];
+                                        scanLine[i] = cast(ubyte)(scanLine[i] + floor(cast(real)(rawSub + prior) / 2f));
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    break;
+                                    
+                                case 4: // paeth
+                                    //  Paeth(x) + PaethPredictor(Raw(x-bpp), Prior(x), Prior(x-bpp))
+                                    
+                                    if (previousScanLine !is null) {
+                                        if (i >= pixelPreviousByteAmount) {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = scanLine[i-pixelPreviousByteAmount];
+                                            ubyte priorRawSub = previousScanLine[i-pixelPreviousByteAmount];
+                                            scanLine[i] = cast(ubyte)(scanLine[i] + PaethPredictor(rawSub, prior, priorRawSub));
+                                        } else {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = 0;
+                                            ubyte priorRawSub = 0;
+                                            scanLine[i] = cast(ubyte)(scanLine[i] + PaethPredictor(rawSub, prior, priorRawSub));
+                                        }
+                                    } else if (i >= pixelPreviousByteAmount) {
+                                        ubyte prior = 0;
+                                        ubyte rawSub = scanLine[i-pixelPreviousByteAmount];
+                                        ubyte priorRawSub = 0;
+                                        scanLine[i] = cast(ubyte)(scanLine[i] + PaethPredictor(rawSub, prior, priorRawSub));
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    
+                                    break;
+                                    
+                                default:
+                                case 0: // none
+                                    break;
+                            }
+                        }
+                    }
+                    
+                    grabPixelsFromScanLine(scanLine);
+                    previousScanLine = scanLine;
+                }
+
+                // performs the actual parsing of the scanlines
+                pass = 0;
+                for(;;) {
+                    size_t scanLineSize = scanLinesSize[pass];
+
+                    // defilter the scan line (auto sets to the image output)
+                    scanLineDefilter(decompressed[offset .. offset + scanLineSize]);
+
+                    // reset/change to the next pass phase for Adam7
+                    if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
+                        currentRow++;
+                        if (currentRow == rowsPerPass[pass]) {
+                            currentRow = 0;
+                            pass++;
+                        }
+                    }
+
+                    offset += scanLineSize;
+                    if (offset >= decompressed.length)
+                        break;
+                    else if (pass == 7)
+                        assert(0); // should not be reached, very very bad input/code
+                }
+
+                alloc.dispose(tempBitDepth124);
             }
         }
         
-        write(cast(char[4])"tRNS", towrite);
-    }
-    
-    void writeChunk_gAMA(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite = buffer[0 .. 4];
-        towrite[] = nativeToBigEndian(gAMA.value);
-        write(cast(char[4])"gAMA", towrite);
-    }
-    
-    void writeChunk_cHRM(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite = buffer[0 .. 32];
-        towrite[0 .. 4] = nativeToBigEndian(cHRM.white_x);
-        towrite[4 .. 8] = nativeToBigEndian(cHRM.white_y);
-        towrite[8 .. 12] = nativeToBigEndian(cHRM.red_x);
-        towrite[12 .. 16] = nativeToBigEndian(cHRM.red_y);
-        towrite[16 .. 20] = nativeToBigEndian(cHRM.green_x);
-        towrite[20 .. 24] = nativeToBigEndian(cHRM.green_y);
-        towrite[24 .. 28] = nativeToBigEndian(cHRM.blue_x);
-        towrite[28 .. 32] = nativeToBigEndian(cHRM.blue_y);
-        write(cast(char[4])"cHRM", towrite);
-    }
-    
-    void writeChunk_sRGB(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite = buffer[0 .. 1];
-        towrite[0] = sRGB.intent;
-        write(cast(char[4])"sRGB", towrite);
-    }
-    
-    void writeChunk_iCCP(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        import std.zlib : compress;
-        ubyte[] towrite;
-        
-        towrite = buffer[0 .. iCCP.profileName.length + 2];
-        towrite[0 .. $-2] = cast(ubyte[])iCCP.profileName[];
-        towrite[$-2] = '\0';
-        towrite[$-1] = cast(ubyte)iCCP.compressionMethod;
-        
-        ubyte[] compressed = cast(ubyte[])compress(iCCP.profile);
-        towrite = buffer[0 .. towrite.length + compressed.length];
-        towrite[$-compressed.length .. $] = compressed[];
-        
-        write(cast(char[4])"iCCP", towrite);
-    }
-    
-    void writeChunk_tEXt(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        foreach(keyword2, value; tEXt) {
-            string keyword = cast(string)keyword2;
-            ubyte[] towrite = buffer[0 .. keyword.length + 1];
-            
-            towrite[0 .. $-1] = cast(ubyte[])keyword[];
-            towrite[$-1] = '\0';
-            
-            towrite = buffer[0 .. towrite.length + value.length];
-            towrite[$-value.length .. $] = cast(ubyte[])value[];
-            
-            write(cast(char[4])"tEXt", towrite);
+        void readChunk_IEND(ubyte[] chunkData) @safe {
+            // IEND chunk should be the last one.
+            // It doesn't do anything special other then say, this is the end.
+            // Now stop looking for more chunks!
         }
-    }
-    
-    void writeChunk_zEXt(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        import std.zlib : compress;
         
-        foreach(keyword2, value; zEXt) {
-            string keyword = cast(string)keyword2;
-            ubyte[] towrite = buffer[0 .. keyword.length + 2];
+        /*
+         * The exporter
+         */
+        
+        DummyRefCount!(ubyte[]) performExport() @trusted {
+            import std.digest.crc : crc32Of;
+            ubyte[] buffer = allocator.makeArray!ubyte((1024 * 1024 * 8) + 4); // 8mb
             
-            towrite[0 .. $-2] = cast(ubyte[])keyword[];
+            ubyte[] ret = allocator.makeArray!ubyte(8);
+            ret[0 .. 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+            
+            void writeChunk(char[4] name, ubyte[] data) @trusted {
+                size_t len = data.length + 12; // name + length + crc
+                allocator.expandArray(ret, len);
+                
+                ret[$-len .. $][0 .. 4] = nativeToBigEndian(cast(uint)data.length);
+                ret[$-len .. $][4 .. 8] = cast(ubyte[4])name[];
+                ret[$-len .. $][8 .. $-4] = data[];
+                
+                buffer[0 .. 4] = cast(ubyte[4])name[];
+                ret[$-4 .. $] = nativeToBigEndian(*cast(uint*)crc32Of(buffer[0 .. data.length + 4]).ptr);
+            }
+            
+            writeChunk_IHDR(buffer[4 .. $], &writeChunk);
+            if (PLTE !is null)
+                writeChunk_PLTE(buffer[4 .. $], &writeChunk);
+            if (tRNS !is null)
+                writeChunk_tRNS(buffer[4 .. $], &writeChunk);
+            if (gAMA !is null)
+                writeChunk_gAMA(buffer[4 .. $], &writeChunk);
+            if (cHRM !is null)
+                writeChunk_cHRM(buffer[4 .. $], &writeChunk);
+            if (sRGB !is null)
+                writeChunk_sRGB(buffer[4 .. $], &writeChunk);
+            if (iCCP !is null)
+                writeChunk_iCCP(buffer[4 .. $], &writeChunk);
+            
+            writeChunk_tEXt(buffer[4 .. $], &writeChunk);
+            writeChunk_zEXt(buffer[4 .. $], &writeChunk);
+            
+            if (bKGD !is null)
+                writeChunk_bKGD(buffer[4 .. $], &writeChunk);
+            if (pPHs !is null)
+                writeChunk_pPHs(buffer[4 .. $], &writeChunk);
+            if (sBIT !is null)
+                writeChunk_sBIT(buffer[4 .. $], &writeChunk);
+            if (sPLT.length > 0)
+                writeChunk_sPLT(buffer[4 .. $], &writeChunk);
+            if (hIST.length > 0)
+                writeChunk_hIST(buffer[4 .. $], &writeChunk);
+            if (tIME !is null)
+                writeChunk_tIME(buffer[4 .. $], &writeChunk);
+            
+            static if (!is(Color == HeadersOnly)) {
+                writeChunk_IDAT(buffer[4 .. $], &writeChunk);
+            }
+            
+            // it contains nothing, so why bother having a dedicated method?
+            writeChunk(cast(char[4])"IEND", null);
+            
+            allocator.dispose(buffer);
+            return DummyRefCount!(ubyte[])(ret, alloc);
+        }
+        
+        void writeChunk_IHDR(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite;
+            
+            if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7)
+                throw allocator.make!ImageNotExportableException("Unable to export PNG image using Adam7 interlace.");
+            
+            towrite = buffer[0 .. 13];
+            towrite[0 .. 4] = nativeToBigEndian(IHDR.width);
+            towrite[4 .. 8] = nativeToBigEndian(IHDR.height);
+            towrite[8 .. 9] = nativeToBigEndian(IHDR.bitDepth);
+            towrite[9 .. 10] = nativeToBigEndian(IHDR.colorType);
+            towrite[10 .. 11] = nativeToBigEndian(IHDR.compressionMethod);
+            towrite[11 .. 12] = nativeToBigEndian(IHDR.filterMethod);
+            towrite[12 .. 13] = nativeToBigEndian(IHDR.interlaceMethod);
+            
+            write(cast(char[4])"IHDR", towrite);
+        }
+        
+        void writeChunk_PLTE(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite;
+            
+            towrite = buffer[0 .. PLTE.colors.length * 3];
+            
+            ubyte offset;
+            foreach(c; PLTE.colors) {
+                towrite[offset] = c.r;
+                towrite[offset + 1] = c.g;
+                towrite[offset + 2] = c.b;
+                
+                offset += 3;
+            }
+            
+            write(cast(char[4])"PLTE", towrite);
+        }
+        
+        void writeChunk_tRNS(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite;
+            
+            if (IHDR.colorType & PngIHDRColorType.Palette) {
+                towrite = buffer[0 .. tRNS.indexAlphas.length];
+                towrite[] = tRNS.indexAlphas[];
+            } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                    towrite = buffer[0 .. 2];
+                    towrite[] = nativeToBigEndian(tRNS.b16.r);
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                    towrite = buffer[0 .. 2];
+                    towrite[0] = tRNS.b8.r;
+                } else {
+                    towrite = buffer[0 .. 2];
+                    towrite[0] = cast(ubyte)(tRNS.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                }
+            } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                    towrite = buffer[0 .. 6];
+                    towrite[0 .. 2] = nativeToBigEndian(tRNS.b16.r);
+                    towrite[2 .. 4] = nativeToBigEndian(tRNS.b16.g);
+                    towrite[4 .. 6] = nativeToBigEndian(tRNS.b16.b);
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                    towrite = buffer[0 .. 6];
+                    towrite[0] = tRNS.b8.r;
+                    towrite[2] = tRNS.b8.g;
+                    towrite[4] = tRNS.b8.b;
+                } else {
+                    towrite = buffer[0 .. 6];
+                    towrite[0] = cast(ubyte)(tRNS.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                    towrite[2] = cast(ubyte)(tRNS.b8.g / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                    towrite[4] = cast(ubyte)(tRNS.b8.b / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                }
+            }
+            
+            write(cast(char[4])"tRNS", towrite);
+        }
+        
+        void writeChunk_gAMA(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite = buffer[0 .. 4];
+            towrite[] = nativeToBigEndian(gAMA.value);
+            write(cast(char[4])"gAMA", towrite);
+        }
+        
+        void writeChunk_cHRM(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite = buffer[0 .. 32];
+            towrite[0 .. 4] = nativeToBigEndian(cHRM.white_x);
+            towrite[4 .. 8] = nativeToBigEndian(cHRM.white_y);
+            towrite[8 .. 12] = nativeToBigEndian(cHRM.red_x);
+            towrite[12 .. 16] = nativeToBigEndian(cHRM.red_y);
+            towrite[16 .. 20] = nativeToBigEndian(cHRM.green_x);
+            towrite[20 .. 24] = nativeToBigEndian(cHRM.green_y);
+            towrite[24 .. 28] = nativeToBigEndian(cHRM.blue_x);
+            towrite[28 .. 32] = nativeToBigEndian(cHRM.blue_y);
+            write(cast(char[4])"cHRM", towrite);
+        }
+        
+        void writeChunk_sRGB(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite = buffer[0 .. 1];
+            towrite[0] = sRGB.intent;
+            write(cast(char[4])"sRGB", towrite);
+        }
+        
+        void writeChunk_iCCP(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            import std.zlib : compress;
+            ubyte[] towrite;
+            
+            towrite = buffer[0 .. iCCP.profileName.length + 2];
+            towrite[0 .. $-2] = cast(ubyte[])iCCP.profileName[];
             towrite[$-2] = '\0';
-            towrite[$-1] = PngIHDRCompresion.DeflateInflate;
+            towrite[$-1] = cast(ubyte)iCCP.compressionMethod;
             
-            // FIXME: allocates
-            ubyte[] compressed = cast(ubyte[])compress(value);
-            
+            ubyte[] compressed = cast(ubyte[])compress(iCCP.profile);
             towrite = buffer[0 .. towrite.length + compressed.length];
             towrite[$-compressed.length .. $] = compressed[];
             
-            write(cast(char[4])"zEXt", towrite);
-        }
-    }
-    
-    void writeChunk_bKGD(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite;
-        
-        if (IHDR.colorType & PngIHDRColorType.Palette) {
-            towrite = buffer[0 .. 1];
-            towrite[0] = bKGD.index;
-        } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
-            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                towrite = buffer[0 .. 2];
-                towrite[] = nativeToBigEndian(bKGD.b16.r);
-            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
-                towrite = buffer[0 .. 2];
-                towrite[0] = bKGD.b8.r;
-            } else {
-                towrite = buffer[0 .. 2];
-                towrite[0] = cast(ubyte)(bKGD.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-            }
-        } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
-            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                towrite = buffer[0 .. 6];
-                towrite[0 .. 2] = nativeToBigEndian(bKGD.b16.r);
-                towrite[2 .. 4] = nativeToBigEndian(bKGD.b16.g);
-                towrite[4 .. 6] = nativeToBigEndian(bKGD.b16.b);
-            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
-                towrite = buffer[0 .. 6];
-                towrite[0] = bKGD.b8.r;
-                towrite[2] = bKGD.b8.g;
-                towrite[4] = bKGD.b8.b;
-            } else {
-                towrite = buffer[0 .. 6];
-                towrite[0] = cast(ubyte)(bKGD.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                towrite[2] = cast(ubyte)(bKGD.b8.g / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                towrite[4] = cast(ubyte)(bKGD.b8.b / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-            }
+            write(cast(char[4])"iCCP", towrite);
         }
         
-        write(cast(char[4])"bKGD", towrite);
-    }
-    
-    void writeChunk_pPHs(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite = buffer[0 .. 9];
-        
-        towrite[0 .. 4] = nativeToBigEndian(pPHs.ppx);
-        towrite[4 .. 8] = nativeToBigEndian(pPHs.ppy);
-        towrite[8] = pPHs.unit;
-        
-        write(cast(char[4])"pPHs", towrite);
-    }
-    
-    void writeChunk_sBIT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite;
-        
-        if (IHDR.colorType & PngIHDRColorType.Palette) {
-            towrite = buffer[0 .. 3];
-            towrite[] = sBIT.indexed[];
-        } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
-            bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
-            
-            if (withAlpha) {
-                towrite = buffer[0 .. 2];
-                towrite[] = sBIT.grayScaleAlpha[];
-            } else {
-                towrite = buffer[0 .. 1];
-                towrite[0] = sBIT.grayScale;
-            }
-        } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
-            bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
-            
-            if (withAlpha) {
-                towrite = buffer[0 .. 4];
-                towrite[] = sBIT.trueColorAlpha[];
-            } else {
-                towrite = buffer[0 .. 3];
-                towrite[] = sBIT.trueColor[];
-            }
-        }
-        
-        write(cast(char[4])"sBIT", towrite);
-    }
-    
-    void writeChunk_sPLT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite;
-        
-        foreach(chunk; sPLT) {
-            towrite = buffer[towrite.length .. towrite.length + chunk.paletteName.length + 2];
-            towrite[$-(chunk.paletteName.length + 2) .. $-2] = cast(ubyte[])chunk.paletteName[];
-            towrite[$-2] = '\0';
-            towrite[$-1] = chunk.sampleDepth;
-            
-            size_t count;
-            if (chunk.sampleDepth == PngIHDRBitDepth.BitDepth8) {
-                size_t offset = towrite.length;
-                towrite = buffer[0 .. towrite.length + (chunk.colors.length * 6)];
+        void writeChunk_tEXt(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            foreach(keyword2, value; tEXt) {
+                string keyword = cast(string)keyword2;
+                ubyte[] towrite = buffer[0 .. keyword.length + 1];
                 
-                foreach(c; chunk.colors) {
-                    towrite[offset] = c.color.b8.r;
-                    towrite[offset + 1] = c.color.b8.g;
-                    towrite[offset + 2] = c.color.b8.b;
-                    towrite[offset + 3] = c.color.b8.a;
-                    towrite[offset + 4 .. offset + 6] = nativeToBigEndian(c.frequency);
-                    
-                    offset += 6;
-                }
-            } else if (chunk.sampleDepth == PngIHDRBitDepth.BitDepth16) {
-                size_t offset = towrite.length;
-                towrite = buffer[0 .. towrite.length + (chunk.colors.length * 10)];
+                towrite[0 .. $-1] = cast(ubyte[])keyword[];
+                towrite[$-1] = '\0';
                 
-                foreach(c; chunk.colors) {
-                    towrite[offset .. offset + 2] = nativeToBigEndian(c.color.b16.r);
-                    towrite[offset + 2 .. offset + 4] = nativeToBigEndian(c.color.b16.g);
-                    towrite[offset + 4 .. offset + 6] = nativeToBigEndian(c.color.b16.b);
-                    towrite[offset + 6 .. offset + 8] = nativeToBigEndian(c.color.b16.a);
-                    towrite[offset + 8 .. offset + 10] = nativeToBigEndian(c.frequency);
-                    
-                    offset += 10;
-                }
-            } else {
-                // TODO: ugh oh, this is not good!
+                towrite = buffer[0 .. towrite.length + value.length];
+                towrite[$-value.length .. $] = cast(ubyte[])value[];
+                
+                write(cast(char[4])"tEXt", towrite);
             }
         }
         
-        write(cast(char[4])"sPLT", towrite);
-    }
-    
-    void writeChunk_hIST(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite = buffer[0 .. hIST.length * 2];
-        
-        size_t offset;
-        foreach(v; hIST) {
-            towrite[offset .. offset + 2] = nativeToBigEndian(v);
-            
-            offset += 2;
-        }
-        
-        write(cast(char[4])"hIST", towrite);
-    }
-    
-    void writeChunk_tIME(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
-        ubyte[] towrite = buffer[0 .. 7];
-        
-        towrite[0 .. 2] = nativeToBigEndian(tIME.year);
-        towrite[2] = tIME.month;
-        towrite[3] = tIME.day;
-        towrite[4] = tIME.hour;
-        towrite[5] = tIME.minute;
-        towrite[6] = tIME.second;
-        
-        write(cast(char[4])"tIME", towrite);
-    }
-    
-    static if (!is(Color == HeadersOnly)) {
-        void writeChunk_IDAT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+        void writeChunk_zEXt(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
             import std.zlib : compress;
-            import std.math : ceil;
             
-            ubyte findPLTEColor(Color c1) {
-                RGB8 c = convertColor!RGB8(c1);
+            foreach(keyword2, value; zEXt) {
+                string keyword = cast(string)keyword2;
+                ubyte[] towrite = buffer[0 .. keyword.length + 2];
                 
-                foreach(i, c2; PLTE.colors) {
-                    if (i >= 256)
-                        break;
-                    
-                    if (c2 == c) {
-                        return cast(ubyte)i;
-                    }
+                towrite[0 .. $-2] = cast(ubyte[])keyword[];
+                towrite[$-2] = '\0';
+                towrite[$-1] = PngIHDRCompresion.DeflateInflate;
+                
+                // FIXME: allocates
+                ubyte[] compressed = cast(ubyte[])compress(value);
+                
+                towrite = buffer[0 .. towrite.length + compressed.length];
+                towrite[$-compressed.length .. $] = compressed[];
+                
+                write(cast(char[4])"zEXt", towrite);
+            }
+        }
+        
+        void writeChunk_bKGD(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite;
+            
+            if (IHDR.colorType & PngIHDRColorType.Palette) {
+                towrite = buffer[0 .. 1];
+                towrite[0] = bKGD.index;
+            } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                    towrite = buffer[0 .. 2];
+                    towrite[] = nativeToBigEndian(bKGD.b16.r);
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                    towrite = buffer[0 .. 2];
+                    towrite[0] = bKGD.b8.r;
+                } else {
+                    towrite = buffer[0 .. 2];
+                    towrite[0] = cast(ubyte)(bKGD.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
                 }
+            } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                    towrite = buffer[0 .. 6];
+                    towrite[0 .. 2] = nativeToBigEndian(bKGD.b16.r);
+                    towrite[2 .. 4] = nativeToBigEndian(bKGD.b16.g);
+                    towrite[4 .. 6] = nativeToBigEndian(bKGD.b16.b);
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                    towrite = buffer[0 .. 6];
+                    towrite[0] = bKGD.b8.r;
+                    towrite[2] = bKGD.b8.g;
+                    towrite[4] = bKGD.b8.b;
+                } else {
+                    towrite = buffer[0 .. 6];
+                    towrite[0] = cast(ubyte)(bKGD.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                    towrite[2] = cast(ubyte)(bKGD.b8.g / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                    towrite[4] = cast(ubyte)(bKGD.b8.b / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+                }
+            }
+            
+            write(cast(char[4])"bKGD", towrite);
+        }
+        
+        void writeChunk_pPHs(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite = buffer[0 .. 9];
+            
+            towrite[0 .. 4] = nativeToBigEndian(pPHs.ppx);
+            towrite[4 .. 8] = nativeToBigEndian(pPHs.ppy);
+            towrite[8] = pPHs.unit;
+            
+            write(cast(char[4])"pPHs", towrite);
+        }
+        
+        void writeChunk_sBIT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite;
+            
+            if (IHDR.colorType & PngIHDRColorType.Palette) {
+                towrite = buffer[0 .. 3];
+                towrite[] = sBIT.indexed[];
+            } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
+                bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
                 
-                throw alloc.make!ImageNotExportableException("Palette not completed with all colors.");
-            }
-            
-            // the actual color size used (sample size * # of samples)
-            size_t colorSize;
-            
-            if (IHDR.colorType == PngIHDRColorType.PalletteWithColorUsed || IHDR.colorType == PngIHDRColorType.AlphaChannelUsed) {
-                colorSize = 2;
-            } else if (IHDR.colorType == PngIHDRColorType.Palette || IHDR.colorType == PngIHDRColorType.Grayscale) {
-                colorSize = 1;
-            } else if (IHDR.colorType == PngIHDRColorType.ColorUsedWithAlpha) {
-                colorSize = 4;
-            } else if (IHDR.colorType == PngIHDRColorType.ColorUsed) {
-                colorSize = 3;
-            }
-            
-            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
-                colorSize *= 2;
-            
-            ubyte samplesPerPixel;
-            
-            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
-                samplesPerPixel = 2;
-            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
-                samplesPerPixel = 4;
-            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
-                samplesPerPixel = 8;
-            } else
-                samplesPerPixel = 1;
-            
-            // allocate the output buffer
-            
-            ubyte[] rawColorData = alloc.makeArray!ubyte((IHDR.width * IHDR.height * colorSize) / samplesPerPixel);
-            
-            if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                // allows the "filter" to store its adaptive offsets
-                alloc.expandArray(rawColorData, IHDR.height);
-            }
-            
-            bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
-            bool isGrayScale = (IHDR.colorType & PngIHDRColorType.Grayscale) == PngIHDRColorType.Grayscale;
-            bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
-            bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
-            
-            // peform encoding
-            
-            if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
-                // TODO: Adam7 algo IDAT.unfiltered_uncompressed_pixels
-                throw allocator.make!ImageNotExportableException("Adam7 interlace method not supported");
-            } else if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
-                // store
-                size_t pOffset;
+                if (withAlpha) {
+                    towrite = buffer[0 .. 2];
+                    towrite[] = sBIT.grayScaleAlpha[];
+                } else {
+                    towrite = buffer[0 .. 1];
+                    towrite[0] = sBIT.grayScale;
+                }
+            } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
+                bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
                 
-                if (isPalette) {
-                    foreach(pixelData; rangeOf(value)) {
-                        if (pixelData.x == 0) {
-                            if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                                // performs the "filter" process
-                                
-                                rawColorData[pOffset] = 0;
-                                pOffset++;
-                            }
-                        }
+                if (withAlpha) {
+                    towrite = buffer[0 .. 4];
+                    towrite[] = sBIT.trueColorAlpha[];
+                } else {
+                    towrite = buffer[0 .. 3];
+                    towrite[] = sBIT.trueColor[];
+                }
+            }
+            
+            write(cast(char[4])"sBIT", towrite);
+        }
+        
+        void writeChunk_sPLT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite;
+            
+            foreach(chunk; sPLT) {
+                towrite = buffer[towrite.length .. towrite.length + chunk.paletteName.length + 2];
+                towrite[$-(chunk.paletteName.length + 2) .. $-2] = cast(ubyte[])chunk.paletteName[];
+                towrite[$-2] = '\0';
+                towrite[$-1] = chunk.sampleDepth;
+                
+                size_t count;
+                if (chunk.sampleDepth == PngIHDRBitDepth.BitDepth8) {
+                    size_t offset = towrite.length;
+                    towrite = buffer[0 .. towrite.length + (chunk.colors.length * 6)];
+                    
+                    foreach(c; chunk.colors) {
+                        towrite[offset] = c.color.b8.r;
+                        towrite[offset + 1] = c.color.b8.g;
+                        towrite[offset + 2] = c.color.b8.b;
+                        towrite[offset + 3] = c.color.b8.a;
+                        towrite[offset + 4 .. offset + 6] = nativeToBigEndian(c.frequency);
                         
-                        rawColorData[pOffset] = findPLTEColor(pixelData.value);
-                        pOffset += colorSize;
+                        offset += 6;
                     }
-                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8 || IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                    foreach(pixelData; rangeOf(value)) {
-                        if (pixelData.x == 0) {
-                            if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                                // performs the "filter" process
-                                
-                                rawColorData[pOffset] = 0;
-                                pOffset++;
-                            }
-                        }
+                } else if (chunk.sampleDepth == PngIHDRBitDepth.BitDepth16) {
+                    size_t offset = towrite.length;
+                    towrite = buffer[0 .. towrite.length + (chunk.colors.length * 10)];
+                    
+                    foreach(c; chunk.colors) {
+                        towrite[offset .. offset + 2] = nativeToBigEndian(c.color.b16.r);
+                        towrite[offset + 2 .. offset + 4] = nativeToBigEndian(c.color.b16.g);
+                        towrite[offset + 4 .. offset + 6] = nativeToBigEndian(c.color.b16.b);
+                        towrite[offset + 6 .. offset + 8] = nativeToBigEndian(c.color.b16.a);
+                        towrite[offset + 8 .. offset + 10] = nativeToBigEndian(c.frequency);
                         
-                        if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                            RGBA16 pixToUse = convertColor!RGBA16(pixelData.value);
-                            
-                            if (isColor) {
-                                rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(pixToUse.r);
-                                rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.g);
-                                rawColorData[pOffset + 4 .. pOffset + 6] = nativeToBigEndian(pixToUse.b);
-                                
-                                if (withAlpha)
-                                    rawColorData[pOffset + 6 .. pOffset + 8] = nativeToBigEndian(pixToUse.a);
-                            } else if (isGrayScale) {
-                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
-                                rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(cast(ushort)pixG);
-                                
-                                if (withAlpha)
-                                    rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.a);
-                            }
-                        } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
-                            RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
-                            
-                            if (isColor) {
-                                rawColorData[pOffset .. pOffset + 1] = pixToUse.r;
-                                rawColorData[pOffset + 1 .. pOffset + 2] = pixToUse.g;
-                                rawColorData[pOffset + 2 .. pOffset + 3] = pixToUse.b;
-                                
-                                if (withAlpha)
-                                    rawColorData[pOffset + 3 .. pOffset + 4] = pixToUse.a;
-                            } else if (isGrayScale) {
-                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
-                                rawColorData[pOffset] = cast(ubyte)pixG;
-                                
-                                if (withAlpha)
-                                    rawColorData[pOffset + 1] = pixToUse.a;
-                            }
-                        }
-                        
-                        pOffset += colorSize;
+                        offset += 10;
                     }
                 } else {
-                    // 1, 2, 4 bit depths
-                    ubyte bitMaxValue;
+                    // TODO: ugh oh, this is not good!
+                }
+            }
+            
+            write(cast(char[4])"sPLT", towrite);
+        }
+        
+        void writeChunk_hIST(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite = buffer[0 .. hIST.length * 2];
+            
+            size_t offset;
+            foreach(v; hIST) {
+                towrite[offset .. offset + 2] = nativeToBigEndian(v);
+                
+                offset += 2;
+            }
+            
+            write(cast(char[4])"hIST", towrite);
+        }
+        
+        void writeChunk_tIME(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+            ubyte[] towrite = buffer[0 .. 7];
+            
+            towrite[0 .. 2] = nativeToBigEndian(tIME.year);
+            towrite[2] = tIME.month;
+            towrite[3] = tIME.day;
+            towrite[4] = tIME.hour;
+            towrite[5] = tIME.minute;
+            towrite[6] = tIME.second;
+            
+            write(cast(char[4])"tIME", towrite);
+        }
+        
+        static if (!is(Color == HeadersOnly)) {
+            void writeChunk_IDAT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
+                import std.zlib : compress;
+                import std.math : ceil;
+                
+                ubyte findPLTEColor(Color c1) {
+                    RGB8 c = convertColor!RGB8(c1);
                     
-                    if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
-                        bitMaxValue = 15;
-                    } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
-                        bitMaxValue = 3;
-                    } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
-                        bitMaxValue = 1;
+                    foreach(i, c2; PLTE.colors) {
+                        if (i >= 256)
+                            break;
+                        
+                        if (c2 == c) {
+                            return cast(ubyte)i;
+                        }
                     }
                     
-                    ubyte byteToOffset;
-                    ubyte bitByteCount = cast(ubyte)(8 / IHDR.bitDepth);
-                    uint scanLineByteCount = cast(uint)(IHDR.width / samplesPerPixel);
+                    throw alloc.make!ImageNotExportableException("Palette not completed with all colors.");
+                }
+                
+                // the actual color size used (sample size * # of samples)
+                size_t colorSize;
+                
+                if (IHDR.colorType == PngIHDRColorType.PalletteWithColorUsed || IHDR.colorType == PngIHDRColorType.AlphaChannelUsed) {
+                    colorSize = 2;
+                } else if (IHDR.colorType == PngIHDRColorType.Palette || IHDR.colorType == PngIHDRColorType.Grayscale) {
+                    colorSize = 1;
+                } else if (IHDR.colorType == PngIHDRColorType.ColorUsedWithAlpha) {
+                    colorSize = 4;
+                } else if (IHDR.colorType == PngIHDRColorType.ColorUsed) {
+                    colorSize = 3;
+                }
+                
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
+                    colorSize *= 2;
+                
+                ubyte samplesPerPixel;
+                
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
+                    samplesPerPixel = 2;
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
+                    samplesPerPixel = 4;
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
+                    samplesPerPixel = 8;
+                } else
+                    samplesPerPixel = 1;
+                
+                // allocate the output buffer
+                
+                ubyte[] rawColorData = alloc.makeArray!ubyte((IHDR.width * IHDR.height * colorSize) / samplesPerPixel);
+                
+                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                    // allows the "filter" to store its adaptive offsets
+                    alloc.expandArray(rawColorData, IHDR.height);
+                }
+                
+                bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
+                bool isGrayScale = (IHDR.colorType & PngIHDRColorType.Grayscale) == PngIHDRColorType.Grayscale;
+                bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
+                bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
+                
+                // peform encoding
+                
+                if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
+                    // TODO: Adam7 algo IDAT.unfiltered_uncompressed_pixels
+                    throw allocator.make!ImageNotExportableException("Adam7 interlace method not supported");
+                } else if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
+                    // store
+                    size_t pOffset;
                     
-                    foreach(pixelData; rangeOf(value)) {
-                        void storeChannel(ubyte v) {
-                            if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                                if ((pOffset % (scanLineByteCount + 1)) == 0) {
+                    if (isPalette) {
+                        foreach(pixelData; rangeOf(value)) {
+                            if (pixelData.x == 0) {
+                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
                                     // performs the "filter" process
                                     
                                     rawColorData[pOffset] = 0;
@@ -1934,80 +1751,159 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 }
                             }
                             
-                            if (byteToOffset > 0) {
-                                v <<= (IHDR.bitDepth * byteToOffset);
-                                rawColorData[pOffset] |= v;
-                            } else
-                                rawColorData[pOffset] = v;
-                            
-                            byteToOffset++;
-                            if (byteToOffset == bitByteCount) {
-                                byteToOffset = 0;
-                                pOffset++;
+                            rawColorData[pOffset] = findPLTEColor(pixelData.value);
+                            pOffset += colorSize;
+                        }
+                    } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8 || IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                        foreach(pixelData; rangeOf(value)) {
+                            if (pixelData.x == 0) {
+                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                                    // performs the "filter" process
+                                    
+                                    rawColorData[pOffset] = 0;
+                                    pOffset++;
+                                }
                             }
+                            
+                            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                                RGBA16 pixToUse = convertColor!RGBA16(pixelData.value);
+                                
+                                if (isColor) {
+                                    rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(pixToUse.r);
+                                    rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.g);
+                                    rawColorData[pOffset + 4 .. pOffset + 6] = nativeToBigEndian(pixToUse.b);
+                                    
+                                    if (withAlpha)
+                                        rawColorData[pOffset + 6 .. pOffset + 8] = nativeToBigEndian(pixToUse.a);
+                                } else if (isGrayScale) {
+                                    float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
+                                    rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(cast(ushort)pixG);
+                                    
+                                    if (withAlpha)
+                                        rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.a);
+                                }
+                            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                                RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
+                                
+                                if (isColor) {
+                                    rawColorData[pOffset .. pOffset + 1] = pixToUse.r;
+                                    rawColorData[pOffset + 1 .. pOffset + 2] = pixToUse.g;
+                                    rawColorData[pOffset + 2 .. pOffset + 3] = pixToUse.b;
+                                    
+                                    if (withAlpha)
+                                        rawColorData[pOffset + 3 .. pOffset + 4] = pixToUse.a;
+                                } else if (isGrayScale) {
+                                    float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
+                                    rawColorData[pOffset] = cast(ubyte)pixG;
+                                    
+                                    if (withAlpha)
+                                        rawColorData[pOffset + 1] = pixToUse.a;
+                                }
+                            }
+                            
+                            pOffset += colorSize;
+                        }
+                    } else {
+                        // 1, 2, 4 bit depths
+                        ubyte bitMaxValue;
+                        
+                        if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
+                            bitMaxValue = 15;
+                        } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
+                            bitMaxValue = 3;
+                        } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
+                            bitMaxValue = 1;
                         }
                         
-                        RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
-                        ubyte[4] bitDepthValues = [
-                            cast(ubyte)ceil((pixToUse.r / 256f) * bitMaxValue),
-                            cast(ubyte)ceil((pixToUse.g / 256f) * bitMaxValue),
-                            cast(ubyte)ceil((pixToUse.b / 256f) * bitMaxValue),
-                            cast(ubyte)ceil((pixToUse.a / 256f) * bitMaxValue)
-                        ];
+                        ubyte byteToOffset;
+                        ubyte bitByteCount = cast(ubyte)(8 / IHDR.bitDepth);
+                        uint scanLineByteCount = cast(uint)(IHDR.width / samplesPerPixel);
                         
-                        if (isColor) {
-                            storeChannel(bitDepthValues[0]);
-                            storeChannel(bitDepthValues[1]);
-                            storeChannel(bitDepthValues[2]);
+                        foreach(pixelData; rangeOf(value)) {
+                            void storeChannel(ubyte v) {
+                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                                    if ((pOffset % (scanLineByteCount + 1)) == 0) {
+                                        // performs the "filter" process
+                                        
+                                        rawColorData[pOffset] = 0;
+                                        pOffset++;
+                                    }
+                                }
+                                
+                                if (byteToOffset > 0) {
+                                    v <<= (IHDR.bitDepth * byteToOffset);
+                                    rawColorData[pOffset] |= v;
+                                } else
+                                    rawColorData[pOffset] = v;
+                                
+                                byteToOffset++;
+                                if (byteToOffset == bitByteCount) {
+                                    byteToOffset = 0;
+                                    pOffset++;
+                                }
+                            }
                             
-                            if (withAlpha)
-                                storeChannel(bitDepthValues[3]);
-                        } else if (isGrayScale) {
-                            storeChannel(bitDepthValues[0]);
+                            RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
+                            ubyte[4] bitDepthValues = [
+                                cast(ubyte)ceil((pixToUse.r / 256f) * bitMaxValue),
+                                cast(ubyte)ceil((pixToUse.g / 256f) * bitMaxValue),
+                                cast(ubyte)ceil((pixToUse.b / 256f) * bitMaxValue),
+                                cast(ubyte)ceil((pixToUse.a / 256f) * bitMaxValue)
+                            ];
                             
-                            if (withAlpha)
-                                storeChannel(bitDepthValues[3]);
+                            if (isColor) {
+                                storeChannel(bitDepthValues[0]);
+                                storeChannel(bitDepthValues[1]);
+                                storeChannel(bitDepthValues[2]);
+                                
+                                if (withAlpha)
+                                    storeChannel(bitDepthValues[3]);
+                            } else if (isGrayScale) {
+                                storeChannel(bitDepthValues[0]);
+                                
+                                if (withAlpha)
+                                    storeChannel(bitDepthValues[3]);
+                            }
                         }
                     }
                 }
+                
+                ubyte[] compressed;
+                
+                // compress
+                
+                if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {
+                    compressed = cast(ubyte[])compress(rawColorData);
+                } else {
+                    throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
+                }
+                
+                ubyte[] bfr2 = buffer[0 .. compressed.length];
+                bfr2[] = compressed[];
+                
+                write(cast(char[4])"IDAT", bfr2);
+                alloc.dispose(rawColorData);
             }
-            
-            ubyte[] compressed;
-            
-            // compress
-            
-            if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {
-                compressed = cast(ubyte[])compress(rawColorData);
-            } else {
-                throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
+        }
+        
+        /*
+         * Misc functions
+         */
+        
+        void performCompatConfigure() {
+            static if (!is(Color == HeadersOnly)) {
+                IHDR.width = cast(uint)value.width;
+                IHDR.height = cast(uint)value.height;
+                
+                // TODO: better color space guessing
+                
+                IHDR.bitDepth = PngIHDRBitDepth.BitDepth8;
+                IHDR.colorType = PngIHDRColorType.ColorUsedWithAlpha;
+                IHDR.compressionMethod = PngIHDRCompresion.DeflateInflate;
+                IHDR.filterMethod = PngIHDRFilter.Adaptive;
             }
-            
-            ubyte[] bfr2 = buffer[0 .. compressed.length];
-            bfr2[] = compressed[];
-            
-            write(cast(char[4])"IDAT", bfr2);
-            alloc.dispose(rawColorData);
         }
     }
-    
-    /*
-     * Misc functions
-     */
-    
-    void performCompatConfigure() {
-        static if (!is(Color == HeadersOnly)) {
-            IHDR.width = cast(uint)value.width;
-            IHDR.height = cast(uint)value.height;
-            
-            // TODO: better color space guessing
-            
-            IHDR.bitDepth = PngIHDRBitDepth.BitDepth8;
-            IHDR.colorType = PngIHDRColorType.ColorUsedWithAlpha;
-            IHDR.compressionMethod = PngIHDRCompresion.DeflateInflate;
-            IHDR.filterMethod = PngIHDRFilter.Adaptive;
-        }
-    }
-}
 }
 
 /**
