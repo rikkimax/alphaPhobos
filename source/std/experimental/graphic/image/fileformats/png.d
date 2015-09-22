@@ -1137,7 +1137,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     } else {
                         size_t maxSamples = IHDR.width;
                         if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7)
-                            maxSamples = cast(size_t)floor((maxSamples - starting_col[pass]) / cast(float)col_increment[pass]);
+                            maxSamples = cast(size_t)ceil((maxSamples - starting_col[pass]) / cast(float)col_increment[pass]);
                         maxSamples *= sampleSize;
 
                         // 1, 2, 4 bit depths
