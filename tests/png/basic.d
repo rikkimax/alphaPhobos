@@ -22,7 +22,6 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
 
     testOutput(image1.toString());
     image1.IHDR.interlaceMethod = PngIHDRInterlaceMethod.NoInterlace;
-    image1.IHDR.bitDepth = PngIHDRBitDepth.BitDepth8;
 
     // export
     testOutput("export");

@@ -1044,8 +1044,6 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             offsetX = starting_col[pass];
                         }
                     }
-                    import std.stdio;
-                    writeln("x: ", offsetX, " y: ", offsetY);
 
                     // store color at coordinate
                     static if (is(ColorP == Color))
@@ -1833,10 +1831,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 }
                                 
                                 if (byteToOffset > 0) {
-                                    v |= rawColorData[pOffset] << (IHDR.bitDepth * byteToOffset);
-                                    rawColorData[pOffset] = v;
+                                    v = cast(ubyte)(v << ((8-IHDR.bitDepth)-(IHDR.bitDepth * byteToOffset)));
+                                    rawColorData[pOffset] |= v;
                                 } else
-                                    rawColorData[pOffset] = v;
+                                    rawColorData[pOffset] = cast(ubyte)(v << (8-IHDR.bitDepth));
                                 
                                 byteToOffset++;
                                 if (byteToOffset == bitByteCount) {
