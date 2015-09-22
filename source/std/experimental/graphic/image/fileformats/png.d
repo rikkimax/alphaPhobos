@@ -1161,12 +1161,12 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
                                 samples[0] = cast(ubyte)(((scb & 1) >> 0) * 255);
                                 samples[1] = cast(ubyte)(((scb & 2) >> 1) * 255);
-                                samples[2] = cast(ubyte)(((scb & 4) >> 1) * 255);
-                                samples[3] = cast(ubyte)(((scb & 8) >> 1) * 255);
-                                samples[4] = cast(ubyte)(((scb & 16) >> 1) * 255);
-                                samples[5] = cast(ubyte)(((scb & 32) >> 1) * 255);
-                                samples[6] = cast(ubyte)(((scb & 64) >> 1) * 255);
-                                samples[7] = cast(ubyte)(((scb & 128) >> 1) * 255);
+                                samples[2] = cast(ubyte)(((scb & 4) >> 2) * 255);
+                                samples[3] = cast(ubyte)(((scb & 8) >> 3) * 255);
+                                samples[4] = cast(ubyte)(((scb & 16) >> 4) * 255);
+                                samples[5] = cast(ubyte)(((scb & 32) >> 5) * 255);
+                                samples[6] = cast(ubyte)(((scb & 64) >> 6) * 255);
+                                samples[7] = cast(ubyte)(((scb & 128) >> 7) * 255);
                             }
 
                             if (samples.length <= maxSamples)
