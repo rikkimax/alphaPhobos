@@ -22,6 +22,7 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
 
     testOutput(image1.toString());
     image1.IHDR.interlaceMethod = PngIHDRInterlaceMethod.NoInterlace;
+    image1.IHDR.bitDepth = PngIHDRBitDepth.BitDepth8;
 
     // export
     testOutput("export");
@@ -244,7 +245,7 @@ unittest {
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
     }("tests/png/assets/basi0g01.png", true);
-    
+
     png_test1!q{
         assert(image.checkIDHR(32, 32,
                 PngIHDRBitDepth.BitDepth2,
