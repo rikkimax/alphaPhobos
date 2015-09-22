@@ -1044,6 +1044,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             offsetX = starting_col[pass];
                         }
                     }
+                    import std.stdio;
+                    writeln("x: ", offsetX, " y: ", offsetY);
 
                     // store color at coordinate
                     static if (is(ColorP == Color))
@@ -1147,26 +1149,26 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
                                 samples = tempBitDepth124[0 .. 2];
 
-                                samples[0] = cast(ubyte)(((scb & 15) >> 0) * 17);
-                                samples[1] = cast(ubyte)(((scb & 240) >> 4) * 17);
+                                samples[1] = cast(ubyte)(((scb & 15) >> 0) * 17);
+                                samples[0] = cast(ubyte)(((scb & 240) >> 4) * 17);
                             } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
                                 samples = tempBitDepth124[0 .. 4];
 
-                                samples[0] = cast(ubyte)(((scb & 3) >> 0) * 85);
-                                samples[1] = cast(ubyte)(((scb & 12) >> 2) * 85);
-                                samples[2] = cast(ubyte)(((scb & 48) >> 4) * 85);
-                                samples[3] = cast(ubyte)(((scb & 192) >> 6) * 85);
+                                samples[3] = cast(ubyte)(((scb & 3) >> 0) * 85);
+                                samples[2] = cast(ubyte)(((scb & 12) >> 2) * 85);
+                                samples[1] = cast(ubyte)(((scb & 48) >> 4) * 85);
+                                samples[0] = cast(ubyte)(((scb & 192) >> 6) * 85);
                             } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
                                 samples = tempBitDepth124[0 .. 8];
 
-                                samples[0] = cast(ubyte)(((scb & 1) >> 0) * 255);
-                                samples[1] = cast(ubyte)(((scb & 2) >> 1) * 255);
-                                samples[2] = cast(ubyte)(((scb & 4) >> 2) * 255);
-                                samples[3] = cast(ubyte)(((scb & 8) >> 3) * 255);
-                                samples[4] = cast(ubyte)(((scb & 16) >> 4) * 255);
-                                samples[5] = cast(ubyte)(((scb & 32) >> 5) * 255);
-                                samples[6] = cast(ubyte)(((scb & 64) >> 6) * 255);
-                                samples[7] = cast(ubyte)(((scb & 128) >> 7) * 255);
+                                samples[7] = cast(ubyte)(((scb & 1) >> 0) * 255);
+                                samples[6] = cast(ubyte)(((scb & 2) >> 1) * 255);
+                                samples[5] = cast(ubyte)(((scb & 4) >> 2) * 255);
+                                samples[4] = cast(ubyte)(((scb & 8) >> 3) * 255);
+                                samples[3] = cast(ubyte)(((scb & 16) >> 4) * 255);
+                                samples[2] = cast(ubyte)(((scb & 32) >> 5) * 255);
+                                samples[1] = cast(ubyte)(((scb & 64) >> 6) * 255);
+                                samples[0] = cast(ubyte)(((scb & 128) >> 7) * 255);
                             }
 
                             if (samples.length <= maxSamples)
@@ -1831,8 +1833,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 }
                                 
                                 if (byteToOffset > 0) {
-                                    v <<= (IHDR.bitDepth * byteToOffset);
-                                    rawColorData[pOffset] |= v;
+                                    v |= rawColorData[pOffset] << (IHDR.bitDepth * byteToOffset);
+                                    rawColorData[pOffset] = v;
                                 } else
                                     rawColorData[pOffset] = v;
                                 
