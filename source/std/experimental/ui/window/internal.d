@@ -1,7 +1,16 @@
 ﻿module std.experimental.ui.window.internal;
+import std.experimental.ui.window.defs;
+import std.experimental.platform : IDisplay, ImplPlatform;
+import std.experimental.allocator : IAllocator, processAllocator, make, makeArray;
+import std.experimental.math.linearalgebra.vector : vec2;
+import std.experimental.graphic.image : ImageStorage;
+import std.experimental.ui.window.features;
 
 package(std.experimental) {
     mixin template WindowPlatformImpl() {
+        version(Windows)
+            pragma(lib, "gdi32");
+
         IWindowCreator createWindow() {assert(0);}
         IWindow createAWindow() {assert(0);}
         
@@ -38,12 +47,6 @@ package(std.experimental) {
             IAllocator alloc;
         }
     }
-
-    import std.experimental.ui.window.defs;
-    import std.experimental.ui.window.features;
-    import std.experimental.platform : IDisplay, ImplPlatform;
-    import std.experimental.allocator : IAllocator, processAllocator, make, makeArray;
-    import std.experimental.math.linearalgebra.vector : vec2;
 
     version(Windows) {
         import core.sys.windows.windows;
@@ -148,8 +151,6 @@ package(std.experimental) {
         }
 
         version(Windows) {
-            pragma(lib, "gdi32");
-
             this(HMONITOR hMonitor, HDC hdc, IAllocator alloc) {
                 import std.string : fromStringz;
 
@@ -186,5 +187,44 @@ package(std.experimental) {
 
             bool primary() { return primaryDisplay_; }
         }
+    }
+
+    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Have_ScreenShot, Have_Icon {
+        private {
+            HWND hwnd;
+        }
+
+        version(Windows) {
+            this(HWND hwnd) {
+                this.hwnd = hwnd;
+            }
+        }
+
+        @property {
+            string title();
+            void title(string);
+            
+            UIPoint size();
+            void location(UIPoint);
+            
+            UIPoint location();
+            void size(UIPoint);
+            
+            IDisplay display();
+            IContext context();
+        }
+        
+        void hide();
+        void show();
+        void close();
+
+        // features
+
+        Feature_ScreenShot __getFeatureScreenShot() { return this; }
+        ImageStorage!RGB8 screenshot();
+
+        Feature_Icon __getFeatureIcon() { return this; }
+        ImageStorage!RGBA8 getIcon() @property;
+        void setIcon(ImageStorage!RGBA8) @property;
     }
 }
