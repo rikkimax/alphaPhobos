@@ -89,8 +89,13 @@ private {
     }
     
     final class ImplPlatform : IPlatform {
-        private ubyte enabledEventLoops;
-        private import std.experimental.ui.window.internal;
+        private {
+            import std.experimental.ui.window.internal;
+
+            // theoretically it is possible that you could have e.g. Wayland/X11 on a platform such as Windows
+            //  but also have a Windows event loop *grrr*
+            ubyte enabledEventLoops;
+        }
 
         mixin WindowPlatformImpl;
         

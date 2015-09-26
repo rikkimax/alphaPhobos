@@ -8,10 +8,15 @@ alias UIPoint = vec2!int;
 
 interface IWindow {
 	@property {
+        string title();
+        void title(string);
+
         UIPoint size();
+        void location(UIPoint);
+
         UIPoint location();
         void size(UIPoint);
-        void location(UIPoint);
+
 		IDisplay display();
 		IContext context();
 	}
