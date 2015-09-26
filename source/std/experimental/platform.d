@@ -3,7 +3,7 @@ import std.experimental.ui.window.defs : IWindow, IWindowCreator;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.datetime : Duration, seconds;
 
-shared interface IPlatform {
+interface IPlatform {
     IWindowCreator createWindow();
     IWindow createAWindow(); // completely up to platform implementation to what the defaults are
     
@@ -21,33 +21,32 @@ shared interface IPlatform {
     }
 }
 
-shared(IPlatform) thePlatform() {
+IPlatform thePlatform() {
     return thePlatform_;
 }
 
-shared(IPlatform) defaultPlatform() {
+IPlatform defaultPlatform() {
     return defaultPlatform_;
 }
 
 interface IDisplay {
-    @property {
+    @property immutable {
         string name();
         vec2!ushort size();
         uint refreshRate();
-        uint dotsPerInch();
-        immutable(IWindow[]) windows();
+        IWindow[] windows();
     }
 }
 
 private {
-    shared(IPlatform) defaultPlatform_;
-    shared(IPlatform) thePlatform_;
+    __gshared IPlatform defaultPlatform_;
+    __gshared IPlatform thePlatform_;
     
     shared static this() {
-        defaultPlatform_ = new shared ImplPlatform();
+        defaultPlatform_ = new ImplPlatform();
         thePlatform_ = defaultPlatform_;
     }
-
+    
     /*
      * Do not forget when implementing the event loop on non Windows
      *      it will be necessary to process a second event loop e.g. kqueue or epoll.
@@ -80,39 +79,89 @@ private {
         }
     }
     
-    final shared class ImplPlatform : IPlatform {
-        IWindowCreator createWindow() {assert(0);}
-        IWindow createAWindow() {assert(0);}
-        
-        @property {
-            immutable(IDisplay) primaryDisplay() {assert(0);}
-            immutable(IDisplay[]) displays() {assert(0);}
-            immutable(IWindow[]) windows() {assert(0);}
-        }
+    enum EnabledEventLoops {
+        None = 1 << 0,
+        Windows = 1 << 1,
+        X11 = 1 << 2,
+        Cocoa = 1 << 3,
+        Wayland = 1 << 4,
+        Epoll = 1 << 5,
+    }
+    
+    final class ImplPlatform : IPlatform {
+        private ubyte enabledEventLoops;
+        private import std.experimental.ui.window.internal;
+
+        mixin WindowPlatformImpl;
         
         void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null) {
             import std.datetime : to;
             import std.algorithm : min;
             
             version(Windows) {
-                import core.sys.windows.windows : DWORD, PeekMessageW, TranslateMessage, DispatchMessageW, PM_REMOVE, MSG, WAIT_TIMEOUT, INFINITE;
-                
-                DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
-                MSG msg;
-                
-                // Effectively the purpose of this Windows event loop is to
-                //  ensure that all messages get dispatched as soon as possible.
-                // Of course, this is great for GUI's or asynchronous IO where they
-                //  only respond to external events, such as user input or socket
-                //  connections. But for games this could be slightly problematic.
-                // Atleast in the case for game development, it is quite common
-                //  to implement your own event loops or as per the game engine.
-                // In the case of your own event loop, it becomes more important to
-                //  be able to handle your own side independently of the external events
-                //  to the application. A single iteration is the best approach here.
-                
-                do {
-                    // effectively a sleep until more events
+                if (enabledEventLoops & EnabledEventLoops.Windows) {
+                    import core.sys.windows.windows : DWORD, PeekMessageW, TranslateMessage, DispatchMessageW, PM_REMOVE, MSG, WAIT_TIMEOUT, INFINITE;
+                    
+                    DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
+                    MSG msg;
+                    
+                    // Effectively the purpose of this Windows event loop is to
+                    //  ensure that all messages get dispatched as soon as possible.
+                    // Of course, this is great for GUI's or asynchronous IO where they
+                    //  only respond to external events, such as user input or socket
+                    //  connections. But for games this could be slightly problematic.
+                    // Atleast in the case for game development, it is quite common
+                    //  to implement your own event loops or as per the game engine.
+                    // In the case of your own event loop, it becomes more important to
+                    //  be able to handle your own side independently of the external events
+                    //  to the application. A single iteration is the best approach here.
+                    
+                    do {
+                        // effectively a sleep until more events
+                        DWORD signal = MsgWaitForMultipleObjectsEx(
+                            cast(DWORD)0,
+                            null,
+                            msTimeout,
+                            QS_ALLEVENTS,
+                            // MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
+                            // MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
+                            MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
+                            );
+                        
+                        // there are no messages so lets make sure the callback is called then repeat
+                        if (signal == WAIT_TIMEOUT)
+                            continue;
+                        
+                        // remove all messages from the queue
+                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
+                            TranslateMessage(&msg);
+                            DispatchMessageW(&msg);
+                        }
+                    } while(callback is null ? true : callback());
+                }
+            } else version(OSX) {
+                if (enabledEventLoops & EnabledEventLoops.Cocoa) {
+                    assert(0);
+                }
+            }
+            
+            if (enabledEventLoops & EnabledEventLoops.X11) {
+                assert(0);
+            }
+            if (enabledEventLoops & EnabledEventLoops.Wayland) {
+                assert(0);
+            }
+        }
+        
+        bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false) {
+            import std.datetime : to;
+            import std.algorithm : min;
+            
+            version(Windows) {
+                if (enabledEventLoops & EnabledEventLoops.Windows) {
+                    import core.sys.windows.windows : DWORD, PeekMessageW, TranslateMessage, DispatchMessageW, PM_REMOVE, MSG, WAIT_TIMEOUT, INFINITE;
+                    
+                    DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
                     DWORD signal = MsgWaitForMultipleObjectsEx(
                         cast(DWORD)0,
                         null,
@@ -121,72 +170,38 @@ private {
                         // MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
                         // MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
                         MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
-                    );
+                        );
                     
-                    // there are no messages so lets make sure the callback is called then repeat
                     if (signal == WAIT_TIMEOUT)
-                        continue;
+                        return false;
                     
-                    // remove all messages from the queue
-                    while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
+                    MSG msg;
+                    
+                    if (untilEmpty) {
+                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
+                            TranslateMessage(&msg);
+                            DispatchMessageW(&msg);
+                        }
+                    } else {
+                        PeekMessageW(&msg, null, 0, 0, PM_REMOVE);
                         TranslateMessage(&msg);
                         DispatchMessageW(&msg);
                     }
-                } while(callback is null ? true : callback());
-                
-                return;
-            } else version(OSX) {
-                assert(0);
-            }
-            
-            // is X11 active?
-            // is Wayland active?
-            assert(0);
-        }
-        
-        bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false) {
-            import std.datetime : to;
-            import std.algorithm : min;
-            
-            version(Windows) {
-                import core.sys.windows.windows : DWORD, PeekMessageW, TranslateMessage, DispatchMessageW, PM_REMOVE, MSG, WAIT_TIMEOUT, INFINITE;
-                
-                DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
-                DWORD signal = MsgWaitForMultipleObjectsEx(
-                    cast(DWORD)0,
-                    null,
-                    msTimeout,
-                    QS_ALLEVENTS,
-                    // MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
-                    // MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
-                    MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
-                );
-                
-                if (signal == WAIT_TIMEOUT)
-                    return false;
-                
-                MSG msg;
-                
-                if (untilEmpty) {
-                    while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
-                        TranslateMessage(&msg);
-                        DispatchMessageW(&msg);
-                    }
-                } else {
-                    PeekMessageW(&msg, null, 0, 0, PM_REMOVE);
-                    TranslateMessage(&msg);
-                    DispatchMessageW(&msg);
                 }
-                
-                return true;
             } else version(OSX) {
+                if (enabledEventLoops & EnabledEventLoops.Cocoa ) {
+                    assert(0);
+                }
+            }
+            
+            if (enabledEventLoops & EnabledEventLoops.X11) {
+                assert(0);
+            }
+            if (enabledEventLoops & EnabledEventLoops.Wayland) {
                 assert(0);
             }
             
-            // is X11 active?
-            // is Wayland active?
-            assert(0);
+            return true;
         }
     }
-    
 }

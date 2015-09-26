@@ -11,8 +11,10 @@ struct AAMap(K, V) {
 	}
 
     ~this() @trusted {
-		alloc.dispose(keys);
-		alloc.dispose(values);
+        if (keys.length > 0) {
+            alloc.dispose(keys);
+            alloc.dispose(values);
+        }
 	}
 
     this(IAllocator alloc) @trusted {

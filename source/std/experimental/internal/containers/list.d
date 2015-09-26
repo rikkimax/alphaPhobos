@@ -8,7 +8,8 @@ struct AllocList(T) {
 	}
 
 	~this() @trusted {
-		alloc.dispose(values);
+        if (values.length > 0)
+            alloc.dispose(values);
 	}
 
     this(IAllocator alloc) @trusted {
@@ -68,6 +69,10 @@ struct AllocList(T) {
 		alloc.expandArray(values, 1);
 		values[$-1] = value;
 	}
+
+    immutable(T[]) __internalValues() {
+        return cast(immutable)values;
+    }
 }
 
 unittest {

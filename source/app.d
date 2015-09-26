@@ -2,8 +2,20 @@ import std.stdio;
 import std.experimental.allocator;
 
 void main() {
-	VFSTest();
+	//VFSTest();
 	//WindowTest();
+    displaysTest();
+}
+
+void displaysTest() {
+    import std.experimental.platform;
+
+    auto primaryDisplay = defaultPlatform().primaryDisplay;
+    writeln(primaryDisplay.name, " ", primaryDisplay.size, " ", primaryDisplay.refreshRate, "hz");
+
+    foreach(display; defaultPlatform().displays) {
+        writeln(display.name, " ", display.size, " ", display.refreshRate, "hz");
+    }
 }
 
 void VFSTest() {
