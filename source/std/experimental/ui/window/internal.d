@@ -191,7 +191,8 @@ package(std.experimental) {
 
     final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Have_ScreenShot, Have_Icon {
         private {
-            HWND hwnd;
+            version(Windows)
+                HWND hwnd;
         }
 
         version(Windows) {
