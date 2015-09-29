@@ -7,7 +7,7 @@ import std.experimental.math.linearalgebra.vector : vec2;
 alias UIPoint = vec2!int;
 
 interface IWindow {
-	@property {
+    @property {
         string title();
         void title(string);
 
@@ -17,25 +17,25 @@ interface IWindow {
         UIPoint location();
         void size(UIPoint);
 
-		IDisplay display();
-		IContext context();
-	}
+        IDisplay display();
+        IContext context();
+    }
 
-	void hide();
-	void show();
-	void close();
+    void hide();
+    void show();
+    void close();
 }
 
 interface IContext {
-	void swapBuffers();
+    void swapBuffers();
 }
 
 interface IWindowCreator {
-	@property {
+    @property {
         void size(UIPoint);
         void location(UIPoint);
-		void display(IDisplay);
-	}
+        void display(IDisplay);
+    }
 
-	IWindow init();
+    IWindow init();
 }

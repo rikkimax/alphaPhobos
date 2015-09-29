@@ -821,25 +821,25 @@ struct URIAddress {
         assert(URIAddress("/etc/dir1/").sibling(URIAddress("dir2/file.ext")) == "file:///etc/dir2/file.ext");
     }
 
-	/**
-	 * Wraps a string up with an allocator.
-	 * 
-	 * Does not sanitise.
-	 * May perform weirdly or make bugs visible if the string is not already sanitised.
-	 * 
-	 * Params:
-	 * 		from		=	The string to wrap
-	 * 		allocator	=	The allocator to allocate using
+    /**
+     * Wraps a string up with an allocator.
+     * 
+     * Does not sanitise.
+     * May perform weirdly or make bugs visible if the string is not already sanitised.
+     * 
+     * Params:
+     *         from        =    The string to wrap
+     *         allocator    =    The allocator to allocate using
      * 
      * Returns:
      *      The URIAddress based upon a given string. Without sanitising.
-	 */
-	static URIAddress using(string from, IAllocator allocator=theAllocator()) {
-		URIAddress ret;
-		ret.alloc = allocator;
-		ret.value = from;
-		return ret;
-	}
+     */
+    static URIAddress using(string from, IAllocator allocator=theAllocator()) {
+        URIAddress ret;
+        ret.alloc = allocator;
+        ret.value = from;
+        return ret;
+    }
 }
 
 ///
