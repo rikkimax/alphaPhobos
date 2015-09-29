@@ -196,8 +196,8 @@ interface IFileSystem {
  *        output     =    Output range to call with the entry
  */
 void find(FS, OR)(FS fs, string glob, OR output, bool caseSensitive=true) if (
-        (is(FS : IFileSystem) || is(FS : IFileSystemProvider) || is(FS : IDirectoryEntry)) &&
-        isOutputRange!OR && is(ElementType!OR : IFileSystemProvider)) {
+    (is(FS : IFileSystem) || is(FS : IFileSystemProvider) || is(FS : IDirectoryEntry)) &&
+    isOutputRange!OR && is(ElementType!OR : IFileSystemProvider)) {
     fs.find(glob, &output.put, caseSensitive);
 }
 

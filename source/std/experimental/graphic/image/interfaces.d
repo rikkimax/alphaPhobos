@@ -249,7 +249,7 @@ struct SwappableImage(Color) if (isColor!Color) {
                 destroyerDel = &destroyerHandler!T;
         }
 
-           widthDel = &from.width;
+        widthDel = &from.width;
         heightDel = &from.height;
         resizeDel = cast(bool delegate(size_t, size_t) @safe)&from.resize;
 
@@ -623,7 +623,7 @@ private {
             this.offsetY = offsetY;
             this.allocator = allocator;
         }
-    
+        
         @property {
             auto front() @nogc @safe {
                 return PixelPoint!Color(input.getPixel(offsetX, offsetY), offsetX, offsetY, input.width, input.height);
@@ -631,7 +631,7 @@ private {
 
             bool empty() @trusted {
                 bool ret = offsetX == 0 && offsetY == input.height();
-    
+                
                 if (ret) {
                     import std.experimental.allocator : dispose;
                     // deallocates the input, if the allocator is provided

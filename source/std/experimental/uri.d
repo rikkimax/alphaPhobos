@@ -916,7 +916,7 @@ unittest {
     assert(URIProtocolPrefix("s://a/b/c.d", melformed) is null);
     assert(melformed);
 
-
+    
     assert(URIProtocolPrefix("abc", melformed) is null);
     assert(!melformed);
     assert(URIProtocolPrefix("ab", melformed) is null);
