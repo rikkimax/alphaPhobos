@@ -203,11 +203,11 @@ interface ImageStorageOffset(Color) {
  * It does $(I not) allocate to perform its functions and can be safely used on the stack.
  */
 struct SwappableImage(Color) if (isColor!Color) {
-	this() @disable;
+    this() @disable;
     this(size_t width, size_t height, IAllocator alloc=theAllocator()) @disable;
 
     ~this() @safe {
-		if (destroyerDel !is null) {
+        if (destroyerDel !is null) {
             destroyerDel();
         }
     }
@@ -231,17 +231,17 @@ struct SwappableImage(Color) if (isColor!Color) {
         static if (is(T == class))
             assert(from !is null);
     } body {
-    	static if (isPointer!T && isImage!(PointerTarget!T))
-    		alias ImageRealType = PointerTarget!T;
-    	else
-    		alias ImageRealType = T;
+        static if (isPointer!T && isImage!(PointerTarget!T))
+            alias ImageRealType = PointerTarget!T;
+        else
+            alias ImageRealType = T;
 
         static if (!isPointer!T && is(ImageRealType == struct))
             origin_ = cast(void*)&from;
         else
             origin_ = cast(void*)from;
 
-    	this.allocator = allocator;
+        this.allocator = allocator;
         if (allocator !is null) {
             static if (!isPointer!T && is(T == struct))
                 destroyerDel = &destroyerHandler!(ImageRealType*);
@@ -249,7 +249,7 @@ struct SwappableImage(Color) if (isColor!Color) {
                 destroyerDel = &destroyerHandler!T;
         }
 
-       	widthDel = &from.width;
+        widthDel = &from.width;
         heightDel = &from.height;
         resizeDel = cast(bool delegate(size_t, size_t) @safe)&from.resize;
 
@@ -550,21 +550,21 @@ unittest {
     import std.experimental.allocator : make, theAllocator;
 
     SwappableImage!RGB8 image = SwappableImage!(RGB8)(theAllocator.make!(MyTestImage!RGB8)(8, 3));
-	RGB8 value = image[0, 0];
+    RGB8 value = image[0, 0];
 }
 
 unittest {
     import std.experimental.allocator : make, theAllocator;
 
-	SwappableImage!RGBA8 image = SwappableImage!(RGBA8)(theAllocator.make!(MyTestImage!RGB8)(8, 3));
-	RGBA8 value = image[0, 0];
+    SwappableImage!RGBA8 image = SwappableImage!(RGBA8)(theAllocator.make!(MyTestImage!RGB8)(8, 3));
+    RGBA8 value = image[0, 0];
 }
 
 unittest {
     import std.experimental.allocator : make, theAllocator;
 
-	SwappableImage!RGB8 image = SwappableImage!(RGB8)(theAllocator.make!(MyTestImage!RGB8)(8, 3));
-	size_t count = image.count();
+    SwappableImage!RGB8 image = SwappableImage!(RGB8)(theAllocator.make!(MyTestImage!RGB8)(8, 3));
+    size_t count = image.count();
     assert(count == 24);
 }
 
@@ -623,7 +623,7 @@ private {
             this.offsetY = offsetY;
             this.allocator = allocator;
         }
-    
+        
         @property {
             auto front() @nogc @safe {
                 return PixelPoint!Color(input.getPixel(offsetX, offsetY), offsetX, offsetY, input.width, input.height);
@@ -631,7 +631,7 @@ private {
 
             bool empty() @trusted {
                 bool ret = offsetX == 0 && offsetY == input.height();
-    
+                
                 if (ret) {
                     import std.experimental.allocator : dispose;
                     // deallocates the input, if the allocator is provided

@@ -124,7 +124,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
         baseDir = baseDir.expand(homeAddress, cwdAddress);
 
         foreach(file; dirEntries(baseDir, glob, SpanMode.depth)) {
-			remove(file.name);
+            remove(file.name);
         }
     }
 
@@ -241,8 +241,8 @@ final class OSFileEntry : IFileEntry {
             string pathS = URIEntries(path);
             File f = File(pathS, "rb");
 
-			ulong theSize = getSize(pathS);
-			assert(theSize < size_t.max);
+            ulong theSize = getSize(pathS);
+            assert(theSize < size_t.max);
 
             ubyte[] buff = provider.allocator.makeArray!ubyte(cast(size_t)theSize);
             buff = f.rawRead(buff);
@@ -256,10 +256,10 @@ final class OSFileEntry : IFileEntry {
             import std.file : getSize;
             string pathS = URIEntries(path);
 
-			ulong v = getSize(pathS);
-			assert(v < size_t.max);
+            ulong v = getSize(pathS);
+            assert(v < size_t.max);
 
-			return cast(size_t)v;
+            return cast(size_t)v;
         }
     }
 
@@ -305,7 +305,7 @@ final class OSDirectoryEntry : IDirectoryEntry {
             import std.file : rename;
             
             to = path.sibling(to);
-			to = to.expand(provider.homeDirectory, provider.currentWorkingDirectory);
+            to = to.expand(provider.homeDirectory, provider.currentWorkingDirectory);
 
             string toS = URIEntries(to);
             path.rename(toS);

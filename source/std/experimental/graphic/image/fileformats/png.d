@@ -31,6 +31,7 @@ alias HeadersOnlyPNGFileFormat = PNGFileFormat!HeadersOnly;
  * 
  * FIXME:
  *      Reliance on e.g. GC/processAllocator for when compressing/decompressing via zlib.
+ *      Exporters use of filters 2, 3 and 4. Creates artifacts.
  */
 struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     import std.bitmanip : bigEndianToNative, nativeToBigEndian;
@@ -1104,10 +1105,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 if (isColor) {
                                     if (withAlpha) {
                                         assignPixel(RGBA8(samples[0], samples[1], samples[2], samples[3]));
-                                        samples = samples[3 .. $];
+                                        samples = samples[4 .. $];
                                     } else {
                                         assignPixel(RGB8(samples[0], samples[1], samples[2]));
-                                        samples = samples[2 .. $];
+                                        samples = samples[3 .. $];
                                     }
                                 } else if (isPalette) {
                                     ubyte v = samples[0];
@@ -1179,6 +1180,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 }
 
                 // defilters the scan line
+                previousScanLine = null;
                 void scanLineDefilter(ubyte[] scanLine) {
                     // defilter
                     assert(scanLine.length > 1);
@@ -1204,7 +1206,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 case 2: // up
                                     // Up(x) + Prior(x)
                                     
-                                    if (previousScanLine !is null) {
+                                    if (previousScanLine.length > i) {
                                         ubyte prior = previousScanLine[i];
                                         scanLine[i] = cast(ubyte)(scanLine[i] + prior);
                                     } else {
@@ -1215,7 +1217,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 case 3: // average
                                     // Average(x) + floor((Raw(x-bpp)+Prior(x))/2)
                                     
-                                    if (previousScanLine !is null) {
+                                    if (previousScanLine.length > i) {
                                         if (i >= pixelPreviousByteAmount) {
                                             ubyte prior = previousScanLine[i];
                                             ubyte rawSub = scanLine[i-pixelPreviousByteAmount];
@@ -1237,7 +1239,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 case 4: // paeth
                                     //  Paeth(x) + PaethPredictor(Raw(x-bpp), Prior(x), Prior(x-bpp))
                                     
-                                    if (previousScanLine !is null) {
+                                    if (previousScanLine.length > i) {
                                         if (i >= pixelPreviousByteAmount) {
                                             ubyte prior = previousScanLine[i];
                                             ubyte rawSub = scanLine[i-pixelPreviousByteAmount];
@@ -1266,9 +1268,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             }
                         }
                     }
-                    
-                    grabPixelsFromScanLine(scanLine);
+
                     previousScanLine = scanLine;
+                    grabPixelsFromScanLine(scanLine);
                 }
 
                 // performs the actual parsing of the scanlines
@@ -1371,9 +1373,6 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         
         void writeChunk_IHDR(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
             ubyte[] towrite;
-            
-            if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7)
-                throw allocator.make!ImageNotExportableException("Unable to export PNG image using Adam7 interlace.");
             
             towrite = buffer[0 .. 13];
             towrite[0 .. 4] = nativeToBigEndian(IHDR.width);
@@ -1673,7 +1672,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         static if (!is(Color == HeadersOnly)) {
             void writeChunk_IDAT(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
                 import std.zlib : compress;
-                import std.math : ceil;
+                import std.math : ceil, floor;
                 
                 ubyte findPLTEColor(Color c1) {
                     RGB8 c = convertColor!RGB8(c1);
@@ -1689,124 +1688,226 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     
                     throw alloc.make!ImageNotExportableException("Palette not completed with all colors.");
                 }
+
+                // a simple check
+                if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7 || IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace)
+                {} else
+                    throw allocator.make!ImageNotLoadableException("IDAT unknown interlace method");
                 
-                // the actual color size used (sample size * # of samples)
-                size_t colorSize;
+                if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {}
+                else
+                    throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
                 
-                if (IHDR.colorType == PngIHDRColorType.PalletteWithColorUsed || IHDR.colorType == PngIHDRColorType.AlphaChannelUsed) {
-                    colorSize = 2;
-                } else if (IHDR.colorType == PngIHDRColorType.Palette || IHDR.colorType == PngIHDRColorType.Grayscale) {
-                    colorSize = 1;
-                } else if (IHDR.colorType == PngIHDRColorType.ColorUsedWithAlpha) {
-                    colorSize = 4;
-                } else if (IHDR.colorType == PngIHDRColorType.ColorUsed) {
-                    colorSize = 3;
-                }
-                
-                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16)
-                    colorSize *= 2;
-                
-                ubyte samplesPerPixel;
-                
-                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
-                    samplesPerPixel = 2;
-                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
-                    samplesPerPixel = 4;
-                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
-                    samplesPerPixel = 8;
-                } else
-                    samplesPerPixel = 1;
-                
-                // allocate the output buffer
-                
-                ubyte[] rawColorData = alloc.makeArray!ubyte((IHDR.width * IHDR.height * colorSize) / samplesPerPixel);
-                
-                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                    // allows the "filter" to store its adaptive offsets
-                    alloc.expandArray(rawColorData, IHDR.height);
-                }
+                // constants
+                size_t pixelPreviousByteAmount, rowSize;
+                ubyte sampleSize, pixelSampleSize;
                 
                 bool withAlpha = (IHDR.colorType & PngIHDRColorType.AlphaChannelUsed) == PngIHDRColorType.AlphaChannelUsed;
                 bool isGrayScale = (IHDR.colorType & PngIHDRColorType.Grayscale) == PngIHDRColorType.Grayscale;
                 bool isPalette = (IHDR.colorType & PngIHDRColorType.Palette) == PngIHDRColorType.Palette;
                 bool isColor = (IHDR.colorType & PngIHDRColorType.ColorUsed) == PngIHDRColorType.ColorUsed;
                 
-                // peform encoding
+                // some needed variables, in future processing
+                ubyte[] decompressed, previousScanLine, tempFilterPrevious, tempFilterCurrent, tempScanLine, currentScanLine;
+                ubyte pass, byteToOffset;
+                size_t offsetX, offsetY;
                 
-                if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
-                    // TODO: Adam7 algo IDAT.unfiltered_uncompressed_pixels
-                    throw allocator.make!ImageNotExportableException("Adam7 interlace method not supported");
-                } else if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
-                    // store
-                    size_t pOffset;
-                    
-                    if (isPalette) {
-                        foreach(pixelData; rangeOf(value)) {
-                            if (pixelData.x == 0) {
-                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                                    // performs the "filter" process
+                final switch(IHDR.colorType) {
+                    case PngIHDRColorType.PalletteWithColorUsed:
+                    case PngIHDRColorType.AlphaChannelUsed:
+                        sampleSize = 2;
+                        break;
+                    case PngIHDRColorType.Palette:
+                    case PngIHDRColorType.Grayscale:
+                        sampleSize = 1;
+                        break;
+                    case PngIHDRColorType.ColorUsedWithAlpha:
+                        sampleSize = 4;
+                        break;
+                    case PngIHDRColorType.ColorUsed:
+                        sampleSize = 3;
+                        break;
+                }
+                
+                if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                    pixelSampleSize = cast(ubyte)(sampleSize + sampleSize);
+                    pixelPreviousByteAmount = pixelSampleSize;
+                } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                    pixelSampleSize = sampleSize;
+                    pixelPreviousByteAmount = sampleSize;
+                } else {
+                    pixelSampleSize = sampleSize;
+                    pixelPreviousByteAmount = 1;
+                }
+
+                rowSize = IHDR.width * pixelSampleSize;
+                if (IHDR.filterMethod == PngIHDRFilter.Adaptive)
+                    rowSize++;
+
+                tempFilterPrevious = alloc.makeArray!ubyte(rowSize);
+                tempFilterCurrent = alloc.makeArray!ubyte(rowSize);
+                tempScanLine = alloc.makeArray!ubyte(rowSize);
+
+                // filters the scan line
+                previousScanLine = null;
+                void filterScanLine(ubyte[] scanLine) {
+                    // filter
+                    tempFilterCurrent[0 .. scanLine.length] = scanLine[];
+
+                    if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                        assert(scanLine.length > 1);
+                        ubyte adaptiveOffset = scanLine[0];
+
+                        foreach(i; 1 .. scanLine.length) {
+                            switch(adaptiveOffset) {
+                                case 1: // sub
+                                    // Sub(x) - Raw(x-bpp)
                                     
-                                    rawColorData[pOffset] = 0;
-                                    pOffset++;
-                                }
+                                    if (i-1 >= pixelPreviousByteAmount) {
+                                        ubyte rawSub = tempFilterCurrent[i-pixelPreviousByteAmount];
+                                        scanLine[i] = cast(ubyte)(scanLine[i] - rawSub);
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    
+                                    break;
+                                    
+                                case 2: // up
+                                    // Up(x) - Prior(x)
+                                    
+                                    if (previousScanLine.length > i) {
+                                        ubyte prior = previousScanLine[i];
+                                        scanLine[i] = cast(ubyte)(scanLine[i] - prior);
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    break;
+                                    
+                                case 3: // average
+                                    // Average(x) - floor((Raw(x-bpp)+Prior(x))/2)
+                                    
+                                    if (previousScanLine.length > i) {
+                                        if (i-1 >= pixelPreviousByteAmount) {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = tempFilterCurrent[i-pixelPreviousByteAmount];
+                                            scanLine[i] = cast(ubyte)(scanLine[i] - floor(cast(real)(rawSub + prior) / 2f));
+                                        } else {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = 0;
+                                            scanLine[i] = cast(ubyte)(scanLine[i] - floor(cast(real)(rawSub + prior) / 2f));
+                                        }
+                                    } else if (i-1 >= pixelPreviousByteAmount) {
+                                        ubyte prior = 0;
+                                        ubyte rawSub = tempFilterCurrent[i-pixelPreviousByteAmount];
+                                        scanLine[i] = cast(ubyte)(scanLine[i] - floor(cast(real)(rawSub + prior) / 2f));
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    break;
+                                    
+                                case 4: // paeth
+                                    //  Paeth(x) - PaethPredictor(Raw(x-bpp), Prior(x), Prior(x-bpp))
+                                    
+                                    if (previousScanLine.length > i) {
+                                        if (i-1 >= pixelPreviousByteAmount) {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = tempFilterCurrent[i-pixelPreviousByteAmount];
+                                            ubyte priorRawSub = previousScanLine[i-pixelPreviousByteAmount];
+                                            scanLine[i] = cast(ubyte)(scanLine[i] - PaethPredictor(rawSub, prior, priorRawSub));
+                                        } else {
+                                            ubyte prior = previousScanLine[i];
+                                            ubyte rawSub = 0;
+                                            ubyte priorRawSub = 0;
+                                            scanLine[i] = cast(ubyte)(scanLine[i] - PaethPredictor(rawSub, prior, priorRawSub));
+                                        }
+                                    } else if (i-1 >= pixelPreviousByteAmount) {
+                                        ubyte prior = 0;
+                                        ubyte rawSub = tempFilterCurrent[i-pixelPreviousByteAmount];
+                                        ubyte priorRawSub = 0;
+                                        scanLine[i] = cast(ubyte)(scanLine[i] - PaethPredictor(rawSub, prior, priorRawSub));
+                                    } else {
+                                        // no changes needed
+                                    }
+                                    
+                                    break;
+                                    
+                                default:
+                                case 0: // none
+                                    break;
                             }
-                            
-                            rawColorData[pOffset] = findPLTEColor(pixelData.value);
-                            pOffset += colorSize;
                         }
+                    }
+
+                    alloc.expandArray(decompressed, scanLine.length);
+                    decompressed[$-scanLine.length .. $] = scanLine[];
+
+                    previousScanLine = tempFilterPrevious[0 .. scanLine.length];
+                    previousScanLine[] = tempFilterCurrent[0 .. scanLine.length][];
+                }
+
+                void serializeScanLine(Color c) {
+                    // serailize the color as apropriete form into the scanLineBuffer
+
+                    if (isPalette) {
+                        currentScanLine = tempScanLine[0 .. currentScanLine.length + 1];
+                        currentScanLine[$-1] = findPLTEColor(c);
                     } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8 || IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                        foreach(pixelData; rangeOf(value)) {
-                            if (pixelData.x == 0) {
-                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                                    // performs the "filter" process
-                                    
-                                    rawColorData[pOffset] = 0;
-                                    pOffset++;
+                        currentScanLine = tempScanLine[0 .. currentScanLine.length + pixelSampleSize];
+
+                        if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
+                            RGBA16 pixToUse = convertColor!RGBA16(c);
+                            
+                            if (isColor) {
+                                if (withAlpha) {
+                                    currentScanLine[$-8 .. $-6] = nativeToBigEndian(pixToUse.r);
+                                    currentScanLine[$-6 .. $-4] = nativeToBigEndian(pixToUse.g);
+                                    currentScanLine[$-4 .. $-2] = nativeToBigEndian(pixToUse.b);
+                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.a);
+                                } else {
+                                    currentScanLine[$-6 .. $-4] = nativeToBigEndian(pixToUse.r);
+                                    currentScanLine[$-4 .. $-2] = nativeToBigEndian(pixToUse.g);
+                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.b);
+                                }
+                            } else if (isGrayScale) {
+                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
+                                
+                                if (withAlpha) {
+                                    currentScanLine[$-4 .. $-2] = nativeToBigEndian(cast(ushort)pixG);
+                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.a);
+                                } else {
+                                    currentScanLine[$-2 .. $] = nativeToBigEndian(cast(ushort)pixG);
                                 }
                             }
+                        } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
+                            RGBA8 pixToUse = convertColor!RGBA8(c);
                             
-                            if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
-                                RGBA16 pixToUse = convertColor!RGBA16(pixelData.value);
-                                
-                                if (isColor) {
-                                    rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(pixToUse.r);
-                                    rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.g);
-                                    rawColorData[pOffset + 4 .. pOffset + 6] = nativeToBigEndian(pixToUse.b);
-                                    
-                                    if (withAlpha)
-                                        rawColorData[pOffset + 6 .. pOffset + 8] = nativeToBigEndian(pixToUse.a);
-                                } else if (isGrayScale) {
-                                    float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
-                                    rawColorData[pOffset .. pOffset + 2] = nativeToBigEndian(cast(ushort)pixG);
-                                    
-                                    if (withAlpha)
-                                        rawColorData[pOffset + 2 .. pOffset + 4] = nativeToBigEndian(pixToUse.a);
+                            if (isColor) {
+                                if (withAlpha) {
+                                    currentScanLine[$-4 .. $-3] = nativeToBigEndian(pixToUse.r);
+                                    currentScanLine[$-3 .. $-2] = nativeToBigEndian(pixToUse.g);
+                                    currentScanLine[$-2 .. $-1] = nativeToBigEndian(pixToUse.b);
+                                    currentScanLine[$-1 .. $] = nativeToBigEndian(pixToUse.a);
+                                } else {
+                                    currentScanLine[$-3 .. $-2] = nativeToBigEndian(pixToUse.r);
+                                    currentScanLine[$-2 .. $-1] = nativeToBigEndian(pixToUse.g);
+                                    currentScanLine[$-1 .. $] = nativeToBigEndian(pixToUse.b);
                                 }
-                            } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
-                                RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
+                            } else if (isGrayScale) {
+                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
                                 
-                                if (isColor) {
-                                    rawColorData[pOffset .. pOffset + 1] = pixToUse.r;
-                                    rawColorData[pOffset + 1 .. pOffset + 2] = pixToUse.g;
-                                    rawColorData[pOffset + 2 .. pOffset + 3] = pixToUse.b;
-                                    
-                                    if (withAlpha)
-                                        rawColorData[pOffset + 3 .. pOffset + 4] = pixToUse.a;
-                                } else if (isGrayScale) {
-                                    float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
-                                    rawColorData[pOffset] = cast(ubyte)pixG;
-                                    
-                                    if (withAlpha)
-                                        rawColorData[pOffset + 1] = pixToUse.a;
+                                if (withAlpha) {
+                                    currentScanLine[$-2 .. $-1] = nativeToBigEndian(cast(ubyte)pixG);
+                                    currentScanLine[$-1 .. $] = nativeToBigEndian(pixToUse.a);
+                                } else {
+                                    currentScanLine[$-1 .. $] = nativeToBigEndian(cast(ubyte)pixG);
                                 }
                             }
-                            
-                            pOffset += colorSize;
                         }
                     } else {
                         // 1, 2, 4 bit depths
                         ubyte bitMaxValue;
-                        
+                        ubyte samplesPerPixel;
+
                         if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
                             bitMaxValue = 15;
                         } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
@@ -1815,56 +1916,97 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             bitMaxValue = 1;
                         }
                         
-                        ubyte byteToOffset;
-                        ubyte bitByteCount = cast(ubyte)(8 / IHDR.bitDepth);
-                        uint scanLineByteCount = cast(uint)(IHDR.width / samplesPerPixel);
+                        if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth4) {
+                            samplesPerPixel = 2;
+                        } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth2) {
+                            samplesPerPixel = 4;
+                        } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth1) {
+                            samplesPerPixel = 8;
+                        } else
+                            samplesPerPixel = 1;
                         
-                        foreach(pixelData; rangeOf(value)) {
-                            void storeChannel(ubyte v) {
-                                if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
-                                    if ((pOffset % (scanLineByteCount + 1)) == 0) {
-                                        // performs the "filter" process
-                                        
-                                        rawColorData[pOffset] = 0;
-                                        pOffset++;
-                                    }
-                                }
-                                
-                                if (byteToOffset > 0) {
-                                    v = cast(ubyte)(v << ((8-IHDR.bitDepth)-(IHDR.bitDepth * byteToOffset)));
-                                    rawColorData[pOffset] |= v;
-                                } else
-                                    rawColorData[pOffset] = cast(ubyte)(v << (8-IHDR.bitDepth));
-                                
-                                byteToOffset++;
-                                if (byteToOffset == bitByteCount) {
-                                    byteToOffset = 0;
-                                    pOffset++;
-                                }
-                            }
+                        ubyte bitByteCount = cast(ubyte)(8 / IHDR.bitDepth);
+                        
+                        void storeChannel(ubyte v) {
+                            if (byteToOffset == bitByteCount)
+                                byteToOffset = 0;
+                            if (byteToOffset == 0)
+                                currentScanLine = tempScanLine[0 .. currentScanLine.length + 1];
+
+                            if (byteToOffset > 0) {
+                                v = cast(ubyte)(v << ((8-IHDR.bitDepth)-(IHDR.bitDepth * byteToOffset)));
+                                currentScanLine[$-1] |= v;
+                            } else
+                                currentScanLine[$-1] = cast(ubyte)(v << (8-IHDR.bitDepth));
                             
-                            RGBA8 pixToUse = convertColor!RGBA8(pixelData.value);
-                            ubyte[4] bitDepthValues = [
-                                cast(ubyte)ceil((pixToUse.r / 256f) * bitMaxValue),
-                                cast(ubyte)ceil((pixToUse.g / 256f) * bitMaxValue),
-                                cast(ubyte)ceil((pixToUse.b / 256f) * bitMaxValue),
-                                cast(ubyte)ceil((pixToUse.a / 256f) * bitMaxValue)
-                            ];
-                            
-                            if (isColor) {
-                                storeChannel(bitDepthValues[0]);
-                                storeChannel(bitDepthValues[1]);
-                                storeChannel(bitDepthValues[2]);
-                                
-                                if (withAlpha)
-                                    storeChannel(bitDepthValues[3]);
-                            } else if (isGrayScale) {
-                                storeChannel(bitDepthValues[0]);
-                                
-                                if (withAlpha)
-                                    storeChannel(bitDepthValues[3]);
-                            }
+                            byteToOffset++;
                         }
+                        
+                        RGBA8 pixToUse = convertColor!RGBA8(c);
+                        ubyte[4] bitDepthValues = [
+                            cast(ubyte)ceil((pixToUse.r / 256f) * bitMaxValue),
+                            cast(ubyte)ceil((pixToUse.g / 256f) * bitMaxValue),
+                            cast(ubyte)ceil((pixToUse.b / 256f) * bitMaxValue),
+                            cast(ubyte)ceil((pixToUse.a / 256f) * bitMaxValue)
+                        ];
+                        
+                        if (isColor) {
+                            storeChannel(bitDepthValues[0]);
+                            storeChannel(bitDepthValues[1]);
+                            storeChannel(bitDepthValues[2]);
+                            
+                            if (withAlpha)
+                                storeChannel(bitDepthValues[3]);
+                        } else if (isGrayScale) {
+                            storeChannel(bitDepthValues[0]);
+                            
+                            if (withAlpha)
+                                storeChannel(bitDepthValues[3]);
+                        }
+                    }
+                }
+
+                void startScanLine() {
+                    if (IHDR.filterMethod == PngIHDRFilter.Adaptive) {
+                        const ubyte[] filtersToApply = [cast(ubyte)0, 1];
+                        currentScanLine = tempScanLine[0 .. 1];
+                        currentScanLine[0] = filtersToApply[offsetY % filtersToApply.length];
+                    }
+                    byteToOffset = 0; // 1, 2, 4 bit depth
+                }
+
+                if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
+                    pass = 0;
+                    while(pass < 7) {
+                        offsetY = starting_row[pass];
+
+                        while(offsetY < IHDR.height) {
+                            offsetX = starting_col[pass];
+                            startScanLine();
+
+                            while(offsetX < IHDR.width) {
+                                serializeScanLine(value[offsetX, offsetY]);
+                                
+                                offsetX += col_increment[pass];
+                            }
+                            
+                            filterScanLine(currentScanLine);
+                            offsetY += row_increment[pass];
+                        }
+                        
+                        pass++;
+                    }
+                } else if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.NoInterlace) {
+                    foreach(y; 0 .. IHDR.height) {
+                        offsetY = y;
+                        startScanLine();
+
+                        foreach(x; 0 .. IHDR.width) {
+                            offsetX = x;
+                            serializeScanLine(value[offsetX, offsetY]);
+                        }
+                        
+                        filterScanLine(currentScanLine);
                     }
                 }
                 
@@ -1873,7 +2015,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 // compress
                 
                 if (IHDR.compressionMethod == PngIHDRCompresion.DeflateInflate) {
-                    compressed = cast(ubyte[])compress(rawColorData);
+                    compressed = cast(ubyte[])compress(decompressed);
                 } else {
                     throw allocator.make!ImageNotLoadableException("IDAT unknown compression method");
                 }
@@ -1882,7 +2024,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 bfr2[] = compressed[];
                 
                 write(cast(char[4])"IDAT", bfr2);
-                alloc.dispose(rawColorData);
+
+                alloc.dispose(tempFilterPrevious);
+                alloc.dispose(tempFilterCurrent);
+                alloc.dispose(decompressed);
             }
         }
         
