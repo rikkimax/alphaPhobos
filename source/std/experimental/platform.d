@@ -34,7 +34,7 @@ interface IDisplay {
         string name();
         vec2!ushort size();
         uint refreshRate();
-        IWindow[] windows();
+        immutable(IWindow[]) windows();
     }
 }
 

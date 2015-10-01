@@ -42,7 +42,7 @@ interface MenuItem {
         return null;
     }
 
-    Feature_Menu menu(T)(T self) {
+    Feature_Menu menu(T)(T self) if (!(is(T : IWindow) || is(T : IPlatform))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IPlatform.");
     }
 }

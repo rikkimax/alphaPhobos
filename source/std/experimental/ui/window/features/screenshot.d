@@ -27,7 +27,7 @@ interface Feature_ScreenShot {
         return null;
     }
 
-    ImageStorage!RGB8 screenshot(T)(T self, IAllocator alloc=null) {
+    ImageStorage!RGB8 screenshot(T)(T self, IAllocator alloc=null) if (!(is(T : IWindow) || is(T : IDisplay) || is(T : IPlatform))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow, IDisplay or IPlatform types.");
     }
 }

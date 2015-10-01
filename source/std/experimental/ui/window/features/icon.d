@@ -41,7 +41,7 @@ interface Feature_Icon {
         }
     }
 
-    ImageStorage!RGBA8 icon(T)(T self) {
+    ImageStorage!RGBA8 icon(T)(T self) if (!(is(T : IWindow) || is(T : IWindowCreator))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IWindowCreator.");
     }
 }

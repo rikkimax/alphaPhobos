@@ -193,9 +193,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             
             void allocateTheImage(ImageImpl)(size_t width, size_t height) @trusted {
                 static if (is(ImageImpl : ImageStorage!Color)) {
-                    value = allocator.make!ImageImpl(width, height, allocator);
+                    value = alloc.make!(ImageImpl)(width, height, alloc);
                 } else {
-                    value = imageObject!ImageImpl(width, height, allocator);
+                    value = imageObject!(ImageImpl)(width, height, alloc);
                 }
             }
         } else {
@@ -2043,7 +2043,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 // TODO: better color space guessing
                 
                 IHDR.bitDepth = PngIHDRBitDepth.BitDepth8;
-                IHDR.colorType = PngIHDRColorType.ColorUsedWithAlpha;
+                IHDR.colorType = PngIHDRColorType.ColorUsed;
                 IHDR.compressionMethod = PngIHDRCompresion.DeflateInflate;
                 IHDR.filterMethod = PngIHDRFilter.Adaptive;
             }
@@ -2104,11 +2104,11 @@ unittest {
  * Returns:
  *      A compatible PNG image
  */
-PNGFileFormat!Color asPNG(From, Color = ImageColor!From)(From from, IAllocator allocator = theAllocator()) @safe if (isImage!From) {
+PNGFileFormat!Color asPNG(From, Color = ImageColor!From, ImageImpl=ImageStorageHorizontal!Color)(From from, IAllocator allocator = theAllocator()) @safe if (isImage!From) {
     import std.experimental.graphic.image.primitives : copyTo;
     
     PNGFileFormat!Color ret = PNGFileFormat!Color(allocator);
-    ret.allocateTheImage!From(from.width, from.height);
+    ret.allocateTheImage!ImageImpl(from.width, from.height);
     
     from.copyTo(ret.value);
     ret.performCompatConfigure();

@@ -5,7 +5,7 @@ import std.experimental.platform : IPlatform, IDisplay;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.experimental.allocator : IAllocator;
 
-alias UIPoint = vec2!int;
+alias UIPoint = vec2!short;
 
 interface IWindow {
     @property {
