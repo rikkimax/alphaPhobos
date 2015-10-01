@@ -196,17 +196,12 @@ package(std.experimental) {
 
     final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Have_ScreenShot, Have_Icon {
         private {
-<<<<<<< HEAD
-            HWND hwnd;
             IAllocator alloc;
             IContext context_;
-=======
-            version(Windows)
-                HWND hwnd;
->>>>>>> 48b36328698cc6dd8e995b639cf8ae8d315e497e
-        }
 
         version(Windows) {
+            HWND hwnd;
+
             this(HWND hwnd, IContext context, IAllocator alloc) {
                 this.hwnd = hwnd;
                 this.alloc = alloc;
