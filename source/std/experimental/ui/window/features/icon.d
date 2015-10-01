@@ -1,6 +1,7 @@
 ﻿module std.experimental.ui.window.features.icon;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
+import std.experimental.graphic.color : RGBA8;
 
 interface Have_Icon {
     Feature_Icon __getFeatureIcon();

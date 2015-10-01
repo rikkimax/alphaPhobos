@@ -189,8 +189,9 @@ package(std.experimental) {
         }
 
         Feature_ScreenShot __getFeatureScreenShot() { return this; }
-        ImageStorage!RGB8 screenshot() {
 
+        ImageStorage!RGB8 screenshot(IAllocator alloc = null) {
+            assert(0);
         }
     }
 
@@ -199,8 +200,8 @@ package(std.experimental) {
             IAllocator alloc;
             IContext context_;
 
-        version(Windows) {
-            HWND hwnd;
+            version(Windows)
+                HWND hwnd;
 
             this(HWND hwnd, IContext context, IAllocator alloc) {
                 this.hwnd = hwnd;
@@ -231,7 +232,7 @@ package(std.experimental) {
         // features
 
         Feature_ScreenShot __getFeatureScreenShot() { return this; }
-        ImageStorage!RGB8 screenshot();
+        ImageStorage!RGB8 screenshot(IAllocator alloc=null);
 
         Feature_Icon __getFeatureIcon() { return this; }
         ImageStorage!RGBA8 getIcon() @property;
