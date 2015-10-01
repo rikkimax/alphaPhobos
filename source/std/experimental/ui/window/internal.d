@@ -136,7 +136,7 @@ package(std.experimental) {
         }
     }
     
-    final class DisplayImpl : IDisplay {
+    final class DisplayImpl : IDisplay, Feature_ScreenShot, Have_ScreenShot {
         private {
             IAllocator alloc;
             char[] name_;
@@ -187,16 +187,25 @@ package(std.experimental) {
 
             bool primary() { return primaryDisplay_; }
         }
+
+        Feature_ScreenShot __getFeatureScreenShot() { return this; }
+        ImageStorage!RGB8 screenshot() {
+
+        }
     }
 
     final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Have_ScreenShot, Have_Icon {
         private {
             HWND hwnd;
+            IAllocator alloc;
+            IContext context_;
         }
 
         version(Windows) {
-            this(HWND hwnd) {
+            this(HWND hwnd, IContext context, IAllocator alloc) {
                 this.hwnd = hwnd;
+                this.alloc = alloc;
+                this.context_ = context;
             }
         }
 
@@ -209,9 +218,10 @@ package(std.experimental) {
             
             UIPoint location();
             void size(UIPoint);
-            
+
+            // display can and will most likely change during runtime
             IDisplay display();
-            IContext context();
+            IContext context() { return context_; }
         }
         
         void hide();
