@@ -9,6 +9,7 @@ package(std.experimental) {
     import std.experimental.graphic.image : ImageStorage;
     import std.experimental.ui.window.features;
     import std.experimental.graphic.color : RGB8;
+    import std.experimental.internal.dummyRefCount;
 
     mixin template WindowPlatformImpl() {
         version(Windows)
@@ -16,50 +17,32 @@ package(std.experimental) {
 
         IWindowCreator createWindow() {assert(0);}
         IWindow createAWindow() {assert(0);}
-        
+
         @property {
-            immutable(IDisplay) primaryDisplay() {
+            DummyRefCount!IDisplay primaryDisplay() {
                 foreach(display; displays) {
-                    if ((cast(immutable(DisplayImpl))display).primary) {
-                        return cast(immutable)display;
+                    if ((cast(DisplayImpl)display).primary) {
+                        IAllocator alloc = processAllocator;
+                        return DummyRefCount!IDisplay((cast(DisplayImpl)display).dup(alloc), alloc);
                     }
                 }
 
-                return null;
+                return DummyRefCount!IDisplay(null, null);
+            }
+
+            DummyRefCount!(IDisplay[]) displays() {
+                IAllocator alloc = processAllocator;
+                GetDisplays ctx = GetDisplays(alloc, this);
+                ctx.call;
+                return DummyRefCount!(IDisplay[])(ctx.displays, alloc);
             }
             
-            immutable(IDisplay[]) displays() {
-                alloc = processAllocator();
-
-                (cast()displays_impl_).length = 0;
-                displays_impl_ = AllocList!IDisplay(cast()alloc);
-
-                version(Windows) {
-                    assert(EnumDisplayMonitors(null, null, &callbackDisplays, cast(LPARAM)cast(void*)this) > 0);
-                }
-
-                return displays_impl_.__internalValues;
+            DummyRefCount!(IWindow[]) windows() {
+                IAllocator alloc = processAllocator;
+                GetWindows ctx = GetWindows(alloc, this, null);
+                ctx.call;
+                return DummyRefCount!(IWindow[])(ctx.windows, alloc);
             }
-            
-            immutable(IWindow[]) windows() {
-                alloc = processAllocator();
-                
-                (cast()windows_impl_).length = 0;
-                windows_impl_ = AllocList!IWindow(cast()alloc);
-
-                version(Windows) {
-                    assert(EnumWindows(&callbackWindows, cast(LPARAM)cast(void*)this) > 0);
-                } else
-                    assert(0);
-
-                return windows_impl_.__internalValues;
-            }
-        }
-        
-        package(std.experimental) {
-            AllocList!IDisplay displays_impl_;
-            AllocList!IWindow windows_impl_;
-            IAllocator alloc;
         }
     }
 
@@ -151,56 +134,69 @@ package(std.experimental) {
                 HMONITOR MonitorFromWindow(HWND, DWORD);
             }
 
-            bool callbackDisplays(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) {
-                ImplPlatform platform = cast(ImplPlatform)cast(void*)dwData;
+            struct GetDisplays {
+                IAllocator alloc;
+                IPlatform platform;
                 
-                with(platform) {
-                    displays_impl_ ~= alloc.make!DisplayImpl(hMonitor, alloc, platform);
+                IDisplay[] displays;
+                
+                void call() {
+                    EnumDisplayMonitors(null, null, &callbackGetDisplays, cast(LPARAM)cast(void*)&this);
                 }
+            }
+
+            bool callbackGetDisplays(HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam) {
+                GetDisplays* ctx = cast(GetDisplays*)lParam;
+
+                IDisplay display = ctx.alloc.make!DisplayImpl(hMonitor, ctx.alloc, ctx.platform);
+                
+                ctx.alloc.expandArray(ctx.displays, 1);
+                ctx.displays[$-1] = display;
 
                 return true;
             }
 
-            bool callbackWindows(HWND hwnd, LPARAM lParam) {
-                ImplPlatform platform = cast(ImplPlatform)cast(void*)lParam;
+            struct GetWindows {
+                IAllocator alloc;
 
-                with(platform) {
-                    RECT rect;
-                    GetWindowRect(hwnd, &rect);
+                IPlatform platform;
+                IDisplay display;
 
-                    if (rect.right - rect.left == 0 || rect.bottom - rect.top == 0)
-                        return true;
+                IWindow[] windows;
 
-                    windows_impl_ ~= alloc.make!WindowImpl(hwnd, cast(IContext)null, alloc, platform);
+                void call() {
+                    EnumWindows(&callbackGetWindows, cast(LPARAM)&this);
                 }
-                
-                return true;
             }
 
-            bool callbackDisplayWindows(HWND hwnd, LPARAM lParam) {
-                DisplayImpl display = cast(DisplayImpl)cast(void*)lParam;
-                
-                with(display) {
-                    RECT rect;
-                    GetWindowRect(hwnd, &rect);
-                    
-                    if (rect.right - rect.left == 0 || rect.bottom - rect.top == 0)
-                        return true;
+            bool callbackGetWindows(HWND hwnd, LPARAM lParam) {
+                GetWindows* ctx = cast(GetWindows*)lParam;
 
-                    IWindow window = alloc.make!WindowImpl(hwnd, cast(IContext)null, alloc, platform);
+                RECT rect;
+                GetWindowRect(hwnd, &rect);
 
+                if (rect.right - rect.left == 0 || rect.bottom - rect.top == 0)
+                    return true;
+
+                WindowImpl window = ctx.alloc.make!WindowImpl(hwnd, cast(IContext)null, ctx.alloc, ctx.platform);
+
+                if (ctx.display is null) {
+                    ctx.alloc.expandArray(ctx.windows, 1);
+                    ctx.windows[$-1] = window;
+                } else {
                     IDisplay display2 = (cast(IWindow)window).display;
                     if (display2 is null) {
-                        alloc.dispose(window);
+                        ctx.alloc.dispose(window);
                         return true;
                     }
-                    
-                    if ((cast(immutable)display2).name == (cast(immutable)display).name)
-                        windows_impl_ ~=  window;
-                    else
-                        alloc.dispose(window);
+
+                    if (display2.name == ctx.display.name) {
+                        ctx.alloc.expandArray(ctx.windows, 1);
+                        ctx.windows[$-1] = window;
+                    } else
+                        ctx.alloc.dispose(window);
                 }
-                
+
                 return true;
             }
         }
@@ -271,8 +267,6 @@ package(std.experimental) {
             vec2!ushort size_;
             uint refreshRate_;
 
-            AllocList!IWindow windows_impl_;
-
             version(Windows) {
                 HMONITOR hMonitor;
             }
@@ -281,7 +275,6 @@ package(std.experimental) {
         version(Windows) {
             this(HMONITOR hMonitor, IAllocator alloc, IPlatform platform) {
                 import std.string : fromStringz;
-                windows_impl_ = AllocList!IWindow(cast()alloc);
 
                 this.alloc = alloc;
                 this.platform = platform;
@@ -309,23 +302,25 @@ package(std.experimental) {
             }
         }
 
-        @property immutable {
+        @property {
             string name() { return cast(immutable)name_[0 .. $-1]; }
             vec2!ushort size() { return size_; }
             uint refreshRate() { return refreshRate_; }
 
-            immutable(IWindow[]) windows() {
-                (cast()windows_impl_).length = 0;
-                
-                version(Windows) {
-                    assert(EnumWindows(&callbackDisplayWindows, cast(LPARAM)cast(void*)this) > 0);
-                } else
-                    assert(0);
-                
-                return (cast()windows_impl_).__internalValues;
+            DummyRefCount!(IWindow[]) windows() {
+                GetWindows ctx = GetWindows(alloc, cast()platform, cast()this);
+                ctx.call;
+                return DummyRefCount!(IWindow[])(ctx.windows, alloc);
             }
 
             bool primary() { return primaryDisplay_; }
+
+            IDisplay dup(IAllocator alloc) {
+                version(Windows) {
+                    return alloc.make!DisplayImpl(hMonitor, alloc, platform);
+                } else
+                    assert(0);
+            }
         }
 
         Feature_ScreenShot __getFeatureScreenShot() {

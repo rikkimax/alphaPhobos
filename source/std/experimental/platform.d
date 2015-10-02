@@ -1,6 +1,7 @@
 ﻿module std.experimental.platform;
 import std.experimental.ui.window.defs : IWindow, IWindowCreator;
 import std.experimental.math.linearalgebra.vector : vec2;
+import std.experimental.internal.dummyRefCount;
 import std.datetime : Duration, seconds;
 
 interface IPlatform {
@@ -8,9 +9,9 @@ interface IPlatform {
     IWindow createAWindow(); // completely up to platform implementation to what the defaults are
     
     @property {
-        immutable(IDisplay) primaryDisplay();
-        immutable(IDisplay[]) displays();
-        immutable(IWindow[]) windows();
+        DummyRefCount!IDisplay primaryDisplay();
+        DummyRefCount!(IDisplay[]) displays();
+        DummyRefCount!(IWindow[]) windows();
     }
     
     void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null);
@@ -30,11 +31,11 @@ IPlatform defaultPlatform() {
 }
 
 interface IDisplay {
-    @property immutable {
+    @property {
         string name();
         vec2!ushort size();
         uint refreshRate();
-        immutable(IWindow[]) windows();
+        DummyRefCount!(IWindow[]) windows();
     }
 }
 
