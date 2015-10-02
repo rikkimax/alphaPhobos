@@ -10,7 +10,7 @@ alias UIPoint = vec2!short;
 
 interface IWindow {
     @property {
-        string title();
+        DummyRefCount!(char[]) title();
         void title(string);
 
         UIPoint size();

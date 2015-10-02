@@ -54,6 +54,8 @@ package(std.experimental) {
         enum DIB_RGB_COLORS = 0x0;
         enum BI_RGB = 0;
         enum MONITOR_DEFAULTTONULL = 0;
+        enum GWL_STYLE = -16;
+        enum GWL_EXSTYLE = -20;
 
         alias TCHAR = char;
         
@@ -129,6 +131,12 @@ package(std.experimental) {
                 int GetDIBits(HDC, HBITMAP, uint, uint, void*, BITMAPINFO*, uint);
                 bool EnumWindows(WNDENUMPROC, LPARAM);
                 HMONITOR MonitorFromWindow(HWND, DWORD);
+                HMENU GetMenu(HWND);
+                LONG GetWindowLongA(HWND, int);
+                int GetWindowTextLengthA(HWND);
+                int GetWindowTextA(HWND, char*, int);
+                BOOL SetWindowTextA(HWND, char*);
+                bool CloseWindow(HWND);
             }
 
             struct GetDisplays {
@@ -363,22 +371,63 @@ package(std.experimental) {
         }
 
         @property {
-            string title() { assert(0); }
-            void title(string) { assert(0); }
-            
-            UIPoint size() {
+            DummyRefCount!(char[]) title() {
                 version(Windows) {
-                    RECT rect;
-                    assert(GetWindowRect(hwnd, &rect));
-                    return UIPoint(cast(short)(rect.right - rect.left), cast(short)(rect.bottom - rect.top));
+                    int textLength = GetWindowTextLengthA(hwnd);
+                    char[] buffer = alloc.makeArray!char(textLength + 1);
+                    assert(GetWindowTextA(hwnd, buffer.ptr, buffer.length) > 0);
+                    alloc.shrinkArray(buffer, 1);
+
+                    return DummyRefCount!(char[])(buffer, alloc);
                 } else
                     assert(0);
             }
 
-            void location(UIPoint) { assert(0); }
+            void title(string text) {
+                version(Windows) {
+                    char[] buffer = alloc.makeArray!char(text.length + 1);
+                    buffer[0 .. $-1] = text[];
 
-            UIPoint location() { assert(0); }
-            void size(UIPoint) { assert(0); }
+                    SetWindowTextA(hwnd, buffer.ptr);
+                } else
+                    assert(0);
+            }
+            
+            UIPoint size() {
+                version(Windows) {
+                    RECT rect;
+                    GetClientRect(hwnd, &rect);
+                    return UIPoint(cast(short)rect.right, cast(short)rect.bottom);
+                } else
+                    assert(0);
+            }
+
+            void location(UIPoint point) {
+                version(Windows) {
+                    SetWindowPos(hwnd, null, point.x, point.y, 0, 0, SWP_NOSIZE);
+                } else
+                    assert(0);
+            }
+
+            UIPoint location() {
+                version(Windows) {
+                    RECT rect;
+                    assert(GetWindowRect(hwnd, &rect));
+                    return UIPoint(cast(short)rect.left, cast(short)rect.top);
+                } else
+                    assert(0);
+            }
+            void size(UIPoint point) {
+                version(Windows) {
+                    RECT rect;
+                    rect.top = point.x;
+                    rect.bottom = point.y;
+
+                    assert(AdjustWindowRectEx(&rect, GetWindowLongA(hwnd, GWL_STYLE), GetMenu(hwnd) !is null, GetWindowLongA(hwnd, GWL_EXSTYLE)));
+                    SetWindowPos(hwnd, null, 0, 0, rect.right, rect.bottom, SWP_NOMOVE);
+                } else
+                    assert(0);
+            }
 
             // display can and will most likely change during runtime
             DummyRefCount!IDisplay display() { 
@@ -395,9 +444,26 @@ package(std.experimental) {
             IContext context() { return context_; }
         }
         
-        void hide() { assert(0); }
-        void show() { assert(0); }
-        void close() { assert(0); }
+        void hide() {
+            version(Windows)
+                ShowWindow(hwnd, SW_HIDE);
+            else
+                return null;
+        }
+
+        void show() {
+            version(Windows)
+                ShowWindow(hwnd, SW_SHOW);
+            else
+                return null;
+        }
+
+        void close() {
+            version(Windows)
+                CloseWindow(hwnd);
+            else
+                return null;
+        }
 
         // features
 
@@ -407,6 +473,7 @@ package(std.experimental) {
             else
                 return null;
         }
+
         ImageStorage!RGB8 screenshot(IAllocator alloc=null) {
             if (alloc is null)
                 alloc = this.alloc;
