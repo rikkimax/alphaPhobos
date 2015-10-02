@@ -4,6 +4,7 @@ import std.experimental.graphic.color.rgb : RGB8, RGBA8;
 import std.experimental.platform : IPlatform, IDisplay;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.experimental.allocator : IAllocator;
+import std.experimental.internal.dummyRefCount;
 
 alias UIPoint = vec2!short;
 
@@ -18,7 +19,7 @@ interface IWindow {
         UIPoint location();
         void size(UIPoint);
 
-        IDisplay display();
+        DummyRefCount!IDisplay display();
         IContext context();
     }
 

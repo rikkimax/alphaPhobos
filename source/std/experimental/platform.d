@@ -2,6 +2,7 @@
 import std.experimental.ui.window.defs : IWindow, IWindowCreator;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.experimental.internal.dummyRefCount;
+import std.experimental.allocator : IAllocator, processAllocator;
 import std.datetime : Duration, seconds;
 
 interface IPlatform {
@@ -9,9 +10,9 @@ interface IPlatform {
     IWindow createAWindow(); // completely up to platform implementation to what the defaults are
     
     @property {
-        DummyRefCount!IDisplay primaryDisplay();
-        DummyRefCount!(IDisplay[]) displays();
-        DummyRefCount!(IWindow[]) windows();
+        DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator());
+        DummyRefCount!(IDisplay[]) displays(IAllocator alloc = processAllocator());
+        DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator());
     }
     
     void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null);

@@ -19,10 +19,9 @@ package(std.experimental) {
         IWindow createAWindow() {assert(0);}
 
         @property {
-            DummyRefCount!IDisplay primaryDisplay() {
+            DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator()) {
                 foreach(display; displays) {
                     if ((cast(DisplayImpl)display).primary) {
-                        IAllocator alloc = processAllocator;
                         return DummyRefCount!IDisplay((cast(DisplayImpl)display).dup(alloc), alloc);
                     }
                 }
@@ -30,15 +29,13 @@ package(std.experimental) {
                 return DummyRefCount!IDisplay(null, null);
             }
 
-            DummyRefCount!(IDisplay[]) displays() {
-                IAllocator alloc = processAllocator;
+            DummyRefCount!(IDisplay[]) displays(IAllocator alloc = processAllocator()) {
                 GetDisplays ctx = GetDisplays(alloc, this);
                 ctx.call;
                 return DummyRefCount!(IDisplay[])(ctx.displays, alloc);
             }
             
-            DummyRefCount!(IWindow[]) windows() {
-                IAllocator alloc = processAllocator;
+            DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator()) {
                 GetWindows ctx = GetWindows(alloc, this, null);
                 ctx.call;
                 return DummyRefCount!(IWindow[])(ctx.windows, alloc);
@@ -384,13 +381,13 @@ package(std.experimental) {
             void size(UIPoint) { assert(0); }
 
             // display can and will most likely change during runtime
-            IDisplay display() { 
+            DummyRefCount!IDisplay display() { 
                 version(Windows) {
                     HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
                     if (monitor is null)
-                        return null;
+                        return DummyRefCount!IDisplay(null, null);
                     else
-                        return alloc.make!DisplayImpl(monitor, alloc, platform);
+                        return DummyRefCount!IDisplay(alloc.make!DisplayImpl(monitor, alloc, platform),  alloc);
                 } else 
                     assert(0);
             }
