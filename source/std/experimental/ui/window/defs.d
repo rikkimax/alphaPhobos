@@ -19,6 +19,8 @@ interface IWindow {
         UIPoint location();
         void size(UIPoint);
 
+        bool visible();
+
         DummyRefCount!IDisplay display();
         IContext context();
     }

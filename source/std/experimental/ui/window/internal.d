@@ -137,6 +137,7 @@ package(std.experimental) {
                 int GetWindowTextA(HWND, char*, int);
                 BOOL SetWindowTextA(HWND, char*);
                 bool CloseWindow(HWND);
+                bool IsWindowVisible(HWND);
             }
 
             struct GetDisplays {
@@ -176,6 +177,9 @@ package(std.experimental) {
 
             bool callbackGetWindows(HWND hwnd, LPARAM lParam) {
                 GetWindows* ctx = cast(GetWindows*)lParam;
+
+                if (!IsWindowVisible(hwnd))
+                    return true;
 
                 RECT rect;
                 GetWindowRect(hwnd, &rect);
@@ -417,6 +421,7 @@ package(std.experimental) {
                 } else
                     assert(0);
             }
+
             void size(UIPoint point) {
                 version(Windows) {
                     RECT rect;
@@ -426,6 +431,13 @@ package(std.experimental) {
                     assert(AdjustWindowRectEx(&rect, GetWindowLongA(hwnd, GWL_STYLE), GetMenu(hwnd) !is null, GetWindowLongA(hwnd, GWL_EXSTYLE)));
                     SetWindowPos(hwnd, null, 0, 0, rect.right, rect.bottom, SWP_NOMOVE);
                 } else
+                    assert(0);
+            }
+
+            bool visible() {
+                version(Windows)
+                    return IsWindowVisible(hwnd);
+                else 
                     assert(0);
             }
 
