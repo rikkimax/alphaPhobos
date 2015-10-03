@@ -39,6 +39,7 @@ interface IDisplay {
         vec2!ushort size();
         uint refreshRate();
         DummyRefCount!(IWindow[]) windows();
+        void* __handle();
     }
 }
 

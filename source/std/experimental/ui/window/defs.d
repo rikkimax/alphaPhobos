@@ -23,6 +23,8 @@ interface IWindow {
 
         DummyRefCount!IDisplay display();
         IContext context();
+
+        void* __handle();
     }
 
     void hide();

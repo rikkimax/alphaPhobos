@@ -333,6 +333,13 @@ package(std.experimental) {
                 } else
                     assert(0);
             }
+
+            void* __handle() {
+                version(Windows) {
+                    return &hMonitor;
+                } else
+                    assert(0);
+            }
         }
 
         Feature_ScreenShot __getFeatureScreenShot() {
@@ -457,6 +464,13 @@ package(std.experimental) {
             }
 
             IContext context() { return context_; }
+
+            void* __handle() {
+                version(Windows)
+                    return &hwnd;
+                else 
+                    assert(0);
+            }
         }
         
         void hide() {
