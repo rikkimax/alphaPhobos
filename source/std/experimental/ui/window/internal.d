@@ -8,7 +8,7 @@ package(std.experimental) {
     import std.experimental.math.linearalgebra.vector : vec2;
     import std.experimental.graphic.image : ImageStorage;
     import std.experimental.ui.window.features;
-    import std.experimental.graphic.color : RGB8;
+    import std.experimental.graphic.color : RGB8, RGBA8;
     import std.experimental.internal.dummyRefCount;
 
     mixin template WindowPlatformImpl() {
@@ -41,6 +41,9 @@ package(std.experimental) {
                 return DummyRefCount!(IWindow[])(ctx.windows, alloc);
             }
         }
+
+        Feature_Icon __getFeatureIcon() { return null; }
+        Feature_Notification __getFeatureNotification() { return null; }
     }
 
     version(Windows) {
@@ -354,7 +357,7 @@ package(std.experimental) {
         }
     }
 
-    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Have_ScreenShot, Have_Icon {
+    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Have_ScreenShot, Have_Icon, Have_Menu {
         private {
             IPlatform platform;
             IAllocator alloc;
@@ -503,5 +506,9 @@ package(std.experimental) {
         Feature_Icon __getFeatureIcon() { return this; }
         ImageStorage!RGBA8 getIcon() @property { assert(0); }
         void setIcon(ImageStorage!RGBA8) @property { assert(0); }
+
+        Feature_Menu __getFeatureMenu() { return this; }
+        void addItem() { assert(0); }
+        @property MenuItem[] items() { assert(0); }
     }
 }

@@ -1,5 +1,7 @@
 ﻿module std.experimental.platform;
 import std.experimental.ui.window.defs : IWindow, IWindowCreator;
+import std.experimental.ui.window.features.notification;
+import std.experimental.ui.window.features.icon;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.experimental.internal.dummyRefCount;
 import std.experimental.allocator : IAllocator, processAllocator;
@@ -88,9 +90,10 @@ private {
         Cocoa = 1 << 3,
         Wayland = 1 << 4,
         Epoll = 1 << 5,
+        LibEvent = 1 << 6,
     }
     
-    final class ImplPlatform : IPlatform {
+    final class ImplPlatform : IPlatform, Have_Icon, Have_Notification {
         private {
             import std.experimental.ui.window.internal;
 
@@ -100,7 +103,7 @@ private {
         }
 
         mixin WindowPlatformImpl;
-        
+
         void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null) {
             import std.datetime : to;
             import std.algorithm : min;
