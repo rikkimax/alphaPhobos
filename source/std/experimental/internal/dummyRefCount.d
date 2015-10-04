@@ -3,12 +3,13 @@ import std.experimental.allocator : IAllocator;
 
 /// When std.typecons.RefCounted adds support for allocators this will be replaced by it
 struct DummyRefCount(T) {
+    alias PayLoadType = T;
     PayLoad* payload;
 
     ///
     alias bytes this;
 
-    this(T data, IAllocator alloc) {
+    this(T data, IAllocator alloc) @trusted {
         import std.experimental.allocator : make;
 
         if (data is null || alloc is null) {}
@@ -25,19 +26,19 @@ struct DummyRefCount(T) {
     }
 
     ///
-    @property T bytes() {
+    @property T bytes() @trusted @nogc nothrow {
         if (payload is null)
             return null;
         else
             return payload.bytes;
     }
 
-    this(this) {
+    this(this) @trusted @nogc nothrow {
         if (payload !is null)
             payload.count++;
     }
 
-    ~this() {
+    ~this() @trusted {
         if (payload !is null) {
             import std.experimental.allocator : dispose;
 

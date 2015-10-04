@@ -59,6 +59,7 @@ package(std.experimental) {
         enum MONITOR_DEFAULTTONULL = 0;
         enum GWL_STYLE = -16;
         enum GWL_EXSTYLE = -20;
+        enum GCL_HICON = -14;
 
         alias TCHAR = char;
         
@@ -119,6 +120,14 @@ package(std.experimental) {
             DWORD  dmPanningHeight;
         }
 
+        struct ICONINFO {
+            bool fIcon;
+            DWORD xHotspot;
+            DWORD yHotspot;
+            HBITMAP hbmMask;
+            HBITMAP hbmColor;
+        }
+
         extern(Windows) {
             alias MONITORENUMPROC = bool function(HMONITOR, HDC, LPRECT, LPARAM);
             alias WNDENUMPROC = bool function(HWND, LPARAM);
@@ -141,6 +150,8 @@ package(std.experimental) {
                 BOOL SetWindowTextA(HWND, char*);
                 bool CloseWindow(HWND);
                 bool IsWindowVisible(HWND);
+                DWORD GetClassLongA(HWND, int);
+                bool GetIconInfo(HICON, ICONINFO*);
             }
 
             struct GetDisplays {
@@ -271,6 +282,53 @@ package(std.experimental) {
                 }
             }
 
+            alloc.dispose(buffer);
+            return storage;
+        }
+
+        ImageStorage!RGBA8 bitmapToAlphaImage(HBITMAP hBitmap, HDC hMemoryDC, vec2!size_t size_, IAllocator alloc) {
+            import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
+            import std.experimental.graphic.image.interfaces : imageObject;
+            
+            size_t dwBmpSize = ((size_.x * 32 + 31) / 32) * 4 * size_.y;
+            ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
+            auto storage = imageObject!(ImageStorageHorizontal!RGBA8)(size_.x, size_.y, alloc);
+            
+            BITMAPINFOHEADER bi;
+            
+            bi.biSize = BITMAPINFOHEADER.sizeof;    
+            bi.biWidth = size_.x;    
+            bi.biHeight = size_.y;  
+            bi.biPlanes = 1;    
+            bi.biBitCount = 32;    
+            bi.biCompression = BI_RGB;    
+            bi.biSizeImage = 0;  
+            bi.biXPelsPerMeter = 0;    
+            bi.biYPelsPerMeter = 0;    
+            bi.biClrUsed = 0;    
+            bi.biClrImportant = 0;
+            
+            BITMAPINFO bitmapInfo;
+            bitmapInfo.bmiHeader = bi;
+            
+            GetDIBits(hMemoryDC, hBitmap, 0, size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
+            
+            size_t x;
+            size_t y = size_.y-1;
+            for(size_t i = 0; i < buffer.length; i += 4) {
+                RGBA8 c = RGBA8(buffer[i+2], buffer[i+1], buffer[i], 255);
+                
+                storage[x, y] = c;
+                
+                x++;
+                if (x == size_.x) {
+                    x = 0;
+                    if (y == 0)
+                        break;
+                    y--;
+                }
+            }
+            
             alloc.dispose(buffer);
             return storage;
         }
@@ -478,6 +536,8 @@ package(std.experimental) {
                 else 
                     assert(0);
             }
+
+            IAllocator allocator() { return alloc; }
         }
         
         void hide() {
@@ -524,8 +584,36 @@ package(std.experimental) {
             }
         }
 
-        Feature_Icon __getFeatureIcon() { return this; }
-        ImageStorage!RGBA8 getIcon() @property { assert(0); }
+        Feature_Icon __getFeatureIcon() {
+            version(Windows)
+                return this;
+            else
+                return null;
+        }
+
+        ImageStorage!RGBA8 getIcon() @property {
+            version(Windows) {
+                HICON hIcon = cast(HICON)GetClassLongA(hwnd, GCL_HICON);
+                ICONINFO iconinfo;
+                GetIconInfo(hIcon, &iconinfo);
+                HBITMAP hBitmap = iconinfo.hbmColor;        
+
+                BITMAP bm;
+                GetObjectA(hBitmap, BITMAP.sizeof, &bm);
+
+                HDC hFrom = GetDC(null);
+                HDC hMemoryDC = CreateCompatibleDC(hFrom);
+
+                scope(exit) {
+                    DeleteDC(hMemoryDC);
+                    ReleaseDC(hwnd, hFrom);
+                }
+
+                return bitmapToAlphaImage(hBitmap, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), alloc);
+            } else
+                assert(0);
+        }
+
         void setIcon(ImageStorage!RGBA8) @property { assert(0); }
 
         Feature_Menu __getFeatureMenu() { return this; }

@@ -9,7 +9,7 @@ void main() {
 
 void displaysTest() {
     import std.experimental.platform;
-    import std.experimental.ui.window.features.screenshot;
+    import std.experimental.ui.window.features;
     import std.experimental.graphic.image.fileformats.png;
     import std.file : write;
     import std.conv : text;
@@ -43,12 +43,18 @@ void displaysTest() {
         foreach(j, window; display.windows) {
             write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ ".png"),
                 (cast()window).screenshot().asPNG.toBytes);
+
+            write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ "_icon.png"),
+                (cast()window).icon.asPNG.toBytes);
         }
     }
 
     foreach(i, window; defaultPlatform().windows) {
         write(tempLocation("window_" ~ i.text ~ ".png"),
             (cast()window).screenshot().asPNG.toBytes);
+
+        write(tempLocation("window_" ~ i.text ~ "_icon.png"),
+            (cast()window).icon.asPNG.toBytes);
     }
 }
 

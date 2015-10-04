@@ -25,6 +25,8 @@ interface IWindow {
         IContext context();
 
         void* __handle();
+
+        IAllocator allocator();
     }
 
     void hide();
