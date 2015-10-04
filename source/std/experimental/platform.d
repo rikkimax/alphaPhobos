@@ -94,7 +94,7 @@ private {
         LibEvent = 1 << 6,
     }
     
-    final class ImplPlatform : IPlatform, Have_Icon, Have_Notification {
+    final class ImplPlatform : IPlatform, Have_Notification {
         private {
             import std.experimental.ui.window.internal;
 

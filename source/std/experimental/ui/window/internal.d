@@ -42,7 +42,6 @@ package(std.experimental) {
             }
         }
 
-        Feature_Icon __getFeatureIcon() { return null; }
         Feature_Notification __getFeatureNotification() { return null; }
     }
 
