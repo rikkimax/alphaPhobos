@@ -663,7 +663,8 @@ package(std.experimental) {
         void setIcon(ImageStorage!RGBA8 from) @property {
             version(Windows) {
                 HICON hIcon = cast(HICON)GetClassLongA(hwnd, GCL_HICON);
-                DestroyIcon(hIcon);
+                if (hIcon)
+                    DestroyIcon(hIcon);
 
                 HDC hFrom = GetDC(null);
                 HDC hMemoryDC = CreateCompatibleDC(hFrom);
