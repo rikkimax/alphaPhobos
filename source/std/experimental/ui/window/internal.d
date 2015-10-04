@@ -60,6 +60,8 @@ package(std.experimental) {
         enum GWL_STYLE = -16;
         enum GWL_EXSTYLE = -20;
         enum GCL_HICON = -14;
+        enum ICON_SMALL = 0;
+        enum ICON_BIG = 1;
 
         alias TCHAR = char;
         
@@ -152,6 +154,9 @@ package(std.experimental) {
                 bool IsWindowVisible(HWND);
                 DWORD GetClassLongA(HWND, int);
                 bool GetIconInfo(HICON, ICONINFO*);
+                HICON CreateIconIndirect(ICONINFO*);
+                HBITMAP CreateBitmap(int, int, uint, uint, void*);
+                bool DestroyIcon(HICON);
             }
 
             struct GetDisplays {
@@ -331,6 +336,48 @@ package(std.experimental) {
             
             alloc.dispose(buffer);
             return storage;
+        }
+
+        HICON imageToIcon(ImageStorage!RGBA8 from, HDC hMemoryDC, IAllocator alloc) {
+            size_t dwBmpSize = ((from.width * 32 + 31) / 32) * 4 * from.height;
+            ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
+
+            HICON ret;
+
+            size_t x;
+            size_t y = from.height-1;
+            for(size_t i = 0; i < buffer.length; i += 4) {
+                RGBA8 c = from[x, y];
+
+                buffer[i] = c.b;
+                buffer[i+1] = c.g;
+                buffer[i+2] = c.r;
+                buffer[i+3] = c.a;
+                
+                x++;
+                if (x == from.width) {
+                    x = 0;
+                    if (y == 0)
+                        break;
+                    y--;
+                }
+            }
+
+            HBITMAP hBitmap = CreateBitmap(cast(uint)from.width, cast(uint)from.height, 1, 32, buffer.ptr);
+            HBITMAP hbmMask = CreateCompatibleBitmap(hMemoryDC, cast(uint)from.width, cast(uint)from.height);
+
+            ICONINFO ii;
+            ii.fIcon = true;
+            ii.hbmColor = hBitmap;
+            ii.hbmMask = hbmMask;
+
+            ret = CreateIconIndirect(&ii);
+
+            DeleteObject(hbmMask);
+            DeleteObject(hBitmap);
+            alloc.dispose(buffer);
+
+            return ret;
         }
     }
     
@@ -614,7 +661,26 @@ package(std.experimental) {
                 assert(0);
         }
 
-        void setIcon(ImageStorage!RGBA8) @property { assert(0); }
+        void setIcon(ImageStorage!RGBA8 from) @property {
+            version(Windows) {
+                HICON hIcon = cast(HICON)GetClassLongA(hwnd, GCL_HICON);
+                DestroyIcon(hIcon);
+
+                HDC hFrom = GetDC(null);
+                HDC hMemoryDC = CreateCompatibleDC(hFrom);
+
+                hIcon = imageToIcon(from, hMemoryDC, alloc);
+
+                if (hIcon) {
+                    SendMessageA(hwnd, WM_SETICON, cast(WPARAM)ICON_BIG, cast(LPARAM)hIcon);
+                    SendMessageA(hwnd, WM_SETICON, cast(WPARAM)ICON_SMALL, cast(LPARAM)hIcon);
+                }
+
+                DeleteDC(hMemoryDC);
+                ReleaseDC(hwnd, hFrom);
+            } else
+                assert(0);
+        }
 
         Feature_Menu __getFeatureMenu() { return this; }
         void addItem() { assert(0); }
