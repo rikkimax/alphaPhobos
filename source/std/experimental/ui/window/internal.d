@@ -214,17 +214,28 @@ package(std.experimental) {
         }
 
         ImageStorage!RGB8 screenshotImpl(IAllocator alloc, HDC hFrom, vec2!ushort size_) {
-            import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
-            import std.experimental.graphic.image.interfaces : imageObject;
-            
             HDC hMemoryDC = CreateCompatibleDC(hFrom);
             HBITMAP hBitmap = CreateCompatibleBitmap(hFrom, size_.x, size_.y);
             
             HBITMAP hOldBitmap = SelectObject(hMemoryDC, hBitmap);
             BitBlt(hMemoryDC, 0, 0, size_.x, size_.y, hFrom, 0, 0, SRCCOPY);
+
+            auto storage = bitmapToImage(hBitmap, hMemoryDC, vec2!size_t(size_.x, size_.y), alloc);
             
+            hBitmap = SelectObject(hMemoryDC, hOldBitmap);
+            DeleteDC(hMemoryDC);
+
+            return storage;
+        }
+
+        ImageStorage!RGB8 bitmapToImage(HBITMAP hBitmap, HDC hMemoryDC, vec2!size_t size_, IAllocator alloc) {
+            import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
+            import std.experimental.graphic.image.interfaces : imageObject;
+
             size_t dwBmpSize = ((size_.x * 32 + 31) / 32) * 4 * size_.y;
             ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
+            auto storage = imageObject!(ImageStorageHorizontal!RGB8)(size_.x, size_.y, alloc);
+
             BITMAPINFOHEADER bi;
             
             bi.biSize = BITMAPINFOHEADER.sizeof;    
@@ -241,10 +252,9 @@ package(std.experimental) {
             
             BITMAPINFO bitmapInfo;
             bitmapInfo.bmiHeader = bi;
-            
+
             GetDIBits(hMemoryDC, hBitmap, 0, size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
-            auto storage = imageObject!(ImageStorageHorizontal!RGB8)(size_.x, size_.y, alloc);
-            
+
             size_t x;
             size_t y = size_.y-1;
             for(size_t i = 0; i < buffer.length; i += 4) {
@@ -260,11 +270,8 @@ package(std.experimental) {
                     y--;
                 }
             }
-            
-            hBitmap = SelectObject(hMemoryDC, hOldBitmap);
-            DeleteDC(hMemoryDC);
+
             alloc.dispose(buffer);
-            
             return storage;
         }
     }
