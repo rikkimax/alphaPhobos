@@ -30,15 +30,21 @@ package(std.experimental) {
             }
 
             DummyRefCount!(IDisplay[]) displays(IAllocator alloc = processAllocator()) {
-                GetDisplays ctx = GetDisplays(alloc, this);
-                ctx.call;
-                return DummyRefCount!(IDisplay[])(ctx.displays, alloc);
+                version(Windows) {
+                    GetDisplays ctx = GetDisplays(alloc, this);
+                    ctx.call;
+                    return DummyRefCount!(IDisplay[])(ctx.displays, alloc);
+                } else
+                    assert(0);
             }
             
             DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator()) {
-                GetWindows ctx = GetWindows(alloc, this, null);
-                ctx.call;
-                return DummyRefCount!(IWindow[])(ctx.windows, alloc);
+                version(Windows) {
+                    GetWindows ctx = GetWindows(alloc, this, null);
+                    ctx.call;
+                    return DummyRefCount!(IWindow[])(ctx.windows, alloc);
+                } else
+                    assert(0);
             }
         }
 
@@ -431,9 +437,12 @@ package(std.experimental) {
             uint refreshRate() { return refreshRate_; }
 
             DummyRefCount!(IWindow[]) windows() {
-                GetWindows ctx = GetWindows(alloc, cast()platform, cast()this);
-                ctx.call;
-                return DummyRefCount!(IWindow[])(ctx.windows, alloc);
+                version(Windows) {
+                    GetWindows ctx = GetWindows(alloc, cast()platform, cast()this);
+                    ctx.call;
+                    return DummyRefCount!(IWindow[])(ctx.windows, alloc);
+                } else
+                    assert(0);
             }
 
             bool primary() { return primaryDisplay_; }
@@ -590,21 +599,21 @@ package(std.experimental) {
             version(Windows)
                 ShowWindow(hwnd, SW_HIDE);
             else
-                return null;
+                assert(0);
         }
 
         void show() {
             version(Windows)
                 ShowWindow(hwnd, SW_SHOW);
             else
-                return null;
+                assert(0);
         }
 
         void close() {
             version(Windows)
                 CloseWindow(hwnd);
             else
-                return null;
+                assert(0);
         }
 
         // features
