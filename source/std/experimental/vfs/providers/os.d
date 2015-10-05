@@ -6,7 +6,7 @@
  */
 module std.experimental.vfs.providers.os;
 import std.experimental.vfs.defs;
-import std.uri;
+import std.experimental.uri;
 import std.datetime : SysTime;
 import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray, shrinkArray, make, dispose;
 import std.experimental.internal.dummyRefCount;

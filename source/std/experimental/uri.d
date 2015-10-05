@@ -5,6 +5,8 @@ module std.experimental.uri;
 import std.experimental.allocator : IAllocator, makeArray, theAllocator, expandArray, shrinkArray, dispose, make;
 import std.typecons : Nullable;
 
+public import std.uri;
+
 private static {
     // santisization uses this
     char[1024] charBuffer;

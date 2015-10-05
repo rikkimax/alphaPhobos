@@ -5,7 +5,7 @@
  * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  */
 module std.experimental.vfs.defs;
-import std.uri;
+import std.experimental.uri;
 import std.range.interfaces : InputRange;
 import std.range.primitives : isOutputRange, ElementType;
 import std.datetime : SysTime;
