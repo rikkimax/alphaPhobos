@@ -1,5 +1,12 @@
 /**
- * Additions for std.uri
+ * Provides access to a URI address components.
+ * 
+ * Requires std.experimental.allocator. Should be moved into std.uri once it is merged with the std namespace.
+ *
+ * Copyright: Copyright Digital Mars 2000 - 2015.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+ * Authors:   $(WEB digitalmars.com, Richard Andrew Cattermole)
+ * Source:    $(PHOBOSSRC std/experimental_uri.d)
  */
 module std.experimental.uri;
 import std.experimental.allocator : IAllocator, makeArray, theAllocator,
@@ -34,7 +41,11 @@ private
 }
 
 /**
- * Does not handle the encoding/decoding
+ * The URI address wrapper.
+ * Provides access to each of the components, however they are readonly.
+ * It can be used to create new addresses that are compliant with the specification.
+ * 
+ * It will not perform encoding or decoding of any part of a URI. You must do it as necessary during usage.
  */
 struct URIAddress
 {
