@@ -1,4 +1,4 @@
-import std.stdio;
+import std.stdio : writeln;
 import std.experimental.allocator;
 
 void main() {
@@ -9,12 +9,52 @@ void main() {
 
 void displaysTest() {
     import std.experimental.platform;
+    import std.experimental.ui.window.features;
+    import std.experimental.graphic.image.fileformats.png;
+    import std.file : write;
+    import std.conv : text;
 
     auto primaryDisplay = defaultPlatform().primaryDisplay;
     writeln(primaryDisplay.name, " ", primaryDisplay.size, " ", primaryDisplay.refreshRate, "hz");
 
     foreach(display; defaultPlatform().displays) {
         writeln(display.name, " ", display.size, " ", display.refreshRate, "hz");
+    }
+
+    string tempLocation(string for_) {
+        import std.path : buildPath;
+        import std.file : tempDir, exists, mkdirRecurse;
+        import std.process : thisProcessID;
+        import std.conv : text;
+        
+        string tempLoc = buildPath(tempDir(), thisProcessID.text);
+        if (!exists(tempLoc))
+            mkdirRecurse(tempLoc);
+        
+        return buildPath(tempLoc, for_);
+    }
+
+    writeln(tempLocation(""));
+
+    foreach(i, display; defaultPlatform().displays) {
+        write(tempLocation("display_" ~ i.text ~ ".png"),
+            (cast()display).screenshot().asPNG.toBytes);
+
+        foreach(j, window; display.windows) {
+            write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ ".png"),
+                (cast()window).screenshot().asPNG.toBytes);
+
+            write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ "_icon.png"),
+                (cast()window).icon.asPNG.toBytes);
+        }
+    }
+
+    foreach(i, window; defaultPlatform().windows) {
+        write(tempLocation("window_" ~ i.text ~ ".png"),
+            (cast()window).screenshot().asPNG.toBytes);
+
+        write(tempLocation("window_" ~ i.text ~ "_icon.png"),
+            (cast()window).icon.asPNG.toBytes);
     }
 }
 

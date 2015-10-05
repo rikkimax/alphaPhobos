@@ -1,6 +1,10 @@
 ﻿module std.experimental.platform;
 import std.experimental.ui.window.defs : IWindow, IWindowCreator;
+import std.experimental.ui.window.features.notification;
+import std.experimental.ui.window.features.icon;
 import std.experimental.math.linearalgebra.vector : vec2;
+import std.experimental.internal.dummyRefCount;
+import std.experimental.allocator : IAllocator, processAllocator;
 import std.datetime : Duration, seconds;
 
 interface IPlatform {
@@ -8,9 +12,9 @@ interface IPlatform {
     IWindow createAWindow(); // completely up to platform implementation to what the defaults are
     
     @property {
-        immutable(IDisplay) primaryDisplay();
-        immutable(IDisplay[]) displays();
-        immutable(IWindow[]) windows();
+        DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator());
+        DummyRefCount!(IDisplay[]) displays(IAllocator alloc = processAllocator());
+        DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator());
     }
     
     void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null);
@@ -30,11 +34,12 @@ IPlatform defaultPlatform() {
 }
 
 interface IDisplay {
-    @property immutable {
+    @property {
         string name();
         vec2!ushort size();
         uint refreshRate();
-        IWindow[] windows();
+        DummyRefCount!(IWindow[]) windows();
+        void* __handle();
     }
 }
 
@@ -86,9 +91,10 @@ private {
         Cocoa = 1 << 3,
         Wayland = 1 << 4,
         Epoll = 1 << 5,
+        LibEvent = 1 << 6,
     }
     
-    final class ImplPlatform : IPlatform {
+    final class ImplPlatform : IPlatform, Have_Notification {
         private {
             import std.experimental.ui.window.internal;
 
@@ -98,7 +104,7 @@ private {
         }
 
         mixin WindowPlatformImpl;
-        
+
         void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null) {
             import std.datetime : to;
             import std.algorithm : min;

@@ -1,5 +1,8 @@
 ﻿module std.experimental.ui.window.features.menu;
 import std.experimental.ui.window.defs;
+import std.experimental.platform : IPlatform;
+import std.experimental.graphic.image : ImageStorage;
+import std.experimental.graphic.color : RGB8;
 
 interface Have_Menu {
     Feature_Menu __getFeatureMenu();
@@ -18,8 +21,8 @@ interface MenuItem {
 
     @property {
         MenuItem[] childItems();
-        SwappableImage!RGB8* image();
-        void image(SwappableImage!RGB8*);
+        ImageStorage!RGB8 image();
+        void image(ImageStorage!RGB8);
         dstring text();
         void text(dstring);
         bool devider();
@@ -39,7 +42,7 @@ interface MenuItem {
         return null;
     }
 
-    Feature_Menu menu(T)(T self) {
+    Feature_Menu menu(T)(T self) if (!(is(T : IWindow) || is(T : IPlatform))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IPlatform.");
     }
 }

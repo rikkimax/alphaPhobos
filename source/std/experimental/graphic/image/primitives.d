@@ -22,12 +22,17 @@ import std.experimental.allocator : IAllocator, theAllocator;
  * See_Also:
  *      ImageStorage
  */
-bool isImage(Image)() pure if (isPointer!Image) {
+bool isImage(Image)() pure if (isPointer!Image && !__traits(compiles, {alias T = Image.PayLoadType;})) {
     return isImage!(PointerTarget!Image)();
 }
 
 ///
-bool isImage(Image)() pure if (!isPointer!Image) {
+bool isImage(Image)() pure if (__traits(compiles, {alias T = Image.PayLoadType;}) && !isPointer!Image) {
+    return isImage!(Image.PayLoadType)();
+}
+
+///
+bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T = Image.PayLoadType;})) {
     import std.traits : ReturnType;
     import std.experimental.graphic.color : isColor;
 

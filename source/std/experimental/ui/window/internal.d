@@ -1,51 +1,48 @@
 ﻿module std.experimental.ui.window.internal;
-import std.experimental.ui.window.defs;
-import std.experimental.platform : IDisplay, ImplPlatform;
-import std.experimental.allocator : IAllocator, processAllocator, make, makeArray;
-import std.experimental.math.linearalgebra.vector : vec2;
-import std.experimental.graphic.image : ImageStorage;
-import std.experimental.ui.window.features;
 
 package(std.experimental) {
+    import std.experimental.internal.containers.list;
+    import std.experimental.ui.window.defs;
+    import std.experimental.platform : IDisplay, ImplPlatform;
+    import std.experimental.allocator : IAllocator, processAllocator, make, makeArray, dispose;
+    import std.experimental.math.linearalgebra.vector : vec2;
+    import std.experimental.graphic.image : ImageStorage;
+    import std.experimental.ui.window.features;
+    import std.experimental.graphic.color : RGB8, RGBA8;
+    import std.experimental.internal.dummyRefCount;
+
     mixin template WindowPlatformImpl() {
         version(Windows)
             pragma(lib, "gdi32");
 
         IWindowCreator createWindow() {assert(0);}
         IWindow createAWindow() {assert(0);}
-        
+
         @property {
-            immutable(IDisplay) primaryDisplay() {
+            DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator()) {
                 foreach(display; displays) {
-                    if ((cast(immutable(DisplayImpl))display).primary) {
-                        return cast(immutable)display;
+                    if ((cast(DisplayImpl)display).primary) {
+                        return DummyRefCount!IDisplay((cast(DisplayImpl)display).dup(alloc), alloc);
                     }
                 }
 
-                return null;
+                return DummyRefCount!IDisplay(null, null);
+            }
+
+            DummyRefCount!(IDisplay[]) displays(IAllocator alloc = processAllocator()) {
+                GetDisplays ctx = GetDisplays(alloc, this);
+                ctx.call;
+                return DummyRefCount!(IDisplay[])(ctx.displays, alloc);
             }
             
-            immutable(IDisplay[]) displays() {
-                alloc = processAllocator();
-
-                (cast()displays_impl_).length = 0;
-                displays_impl_ = AllocList!IDisplay(cast()alloc);
-
-                version(Windows) {
-                    assert(EnumDisplayMonitors(null, null, &callbackDisplays, cast(LPARAM)cast(void*)this) > 0);
-                }
-
-                return displays_impl_.__internalValues;
+            DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator()) {
+                GetWindows ctx = GetWindows(alloc, this, null);
+                ctx.call;
+                return DummyRefCount!(IWindow[])(ctx.windows, alloc);
             }
-            
-            immutable(IWindow[]) windows() {assert(0);}
         }
-        
-        package(std.experimental) {
-            import std.experimental.internal.containers.list;
-            AllocList!IDisplay displays_impl_;
-            IAllocator alloc;
-        }
+
+        Feature_Notification __getFeatureNotification() { return null; }
     }
 
     version(Windows) {
@@ -56,6 +53,14 @@ package(std.experimental) {
         enum CCHDEVICENAME = 32;
         enum VREFRESH = 116;
         enum DWORD ENUM_CURRENT_SETTINGS = cast(DWORD)-1;
+        enum DIB_RGB_COLORS = 0x0;
+        enum BI_RGB = 0;
+        enum MONITOR_DEFAULTTONULL = 0;
+        enum GWL_STYLE = -16;
+        enum GWL_EXSTYLE = -20;
+        enum GCL_HICON = -14;
+        enum ICON_SMALL = 0;
+        enum ICON_BIG = 1;
 
         alias TCHAR = char;
         
@@ -116,29 +121,270 @@ package(std.experimental) {
             DWORD  dmPanningHeight;
         }
 
-        alias MONITORENUMPROC = extern(Windows)bool function(HMONITOR, HDC, LPRECT, LPARAM);
-        
+        struct ICONINFO {
+            bool fIcon;
+            DWORD xHotspot;
+            DWORD yHotspot;
+            HBITMAP hbmMask;
+            HBITMAP hbmColor;
+        }
+
         extern(Windows) {
-            extern bool GetMonitorInfoW(HMONITOR, MONITORINFOEX*);
-            extern bool EnumDisplayMonitors(HDC, LPRECT, MONITORENUMPROC, LPARAM);
-            extern bool GetMonitorInfoA(HMONITOR, MONITORINFOEX*);
-            extern bool EnumDisplaySettingsA(char*, DWORD, DEVMODE*);
-            
-            bool callbackDisplays(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) {
-                ImplPlatform platform = cast(ImplPlatform)cast(void*)dwData;
+            alias MONITORENUMPROC = bool function(HMONITOR, HDC, LPRECT, LPARAM);
+            alias WNDENUMPROC = bool function(HWND, LPARAM);
+
+            extern {
+                bool GetMonitorInfoW(HMONITOR, MONITORINFOEX*);
+                bool EnumDisplayMonitors(HDC, LPRECT, MONITORENUMPROC, LPARAM);
+                bool GetMonitorInfoA(HMONITOR, MONITORINFOEX*);
+                bool EnumDisplaySettingsA(char*, DWORD, DEVMODE*);
+                HDC CreateDCA(char*, char*, char*, DEVMODE*);
+                HBITMAP CreateCompatibleBitmap(HDC, int, int);
+                bool BitBlt(HDC, int, int, int, int, HDC, int, int, DWORD);
+                int GetDIBits(HDC, HBITMAP, uint, uint, void*, BITMAPINFO*, uint);
+                bool EnumWindows(WNDENUMPROC, LPARAM);
+                HMONITOR MonitorFromWindow(HWND, DWORD);
+                HMENU GetMenu(HWND);
+                LONG GetWindowLongA(HWND, int);
+                int GetWindowTextLengthA(HWND);
+                int GetWindowTextA(HWND, char*, int);
+                BOOL SetWindowTextA(HWND, char*);
+                bool CloseWindow(HWND);
+                bool IsWindowVisible(HWND);
+                DWORD GetClassLongA(HWND, int);
+                bool GetIconInfo(HICON, ICONINFO*);
+                HICON CreateIconIndirect(ICONINFO*);
+                HBITMAP CreateBitmap(int, int, uint, uint, void*);
+                bool DestroyIcon(HICON);
+            }
+
+            struct GetDisplays {
+                IAllocator alloc;
+                IPlatform platform;
                 
-                with(platform) {
-                    displays_impl_ ~= alloc.make!DisplayImpl(hMonitor, hdcMonitor, alloc);
+                IDisplay[] displays;
+                
+                void call() {
+                    EnumDisplayMonitors(null, null, &callbackGetDisplays, cast(LPARAM)cast(void*)&this);
+                }
+            }
+
+            bool callbackGetDisplays(HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam) {
+                GetDisplays* ctx = cast(GetDisplays*)lParam;
+
+                IDisplay display = ctx.alloc.make!DisplayImpl(hMonitor, ctx.alloc, ctx.platform);
+                
+                ctx.alloc.expandArray(ctx.displays, 1);
+                ctx.displays[$-1] = display;
+
+                return true;
+            }
+
+            struct GetWindows {
+                IAllocator alloc;
+
+                IPlatform platform;
+                IDisplay display;
+
+                IWindow[] windows;
+
+                void call() {
+                    EnumWindows(&callbackGetWindows, cast(LPARAM)&this);
+                }
+            }
+
+            bool callbackGetWindows(HWND hwnd, LPARAM lParam) {
+                GetWindows* ctx = cast(GetWindows*)lParam;
+
+                if (!IsWindowVisible(hwnd))
+                    return true;
+
+                RECT rect;
+                GetWindowRect(hwnd, &rect);
+
+                if (rect.right - rect.left == 0 || rect.bottom - rect.top == 0)
+                    return true;
+
+                WindowImpl window = ctx.alloc.make!WindowImpl(hwnd, cast(IContext)null, ctx.alloc, ctx.platform);
+
+                if (ctx.display is null) {
+                    ctx.alloc.expandArray(ctx.windows, 1);
+                    ctx.windows[$-1] = window;
+                } else {
+                    IDisplay display2 = (cast(IWindow)window).display;
+                    if (display2 is null) {
+                        ctx.alloc.dispose(window);
+                        return true;
+                    }
+
+                    if (display2.name == ctx.display.name) {
+                        ctx.alloc.expandArray(ctx.windows, 1);
+                        ctx.windows[$-1] = window;
+                    } else
+                        ctx.alloc.dispose(window);
                 }
 
                 return true;
             }
         }
+
+        ImageStorage!RGB8 screenshotImpl(IAllocator alloc, HDC hFrom, vec2!ushort size_) {
+            HDC hMemoryDC = CreateCompatibleDC(hFrom);
+            HBITMAP hBitmap = CreateCompatibleBitmap(hFrom, size_.x, size_.y);
+            
+            HBITMAP hOldBitmap = SelectObject(hMemoryDC, hBitmap);
+            BitBlt(hMemoryDC, 0, 0, size_.x, size_.y, hFrom, 0, 0, SRCCOPY);
+
+            auto storage = bitmapToImage(hBitmap, hMemoryDC, vec2!size_t(size_.x, size_.y), alloc);
+            
+            hBitmap = SelectObject(hMemoryDC, hOldBitmap);
+            DeleteDC(hMemoryDC);
+
+            return storage;
+        }
+
+        ImageStorage!RGB8 bitmapToImage(HBITMAP hBitmap, HDC hMemoryDC, vec2!size_t size_, IAllocator alloc) {
+            import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
+            import std.experimental.graphic.image.interfaces : imageObject;
+
+            size_t dwBmpSize = ((size_.x * 32 + 31) / 32) * 4 * size_.y;
+            ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
+            auto storage = imageObject!(ImageStorageHorizontal!RGB8)(size_.x, size_.y, alloc);
+
+            BITMAPINFOHEADER bi;
+            
+            bi.biSize = BITMAPINFOHEADER.sizeof;    
+            bi.biWidth = size_.x;    
+            bi.biHeight = size_.y;  
+            bi.biPlanes = 1;    
+            bi.biBitCount = 32;    
+            bi.biCompression = BI_RGB;    
+            bi.biSizeImage = 0;  
+            bi.biXPelsPerMeter = 0;    
+            bi.biYPelsPerMeter = 0;    
+            bi.biClrUsed = 0;    
+            bi.biClrImportant = 0;
+            
+            BITMAPINFO bitmapInfo;
+            bitmapInfo.bmiHeader = bi;
+
+            GetDIBits(hMemoryDC, hBitmap, 0, size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
+
+            size_t x;
+            size_t y = size_.y-1;
+            for(size_t i = 0; i < buffer.length; i += 4) {
+                RGB8 c = RGB8(buffer[i+2], buffer[i+1], buffer[i]);
+                
+                storage[x, y] = c;
+                
+                x++;
+                if (x == size_.x) {
+                    x = 0;
+                    if (y == 0)
+                        break;
+                    y--;
+                }
+            }
+
+            alloc.dispose(buffer);
+            return storage;
+        }
+
+        ImageStorage!RGBA8 bitmapToAlphaImage(HBITMAP hBitmap, HDC hMemoryDC, vec2!size_t size_, IAllocator alloc) {
+            import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
+            import std.experimental.graphic.image.interfaces : imageObject;
+            
+            size_t dwBmpSize = ((size_.x * 32 + 31) / 32) * 4 * size_.y;
+            ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
+            auto storage = imageObject!(ImageStorageHorizontal!RGBA8)(size_.x, size_.y, alloc);
+            
+            BITMAPINFOHEADER bi;
+            
+            bi.biSize = BITMAPINFOHEADER.sizeof;    
+            bi.biWidth = size_.x;    
+            bi.biHeight = size_.y;  
+            bi.biPlanes = 1;    
+            bi.biBitCount = 32;    
+            bi.biCompression = BI_RGB;    
+            bi.biSizeImage = 0;  
+            bi.biXPelsPerMeter = 0;    
+            bi.biYPelsPerMeter = 0;    
+            bi.biClrUsed = 0;    
+            bi.biClrImportant = 0;
+            
+            BITMAPINFO bitmapInfo;
+            bitmapInfo.bmiHeader = bi;
+            
+            GetDIBits(hMemoryDC, hBitmap, 0, size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
+            
+            size_t x;
+            size_t y = size_.y-1;
+            for(size_t i = 0; i < buffer.length; i += 4) {
+                RGBA8 c = RGBA8(buffer[i+2], buffer[i+1], buffer[i], 255);
+                
+                storage[x, y] = c;
+                
+                x++;
+                if (x == size_.x) {
+                    x = 0;
+                    if (y == 0)
+                        break;
+                    y--;
+                }
+            }
+            
+            alloc.dispose(buffer);
+            return storage;
+        }
+
+        HICON imageToIcon(ImageStorage!RGBA8 from, HDC hMemoryDC, IAllocator alloc) {
+            size_t dwBmpSize = ((from.width * 32 + 31) / 32) * 4 * from.height;
+            ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
+
+            HICON ret;
+
+            size_t x;
+            size_t y = from.height-1;
+            for(size_t i = 0; i < buffer.length; i += 4) {
+                RGBA8 c = from[x, y];
+
+                buffer[i] = c.b;
+                buffer[i+1] = c.g;
+                buffer[i+2] = c.r;
+                buffer[i+3] = c.a;
+                
+                x++;
+                if (x == from.width) {
+                    x = 0;
+                    if (y == 0)
+                        break;
+                    y--;
+                }
+            }
+
+            HBITMAP hBitmap = CreateBitmap(cast(uint)from.width, cast(uint)from.height, 1, 32, buffer.ptr);
+            HBITMAP hbmMask = CreateCompatibleBitmap(hMemoryDC, cast(uint)from.width, cast(uint)from.height);
+
+            ICONINFO ii;
+            ii.fIcon = true;
+            ii.hbmColor = hBitmap;
+            ii.hbmMask = hbmMask;
+
+            ret = CreateIconIndirect(&ii);
+
+            DeleteObject(hbmMask);
+            DeleteObject(hBitmap);
+            alloc.dispose(buffer);
+
+            return ret;
+        }
     }
     
-    final class DisplayImpl : IDisplay {
+    final class DisplayImpl : IDisplay, Feature_ScreenShot, Have_ScreenShot {
         private {
             IAllocator alloc;
+            IPlatform platform;
+
             char[] name_;
             bool primaryDisplay_;
             vec2!ushort size_;
@@ -146,17 +392,17 @@ package(std.experimental) {
 
             version(Windows) {
                 HMONITOR hMonitor;
-                HDC hdc;
             }
         }
 
         version(Windows) {
-            this(HMONITOR hMonitor, HDC hdc, IAllocator alloc) {
+            this(HMONITOR hMonitor, IAllocator alloc, IPlatform platform) {
                 import std.string : fromStringz;
 
                 this.alloc = alloc;
+                this.platform = platform;
+
                 this.hMonitor = hMonitor;
-                this.hdc = hdc;
                 
                 MONITORINFOEX info;
                 info.cbSize = MONITORINFOEX.sizeof;
@@ -179,53 +425,265 @@ package(std.experimental) {
             }
         }
 
-        @property immutable {
+        @property {
             string name() { return cast(immutable)name_[0 .. $-1]; }
             vec2!ushort size() { return size_; }
             uint refreshRate() { return refreshRate_; }
-            IWindow[] windows() { assert(0); }
+
+            DummyRefCount!(IWindow[]) windows() {
+                GetWindows ctx = GetWindows(alloc, cast()platform, cast()this);
+                ctx.call;
+                return DummyRefCount!(IWindow[])(ctx.windows, alloc);
+            }
 
             bool primary() { return primaryDisplay_; }
+
+            IDisplay dup(IAllocator alloc) {
+                version(Windows) {
+                    return alloc.make!DisplayImpl(hMonitor, alloc, platform);
+                } else
+                    assert(0);
+            }
+
+            void* __handle() {
+                version(Windows) {
+                    return &hMonitor;
+                } else
+                    assert(0);
+            }
+        }
+
+        Feature_ScreenShot __getFeatureScreenShot() {
+            version(Windows)
+                return this;
+            else
+                return null;
+        }
+
+        ImageStorage!RGB8 screenshot(IAllocator alloc = null) {
+            if (alloc is null)
+                alloc = this.alloc;
+
+            version(Windows) {
+                HDC hScreenDC = CreateDCA(name_.ptr, null, null, null);
+                auto storage = screenshotImpl(alloc, hScreenDC, size_);
+                DeleteDC(hScreenDC);
+                return storage;
+            } else {
+                assert(0);
+            }
         }
     }
 
-    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Have_ScreenShot, Have_Icon {
+    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Have_ScreenShot, Have_Icon, Have_Menu {
         private {
-            version(Windows)
+            IPlatform platform;
+            IAllocator alloc;
+            IContext context_;
+
+            version(Windows) {
                 HWND hwnd;
+            }
         }
 
         version(Windows) {
-            this(HWND hwnd) {
+            this(HWND hwnd, IContext context, IAllocator alloc, IPlatform platform) {
                 this.hwnd = hwnd;
+                this.platform = platform;
+                this.alloc = alloc;
+                this.context_ = context;
             }
         }
 
         @property {
-            string title();
-            void title(string);
+            DummyRefCount!(char[]) title() {
+                version(Windows) {
+                    int textLength = GetWindowTextLengthA(hwnd);
+                    char[] buffer = alloc.makeArray!char(textLength + 1);
+                    assert(GetWindowTextA(hwnd, buffer.ptr, buffer.length) > 0);
+                    alloc.shrinkArray(buffer, 1);
+
+                    return DummyRefCount!(char[])(buffer, alloc);
+                } else
+                    assert(0);
+            }
+
+            void title(string text) {
+                version(Windows) {
+                    char[] buffer = alloc.makeArray!char(text.length + 1);
+                    buffer[0 .. $-1] = text[];
+
+                    SetWindowTextA(hwnd, buffer.ptr);
+                } else
+                    assert(0);
+            }
             
-            UIPoint size();
-            void location(UIPoint);
-            
-            UIPoint location();
-            void size(UIPoint);
-            
-            IDisplay display();
-            IContext context();
+            UIPoint size() {
+                version(Windows) {
+                    RECT rect;
+                    GetClientRect(hwnd, &rect);
+                    return UIPoint(cast(short)rect.right, cast(short)rect.bottom);
+                } else
+                    assert(0);
+            }
+
+            void location(UIPoint point) {
+                version(Windows) {
+                    SetWindowPos(hwnd, null, point.x, point.y, 0, 0, SWP_NOSIZE);
+                } else
+                    assert(0);
+            }
+
+            UIPoint location() {
+                version(Windows) {
+                    RECT rect;
+                    assert(GetWindowRect(hwnd, &rect));
+                    return UIPoint(cast(short)rect.left, cast(short)rect.top);
+                } else
+                    assert(0);
+            }
+
+            void size(UIPoint point) {
+                version(Windows) {
+                    RECT rect;
+                    rect.top = point.x;
+                    rect.bottom = point.y;
+
+                    assert(AdjustWindowRectEx(&rect, GetWindowLongA(hwnd, GWL_STYLE), GetMenu(hwnd) !is null, GetWindowLongA(hwnd, GWL_EXSTYLE)));
+                    SetWindowPos(hwnd, null, 0, 0, rect.right, rect.bottom, SWP_NOMOVE);
+                } else
+                    assert(0);
+            }
+
+            bool visible() {
+                version(Windows)
+                    return IsWindowVisible(hwnd);
+                else 
+                    assert(0);
+            }
+
+            // display can and will most likely change during runtime
+            DummyRefCount!IDisplay display() { 
+                version(Windows) {
+                    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
+                    if (monitor is null)
+                        return DummyRefCount!IDisplay(null, null);
+                    else
+                        return DummyRefCount!IDisplay(alloc.make!DisplayImpl(monitor, alloc, platform),  alloc);
+                } else 
+                    assert(0);
+            }
+
+            IContext context() { return context_; }
+
+            void* __handle() {
+                version(Windows)
+                    return &hwnd;
+                else 
+                    assert(0);
+            }
+
+            IAllocator allocator() { return alloc; }
         }
         
-        void hide();
-        void show();
-        void close();
+        void hide() {
+            version(Windows)
+                ShowWindow(hwnd, SW_HIDE);
+            else
+                return null;
+        }
+
+        void show() {
+            version(Windows)
+                ShowWindow(hwnd, SW_SHOW);
+            else
+                return null;
+        }
+
+        void close() {
+            version(Windows)
+                CloseWindow(hwnd);
+            else
+                return null;
+        }
 
         // features
 
-        Feature_ScreenShot __getFeatureScreenShot() { return this; }
-        ImageStorage!RGB8 screenshot();
+        Feature_ScreenShot __getFeatureScreenShot() {
+            version(Windows)
+                return this;
+            else
+                return null;
+        }
 
-        Feature_Icon __getFeatureIcon() { return this; }
-        ImageStorage!RGBA8 getIcon() @property;
-        void setIcon(ImageStorage!RGBA8) @property;
+        ImageStorage!RGB8 screenshot(IAllocator alloc=null) {
+            if (alloc is null)
+                alloc = this.alloc;
+
+            version(Windows) {
+                HDC hWindowDC = GetDC(hwnd);
+                auto storage = screenshotImpl(alloc, hWindowDC, cast(vec2!ushort)size());
+                ReleaseDC(hwnd, hWindowDC);
+                return storage;
+            } else {
+                assert(0);
+            }
+        }
+
+        Feature_Icon __getFeatureIcon() {
+            version(Windows)
+                return this;
+            else
+                return null;
+        }
+
+        ImageStorage!RGBA8 getIcon() @property {
+            version(Windows) {
+                HICON hIcon = cast(HICON)GetClassLongA(hwnd, GCL_HICON);
+                ICONINFO iconinfo;
+                GetIconInfo(hIcon, &iconinfo);
+                HBITMAP hBitmap = iconinfo.hbmColor;        
+
+                BITMAP bm;
+                GetObjectA(hBitmap, BITMAP.sizeof, &bm);
+
+                HDC hFrom = GetDC(null);
+                HDC hMemoryDC = CreateCompatibleDC(hFrom);
+
+                scope(exit) {
+                    DeleteDC(hMemoryDC);
+                    ReleaseDC(hwnd, hFrom);
+                }
+
+                return bitmapToAlphaImage(hBitmap, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), alloc);
+            } else
+                assert(0);
+        }
+
+        void setIcon(ImageStorage!RGBA8 from) @property {
+            version(Windows) {
+                HICON hIcon = cast(HICON)GetClassLongA(hwnd, GCL_HICON);
+                if (hIcon)
+                    DestroyIcon(hIcon);
+
+                HDC hFrom = GetDC(null);
+                HDC hMemoryDC = CreateCompatibleDC(hFrom);
+
+                hIcon = imageToIcon(from, hMemoryDC, alloc);
+
+                if (hIcon) {
+                    SendMessageA(hwnd, WM_SETICON, cast(WPARAM)ICON_BIG, cast(LPARAM)hIcon);
+                    SendMessageA(hwnd, WM_SETICON, cast(WPARAM)ICON_SMALL, cast(LPARAM)hIcon);
+                }
+
+                DeleteDC(hMemoryDC);
+                ReleaseDC(hwnd, hFrom);
+            } else
+                assert(0);
+        }
+
+        Feature_Menu __getFeatureMenu() { return this; }
+        void addItem() { assert(0); }
+        @property MenuItem[] items() { assert(0); }
     }
 }
