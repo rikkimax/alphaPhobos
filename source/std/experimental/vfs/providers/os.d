@@ -89,11 +89,11 @@ final class OSFileSystemProvider : IFileSystemProvider {
         
         IDirectoryEntry ret;
         
-        if (exists(path))
+        if (exists(path.value))
             return null;
         else {
             try {
-                mkdirRecurse(path);
+                mkdirRecurse(path.value);
                 return alloc.make!OSDirectoryEntry(this, path);
             } catch(FileException) {
                 return null;
@@ -166,7 +166,7 @@ final class OSFileEntry : IFileEntry {
 
             to = path.sibling(to);
             string toS = URIEntries(to);
-            path.rename(toS);
+            path.value.rename(toS);
 
             nameParts = cast(string[])to.parts;
             path.__dtor;
@@ -217,13 +217,13 @@ final class OSFileEntry : IFileEntry {
         ///
         SysTime lastModified() {
             import std.file : timeLastModified;
-            return timeLastModified(path);
+            return timeLastModified(path.value);
         }
 
         ///
         bool remove() {
             import std.file : remove;
-            string pathS = URIEntries(path);
+            string pathS = URIEntries(path.value);
 
             try {
                 remove(pathS);
@@ -308,7 +308,7 @@ final class OSDirectoryEntry : IDirectoryEntry {
             to = to.expand(provider.homeDirectory, provider.currentWorkingDirectory);
 
             string toS = URIEntries(to);
-            path.rename(toS);
+            path.value.rename(toS);
             
             path.__dtor;
             path = to;
@@ -333,7 +333,7 @@ final class OSDirectoryEntry : IDirectoryEntry {
         ///
         SysTime lastModified() {
             import std.file : timeLastModified;
-            return timeLastModified(path);
+            return timeLastModified(path.value);
         }
 
         ///
