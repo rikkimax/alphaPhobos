@@ -564,20 +564,23 @@ package(std.experimental) {
             AAMap!(uint, MenuCallback) menuCallbacks;
 
             bool redrawMenu;
-            bool primaryOwner;
 
             version(Windows) {
                 HWND hwnd;
+                HMENU hMenu;
             }
         }
 
         version(Windows) {
-            this(HWND hwnd, IContext context, IAllocator alloc, IPlatform platform, bool primaryOwner=false) {
+            this(HWND hwnd, IContext context, IAllocator alloc, IPlatform platform, HMENU hMenu=null) {
                 this.hwnd = hwnd;
                 this.platform = platform;
                 this.alloc = alloc;
                 this.context_ = context;
-                this.primaryOwner = primaryOwner;
+                this.hMenu = hMenu;
+
+                if (hMenu !is null)
+                    menuItems = AllocList!MenuItemImpl(alloc);
 
                 menuItemsCount = 9000;
             }
@@ -780,20 +783,17 @@ package(std.experimental) {
 
         Feature_Menu __getFeatureMenu() {
             version(Windows) {
-                if (primaryOwner)
-                    return this;
-                else
+                if (hMenu is null)
                     return null;
+                else
+                    return this;
             } else
                 assert(0);
         }
 
         MenuItem addItem() {
-            if (menuItems.length == 0)
-                menuItems = AllocList!MenuItemImpl(alloc);
-
             version(Windows) {
-                auto ret = alloc.make!MenuItemImpl(this, GetMenu(hwnd));
+                auto ret = alloc.make!MenuItemImpl(this, hMenu);
             } else
                 assert(0);
             menuItems ~= ret;
