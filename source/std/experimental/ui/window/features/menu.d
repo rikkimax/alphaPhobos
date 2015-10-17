@@ -3,30 +3,37 @@ import std.experimental.ui.window.defs;
 import std.experimental.platform : IPlatform;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8;
+import std.experimental.internal.dummyRefCount;
 
 interface Have_Menu {
     Feature_Menu __getFeatureMenu();
 }
 
 interface Feature_Menu {
-    void addItem();
-    @property MenuItem[] items();
+    MenuItem addItem();
+    @property immutable(MenuItem[]) items();
 }
 
 alias MenuCallback = void delegate(MenuItem);
 
 interface MenuItem {
-    void addChildItem();
+    MenuItem addChildItem();
     void remove();
 
     @property {
-        MenuItem[] childItems();
-        ImageStorage!RGB8 image();
+        immutable(MenuItem[]) childItems();
+        DummyRefCount!(ImageStorage!RGB8) image();
         void image(ImageStorage!RGB8);
-        dstring text();
+        DummyRefCount!(dchar[]) text();
         void text(dstring);
+        void text(wstring);
+        void text(string);
+
         bool devider();
         void devider(bool);
+        bool disabled();
+        void disabled(bool);
+
         void callback(MenuCallback);
     }
 }

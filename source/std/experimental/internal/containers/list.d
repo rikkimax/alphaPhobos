@@ -73,6 +73,23 @@ struct AllocList(T) {
     immutable(T[]) __internalValues() {
         return cast(immutable)values;
     }
+
+    void remove(T value) {
+        foreach(i, v; values) {
+            if (v == value) {
+                if (i == values.length-1) {
+                    alloc.shrinkArray(values, 1);
+                } else {
+                    T[] values2 = alloc.makeArray!T(values.length-1);
+                    values2[0 .. i] = values[0 .. i];
+                    values2[i .. $] = values[i+1 .. $];
+                    alloc.deallocate(values);
+                    values = values2;
+                }
+                break;
+            }
+        }
+    }
 }
 
 unittest {

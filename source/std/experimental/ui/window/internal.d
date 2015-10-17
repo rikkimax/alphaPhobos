@@ -15,7 +15,7 @@ package(std.experimental) {
         version(Windows)
             pragma(lib, "gdi32");
 
-        IWindowCreator createWindow() {assert(0);}
+        DummyRefCount!IWindowCreator createWindow() {assert(0);}
         IWindow createAWindow() {assert(0);}
 
         @property {
@@ -37,7 +37,7 @@ package(std.experimental) {
                 } else
                     assert(0);
             }
-            
+
             DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator()) {
                 version(Windows) {
                     GetWindows ctx = GetWindows(alloc, this, null);
@@ -67,9 +67,16 @@ package(std.experimental) {
         enum GCL_HICON = -14;
         enum ICON_SMALL = 0;
         enum ICON_BIG = 1;
+        enum MF_SEPARATOR = 0x00000800;
+        enum MF_DISABLED = 0x00000002;
+        enum MF_ENABLED = 0;
+        enum MF_BITMAP = 0x00000004;
+        enum MF_BYCOMMAND = 0;
+        enum MF_STRING = 0;
+        enum MF_POPUP = 0x00000010;
 
         alias TCHAR = char;
-        
+
         struct MONITORINFOEX {
             DWORD cbSize;
             RECT rcMonitor;
@@ -135,6 +142,21 @@ package(std.experimental) {
             HBITMAP hbmColor;
         }
 
+        struct MENUITEMINFO {
+            UINT      cbSize;
+            UINT      fMask;
+            UINT      fType;
+            UINT      fState;
+            UINT      wID;
+            HMENU     hSubMenu;
+            HBITMAP   hbmpChecked;
+            HBITMAP   hbmpUnchecked;
+            ULONG_PTR dwItemData;
+            LPTSTR    dwTypeData;
+            UINT      cch;
+            HBITMAP   hbmpItem;
+        }
+
         extern(Windows) {
             alias MONITORENUMPROC = bool function(HMONITOR, HDC, LPRECT, LPARAM);
             alias WNDENUMPROC = bool function(HWND, LPARAM);
@@ -162,14 +184,22 @@ package(std.experimental) {
                 HICON CreateIconIndirect(ICONINFO*);
                 HBITMAP CreateBitmap(int, int, uint, uint, void*);
                 bool DestroyIcon(HICON);
+                bool ModifyMenuA(HMENU, uint, uint, void*, void*);
+                int GetMenuStringW(HMENU, uint, void*, int, uint);
+                uint GetMenuState(HMENU, uint, uint);
+                bool GetMenuItemInfoA(HMENU, uint, bool, MENUITEMINFO*);
+                bool DeleteMenu(HMENU, uint, uint);
+                bool RemoveMenu(HMENU, uint, uint);
+                bool AppendMenuA(HMENU, uint, UINT_PTR, void*);
+                HMENU CreatePopupMenu();
             }
 
             struct GetDisplays {
                 IAllocator alloc;
                 IPlatform platform;
-                
+
                 IDisplay[] displays;
-                
+
                 void call() {
                     EnumDisplayMonitors(null, null, &callbackGetDisplays, cast(LPARAM)cast(void*)&this);
                 }
@@ -179,7 +209,7 @@ package(std.experimental) {
                 GetDisplays* ctx = cast(GetDisplays*)lParam;
 
                 IDisplay display = ctx.alloc.make!DisplayImpl(hMonitor, ctx.alloc, ctx.platform);
-                
+
                 ctx.alloc.expandArray(ctx.displays, 1);
                 ctx.displays[$-1] = display;
 
@@ -237,12 +267,12 @@ package(std.experimental) {
         ImageStorage!RGB8 screenshotImpl(IAllocator alloc, HDC hFrom, vec2!ushort size_) {
             HDC hMemoryDC = CreateCompatibleDC(hFrom);
             HBITMAP hBitmap = CreateCompatibleBitmap(hFrom, size_.x, size_.y);
-            
+
             HBITMAP hOldBitmap = SelectObject(hMemoryDC, hBitmap);
             BitBlt(hMemoryDC, 0, 0, size_.x, size_.y, hFrom, 0, 0, SRCCOPY);
 
             auto storage = bitmapToImage(hBitmap, hMemoryDC, vec2!size_t(size_.x, size_.y), alloc);
-            
+
             hBitmap = SelectObject(hMemoryDC, hOldBitmap);
             DeleteDC(hMemoryDC);
 
@@ -258,19 +288,19 @@ package(std.experimental) {
             auto storage = imageObject!(ImageStorageHorizontal!RGB8)(size_.x, size_.y, alloc);
 
             BITMAPINFOHEADER bi;
-            
-            bi.biSize = BITMAPINFOHEADER.sizeof;    
-            bi.biWidth = size_.x;    
-            bi.biHeight = size_.y;  
-            bi.biPlanes = 1;    
-            bi.biBitCount = 32;    
-            bi.biCompression = BI_RGB;    
-            bi.biSizeImage = 0;  
-            bi.biXPelsPerMeter = 0;    
-            bi.biYPelsPerMeter = 0;    
-            bi.biClrUsed = 0;    
+
+            bi.biSize = BITMAPINFOHEADER.sizeof;
+            bi.biWidth = size_.x;
+            bi.biHeight = size_.y;
+            bi.biPlanes = 1;
+            bi.biBitCount = 32;
+            bi.biCompression = BI_RGB;
+            bi.biSizeImage = 0;
+            bi.biXPelsPerMeter = 0;
+            bi.biYPelsPerMeter = 0;
+            bi.biClrUsed = 0;
             bi.biClrImportant = 0;
-            
+
             BITMAPINFO bitmapInfo;
             bitmapInfo.bmiHeader = bi;
 
@@ -280,9 +310,9 @@ package(std.experimental) {
             size_t y = size_.y-1;
             for(size_t i = 0; i < buffer.length; i += 4) {
                 RGB8 c = RGB8(buffer[i+2], buffer[i+1], buffer[i]);
-                
+
                 storage[x, y] = c;
-                
+
                 x++;
                 if (x == size_.x) {
                     x = 0;
@@ -299,37 +329,37 @@ package(std.experimental) {
         ImageStorage!RGBA8 bitmapToAlphaImage(HBITMAP hBitmap, HDC hMemoryDC, vec2!size_t size_, IAllocator alloc) {
             import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
             import std.experimental.graphic.image.interfaces : imageObject;
-            
+
             size_t dwBmpSize = ((size_.x * 32 + 31) / 32) * 4 * size_.y;
             ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
             auto storage = imageObject!(ImageStorageHorizontal!RGBA8)(size_.x, size_.y, alloc);
-            
+
             BITMAPINFOHEADER bi;
-            
-            bi.biSize = BITMAPINFOHEADER.sizeof;    
-            bi.biWidth = size_.x;    
-            bi.biHeight = size_.y;  
-            bi.biPlanes = 1;    
-            bi.biBitCount = 32;    
-            bi.biCompression = BI_RGB;    
-            bi.biSizeImage = 0;  
-            bi.biXPelsPerMeter = 0;    
-            bi.biYPelsPerMeter = 0;    
-            bi.biClrUsed = 0;    
+
+            bi.biSize = BITMAPINFOHEADER.sizeof;
+            bi.biWidth = size_.x;
+            bi.biHeight = size_.y;
+            bi.biPlanes = 1;
+            bi.biBitCount = 32;
+            bi.biCompression = BI_RGB;
+            bi.biSizeImage = 0;
+            bi.biXPelsPerMeter = 0;
+            bi.biYPelsPerMeter = 0;
+            bi.biClrUsed = 0;
             bi.biClrImportant = 0;
-            
+
             BITMAPINFO bitmapInfo;
             bitmapInfo.bmiHeader = bi;
-            
+
             GetDIBits(hMemoryDC, hBitmap, 0, size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
-            
+
             size_t x;
             size_t y = size_.y-1;
             for(size_t i = 0; i < buffer.length; i += 4) {
                 RGBA8 c = RGBA8(buffer[i+2], buffer[i+1], buffer[i], 255);
-                
+
                 storage[x, y] = c;
-                
+
                 x++;
                 if (x == size_.x) {
                     x = 0;
@@ -338,22 +368,52 @@ package(std.experimental) {
                     y--;
                 }
             }
-            
+
             alloc.dispose(buffer);
             return storage;
         }
 
-        HICON imageToIcon(ImageStorage!RGBA8 from, HDC hMemoryDC, IAllocator alloc) {
+        HBITMAP imageToBitmap(ImageStorage!RGB8 from, HDC hMemoryDC, IAllocator alloc) {
             size_t dwBmpSize = ((from.width * 32 + 31) / 32) * 4 * from.height;
             ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
-
+            
             HICON ret;
+            
+            size_t x;
+            size_t y = from.height-1;
+            for(size_t i = 0; i < buffer.length; i += 4) {
+                RGB8 c = from[x, y];
+                
+                buffer[i] = c.b;
+                buffer[i+1] = c.g;
+                buffer[i+2] = c.r;
+                buffer[i+3] = 255;
+                
+                x++;
+                if (x == from.width) {
+                    x = 0;
+                    if (y == 0)
+                        break;
+                    y--;
+                }
+            }
+            
+            HBITMAP hBitmap = CreateBitmap(cast(uint)from.width, cast(uint)from.height, 1, 32, buffer.ptr);
+            alloc.dispose(buffer);
+            return hBitmap;
+        }
 
+        HBITMAP imageToAlphaBitmap(ImageStorage!RGBA8 from, HDC hMemoryDC, IAllocator alloc) {
+            size_t dwBmpSize = ((from.width * 32 + 31) / 32) * 4 * from.height;
+            ubyte[] buffer = alloc.makeArray!ubyte(dwBmpSize);
+            
+            HICON ret;
+            
             size_t x;
             size_t y = from.height-1;
             for(size_t i = 0; i < buffer.length; i += 4) {
                 RGBA8 c = from[x, y];
-
+                
                 buffer[i] = c.b;
                 buffer[i+1] = c.g;
                 buffer[i+2] = c.r;
@@ -367,8 +427,16 @@ package(std.experimental) {
                     y--;
                 }
             }
-
+            
             HBITMAP hBitmap = CreateBitmap(cast(uint)from.width, cast(uint)from.height, 1, 32, buffer.ptr);
+            alloc.dispose(buffer);
+            return hBitmap;
+        }
+
+        HICON imageToIcon(ImageStorage!RGBA8 from, HDC hMemoryDC, IAllocator alloc) {
+            HICON ret;
+
+            HBITMAP hBitmap = imageToAlphaBitmap(from, hMemoryDC, alloc);
             HBITMAP hbmMask = CreateCompatibleBitmap(hMemoryDC, cast(uint)from.width, cast(uint)from.height);
 
             ICONINFO ii;
@@ -380,12 +448,11 @@ package(std.experimental) {
 
             DeleteObject(hbmMask);
             DeleteObject(hBitmap);
-            alloc.dispose(buffer);
 
             return ret;
         }
     }
-    
+
     final class DisplayImpl : IDisplay, Feature_ScreenShot, Have_ScreenShot {
         private {
             IAllocator alloc;
@@ -409,11 +476,11 @@ package(std.experimental) {
                 this.platform = platform;
 
                 this.hMonitor = hMonitor;
-                
+
                 MONITORINFOEX info;
                 info.cbSize = MONITORINFOEX.sizeof;
                 GetMonitorInfoA(hMonitor, &info);
-                
+
                 char[] temp = info.szDevice.ptr.fromStringz;
                 name_ = alloc.makeArray!char(temp.length + 1);
                 name_[0 .. $-1] = temp[];
@@ -421,9 +488,9 @@ package(std.experimental) {
 
                 size_.x = cast(ushort)(info.rcMonitor.right - info.rcMonitor.left);
                 size_.y = cast(ushort)(info.rcMonitor.bottom - info.rcMonitor.top);
-                
+
                 primaryDisplay_ = info.dwFlags & MONITORINFOF_PRIMARY;
-                
+
                 DEVMODE devMode;
                 devMode.dmSize = DEVMODE.sizeof;
                 assert(EnumDisplaySettingsA(name_.ptr, ENUM_CURRENT_SETTINGS, &devMode) >  0);
@@ -486,9 +553,17 @@ package(std.experimental) {
 
     final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Have_ScreenShot, Have_Icon, Have_Menu {
         private {
+            import std.experimental.internal.containers.map;
+
             IPlatform platform;
             IAllocator alloc;
             IContext context_;
+
+            AllocList!MenuItemImpl menuItems;
+            uint menuItemsCount;
+            AAMap!(uint, MenuCallback) menuCallbacks;
+
+            bool primaryOwner;
 
             version(Windows) {
                 HWND hwnd;
@@ -496,11 +571,22 @@ package(std.experimental) {
         }
 
         version(Windows) {
-            this(HWND hwnd, IContext context, IAllocator alloc, IPlatform platform) {
+            this(HWND hwnd, IContext context, IAllocator alloc, IPlatform platform, bool primaryOwner=false) {
                 this.hwnd = hwnd;
                 this.platform = platform;
                 this.alloc = alloc;
                 this.context_ = context;
+                this.primaryOwner = primaryOwner;
+
+                menuItemsCount = 9000;
+            }
+        }
+
+        ~this() {
+            if (menuItems.length > 0) {
+                foreach(item; menuItems) {
+                    item.remove();
+                }
             }
         }
 
@@ -526,7 +612,7 @@ package(std.experimental) {
                 } else
                     assert(0);
             }
-            
+
             UIPoint size() {
                 version(Windows) {
                     RECT rect;
@@ -567,19 +653,19 @@ package(std.experimental) {
             bool visible() {
                 version(Windows)
                     return IsWindowVisible(hwnd);
-                else 
+                else
                     assert(0);
             }
 
             // display can and will most likely change during runtime
-            DummyRefCount!IDisplay display() { 
+            DummyRefCount!IDisplay display() {
                 version(Windows) {
                     HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
                     if (monitor is null)
                         return DummyRefCount!IDisplay(null, null);
                     else
                         return DummyRefCount!IDisplay(alloc.make!DisplayImpl(monitor, alloc, platform),  alloc);
-                } else 
+                } else
                     assert(0);
             }
 
@@ -588,13 +674,13 @@ package(std.experimental) {
             void* __handle() {
                 version(Windows)
                     return &hwnd;
-                else 
+                else
                     assert(0);
             }
 
             IAllocator allocator() { return alloc; }
         }
-        
+
         void hide() {
             version(Windows)
                 ShowWindow(hwnd, SW_HIDE);
@@ -651,7 +737,7 @@ package(std.experimental) {
                 HICON hIcon = cast(HICON)GetClassLongA(hwnd, GCL_HICON);
                 ICONINFO iconinfo;
                 GetIconInfo(hIcon, &iconinfo);
-                HBITMAP hBitmap = iconinfo.hbmColor;        
+                HBITMAP hBitmap = iconinfo.hbmColor;
 
                 BITMAP bm;
                 GetObjectA(hBitmap, BITMAP.sizeof, &bm);
@@ -691,8 +777,226 @@ package(std.experimental) {
                 assert(0);
         }
 
-        Feature_Menu __getFeatureMenu() { return this; }
-        void addItem() { assert(0); }
-        @property MenuItem[] items() { assert(0); }
+        Feature_Menu __getFeatureMenu() {
+            version(Windows) {
+                if (primaryOwner)
+                    return this;
+                else
+                    return null;
+            } else
+                assert(0);
+        }
+
+        MenuItem addItem() {
+            if (menuItems.length == 0)
+                menuItems = AllocList!MenuItemImpl(alloc);
+
+            version(Windows) {
+                auto ret = alloc.make!MenuItemImpl(this, GetMenu(hwnd));
+            } else
+                assert(0);
+            menuItems ~= ret;
+            return ret;
+        }
+
+        @property immutable(MenuItem[]) items() {
+            return cast(immutable(MenuItem[]))menuItems.__internalValues;
+        }
+    }
+
+   final class MenuItemImpl : MenuItem {
+        private {
+            WindowImpl window;
+            AllocList!MenuItemImpl menuItems;
+
+            uint menuItemId;
+            MenuItemImpl parentMenuItem;
+
+            version(Windows) {
+                HMENU parent;
+                HMENU myChildren;
+                HBITMAP lastBitmap;
+            }
+        }
+
+        version(Windows) {
+            this(WindowImpl window, HMENU parent, MenuItemImpl parentMenuItem=null) {
+                this.window = window;
+                this.parent = parent;
+                this.parentMenuItem = parentMenuItem;
+
+                menuItemId = window.menuItemsCount;
+                window.menuItemsCount++;
+
+                AppendMenuA(parent, 0, menuItemId, null);
+            }
+        }
+
+        override MenuItem addChildItem() {
+            version(Windows) {
+                if (myChildren is null) {
+                    myChildren = CreatePopupMenu();
+                }
+
+                ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_POPUP, myChildren, null);
+                return window.alloc.make!MenuItemImpl(window, myChildren, this);
+            }
+        }
+
+        override void remove() {
+            version(Windows) {
+                foreach(sub; menuItems) {
+                    sub.remove();
+                }
+
+                menuItems.length = 0;
+
+                RemoveMenu(parent, menuItemId, MF_BYCOMMAND);
+                DeleteMenu(parent, menuItemId, MF_BYCOMMAND);
+
+                if (parentMenuItem is null)
+                    window.menuItems.remove(this);
+                else
+                    parentMenuItem.menuItems.remove(this);
+
+                window.menuCallbacks.remove(menuItemId);
+                if (lastBitmap !is null)
+                    DeleteObject(lastBitmap);
+
+                window.alloc.dispose(this);
+            }
+        }
+        
+        @property {
+            override immutable(MenuItem[]) childItems() {
+                return cast(immutable(MenuItem[]))menuItems.__internalValues;
+            }
+
+            override DummyRefCount!(ImageStorage!RGB8) image() {
+                version(Windows) {
+                    MENUITEMINFO mmi;
+                    mmi.cbSize = MENUITEMINFO.sizeof;
+                    GetMenuItemInfoA(parent, menuItemId, false, &mmi);
+
+                    HDC hFrom = GetDC(null);
+                    HDC hMemoryDC = CreateCompatibleDC(hFrom);
+
+                    scope(exit) {
+                        DeleteDC(hMemoryDC);
+                        ReleaseDC(window.hwnd, hFrom);
+                    }
+
+                    BITMAP bm;
+                    GetObjectA(mmi.hbmpItem, BITMAP.sizeof, &bm);
+
+                    return DummyRefCount!(ImageStorage!RGB8)(bitmapToImage(mmi.hbmpItem, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), window.alloc), window.alloc);
+                }
+            }
+
+            override void image(ImageStorage!RGB8 input) {
+                version(Windows) {
+                    HDC hFrom = GetDC(null);
+                    HDC hMemoryDC = CreateCompatibleDC(hFrom);
+                    
+                    scope(exit) {
+                        DeleteDC(hMemoryDC);
+                        ReleaseDC(window.hwnd, hFrom);
+                    }
+
+                    HBITMAP bitmap = imageToBitmap(input, hMemoryDC, window.alloc);
+                    ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_BITMAP, null, bitmap);
+
+                    if (lastBitmap !is null)
+                        DeleteObject(lastBitmap);
+                    lastBitmap = bitmap;
+                }
+            }
+
+            override DummyRefCount!(dchar[]) text() {
+                version(Windows) {
+                    wchar[32] buffer;
+                    int length = GetMenuStringW(parent, menuItemId, buffer.ptr, buffer.length, MF_BYCOMMAND);
+                    assert(length >= 0);
+
+                    dchar[] buffer2 = window.alloc.makeArray!dchar(length);
+                    buffer2[0 .. length] = cast(dchar[])buffer[0 .. length];
+
+                    return DummyRefCount!(dchar[])(buffer2, window.alloc);
+                }
+            }
+
+            private void setText(T)(T input) {
+                version(Windows) {
+                    import std.utf : byWchar;
+                    
+                    wchar[] buffer = window.alloc.makeArray!wchar(input.length);
+
+                    size_t i;
+                    foreach(c; input.byWchar) {
+                        if (i > buffer.length)
+                            window.alloc.expandArray(buffer, 1);
+                        
+                        buffer[i] = c;
+                        i++;
+                    }
+
+                    window.alloc.expandArray(buffer, 1); // \0 last byte
+                    
+                    ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_STRING, null, buffer.ptr);
+                    window.alloc.dispose(buffer);
+                }
+            }
+
+            override void text(dstring input) {
+                version(Windows) {
+                    setText(input);
+                }
+            }
+
+            override void text(wstring input) {
+                version(Windows) {
+                    setText(input);
+                }
+            }
+            override void text(string input) {
+                version(Windows) {
+                    setText(input);
+                }
+            }
+
+            override bool devider() {
+                version(Windows) {
+                    return (GetMenuState(parent, menuItemId, MF_BYCOMMAND) & MF_SEPARATOR) == MF_SEPARATOR;
+                }
+            }
+
+            override void devider(bool v) {
+                version(Windows) {
+                    if (v)
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_SEPARATOR, null, null);
+                    else
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND & ~MF_SEPARATOR, null, null);
+                }
+            }
+
+            override bool disabled() {
+                version(Windows) {
+                    return (GetMenuState(parent, menuItemId, MF_BYCOMMAND) & MF_DISABLED) == MF_DISABLED;
+                }
+            }
+            
+            override void disabled(bool v) {
+                version(Windows) {
+                    if (v)
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_DISABLED, null, null);
+                    else
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_ENABLED, null, null);
+                }
+            }
+
+            override void callback(MenuCallback callback) {
+                window.menuCallbacks[menuItemId] = callback;
+            }
+        }
     }
 }
