@@ -563,6 +563,7 @@ package(std.experimental) {
             uint menuItemsCount;
             AAMap!(uint, MenuCallback) menuCallbacks;
 
+            bool redrawMenu;
             bool primaryOwner;
 
             version(Windows) {
@@ -829,6 +830,7 @@ package(std.experimental) {
                 window.menuItemsCount++;
 
                 AppendMenuA(parent, 0, menuItemId, null);
+                window.redrawMenu = true;
             }
         }
 
@@ -863,6 +865,7 @@ package(std.experimental) {
                 if (lastBitmap !is null)
                     DeleteObject(lastBitmap);
 
+                window.redrawMenu = true;
                 window.alloc.dispose(this);
             }
         }
@@ -910,6 +913,7 @@ package(std.experimental) {
                         DeleteObject(lastBitmap);
                     lastBitmap = bitmap;
                 }
+                window.redrawMenu = true;
             }
 
             override DummyRefCount!(dchar[]) text() {
@@ -945,6 +949,7 @@ package(std.experimental) {
                     ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_STRING, null, buffer.ptr);
                     window.alloc.dispose(buffer);
                 }
+                window.redrawMenu = true;
             }
 
             override void text(dstring input) {
@@ -977,6 +982,7 @@ package(std.experimental) {
                     else
                         ModifyMenuA(parent, menuItemId, MF_BYCOMMAND & ~MF_SEPARATOR, null, null);
                 }
+                window.redrawMenu = true;
             }
 
             override bool disabled() {
@@ -992,6 +998,7 @@ package(std.experimental) {
                     else
                         ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_ENABLED, null, null);
                 }
+                window.redrawMenu = true;
             }
 
             override void callback(MenuCallback callback) {
