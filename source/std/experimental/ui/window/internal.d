@@ -4,7 +4,7 @@ package(std.experimental) {
     import std.experimental.internal.containers.list;
     import std.experimental.ui.window.defs;
     import std.experimental.platform : IDisplay, ImplPlatform;
-    import std.experimental.allocator : IAllocator, processAllocator, make, makeArray, dispose;
+    import std.experimental.allocator : IAllocator, processAllocator, theAllocator, make, makeArray, dispose;
     import std.experimental.math.linearalgebra.vector : vec2;
     import std.experimental.graphic.image : ImageStorage;
     import std.experimental.ui.window.features;
@@ -15,8 +15,11 @@ package(std.experimental) {
         version(Windows)
             pragma(lib, "gdi32");
 
-        DummyRefCount!IWindowCreator createWindow() {assert(0);}
-        IWindow createAWindow() {assert(0);}
+        DummyRefCount!IWindowCreator createWindow(IAllocator alloc = theAllocator()) {
+            return DummyRefCount!IWindowCreator(alloc.make!WindowCreatorImpl(this, alloc), alloc);
+        }
+
+        IWindow createAWindow(IAllocator alloc = theAllocator()) {assert(0);}
 
         @property {
             DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator()) {
@@ -1004,6 +1007,56 @@ package(std.experimental) {
             override void callback(MenuCallback callback) {
                 window.menuCallbacks[menuItemId] = callback;
             }
+        }
+    }
+
+    final class WindowCreatorImpl : IWindowCreator, Have_Icon, Feature_Icon {
+        private {
+            ImplPlatform platform;
+
+            UIPoint size_;
+            UIPoint location_;
+            IDisplay display_;
+            IAllocator alloc;
+
+            ImageStorage!RGBA8 icon;
+        }
+
+        this(ImplPlatform platform, IAllocator alloc) {
+            this.alloc = alloc;
+            this.platform = platform;
+        }
+
+        @property {
+            void size(UIPoint v) { size_ = v; }
+            void location(UIPoint v) { location_ = v; }
+            void display(IDisplay v) { display_ = v; }
+            void allocator(IAllocator v) { alloc = v; }
+        }
+        
+        IWindow create() {
+            if (display_ is null)
+                display_ = platform.primaryDisplay;
+
+            version(Windows) {
+                // TODO
+                assert(0);
+            } else
+                assert(0);
+        }
+
+        // features
+
+        Feature_Icon __getFeatureIcon() {
+            version(Windows) {
+                return this;
+            } else
+                assert(0);
+        }
+
+        @property {
+            ImageStorage!RGBA8 getIcon() { return icon; }
+            void setIcon(ImageStorage!RGBA8 v) { icon = v; }
         }
     }
 }

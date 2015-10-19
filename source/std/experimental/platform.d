@@ -4,12 +4,12 @@ import std.experimental.ui.window.features.notification;
 import std.experimental.ui.window.features.icon;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.experimental.internal.dummyRefCount;
-import std.experimental.allocator : IAllocator, processAllocator;
+import std.experimental.allocator : IAllocator, processAllocator, theAllocator;
 import std.datetime : Duration, seconds;
 
 interface IPlatform {
-    DummyRefCount!IWindowCreator createWindow();
-    IWindow createAWindow(); // completely up to platform implementation to what the defaults are
+    DummyRefCount!IWindowCreator createWindow(IAllocator alloc = theAllocator());
+    IWindow createAWindow(IAllocator alloc = theAllocator()); // completely up to platform implementation to what the defaults are
 
     @property {
         DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator());

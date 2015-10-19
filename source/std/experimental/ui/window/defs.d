@@ -46,5 +46,5 @@ interface IWindowCreator {
         void allocator(IAllocator); // default std.experimental.allocator.theAllocator()
 	}
 
-    IWindow init();
+    IWindow create();
 }
