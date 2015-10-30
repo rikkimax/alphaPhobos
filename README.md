@@ -16,6 +16,9 @@ May require serious work before usable.
 	- Rotation
 - Image primitives unittests
 
+- Window styles e.g. fullscreen vs dialog
+- Cursor for window, custom and specific (existing)
+
 # Phobos TODO list
 
 ## No dependencies
