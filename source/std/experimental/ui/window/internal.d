@@ -90,15 +90,15 @@ package(std.experimental) {
         enum IMAGE_CURSOR = 2;
         enum LR_DEFAULTSIZE = 0x00000040;
         enum LR_SHARED = 0x00008000;
-
+        
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
          */
-
+        
         template MAKEINTRESOURCE_T(WORD i) {
             enum LPTSTR MAKEINTRESOURCE_T = cast(LPTSTR)(i);
         }
-
+        
         enum {
             IDC_ARROW       = MAKEINTRESOURCE_T!(32512),
             IDC_IBEAM       = MAKEINTRESOURCE_T!(32513),
@@ -126,11 +126,11 @@ package(std.experimental) {
             IDI_ERROR       = IDI_HAND,
             IDI_INFORMATION = IDI_ASTERISK
         }
-
+        
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
          */
-
+        
         alias TCHAR = char;
         
         struct MONITORINFOEX {
@@ -513,7 +513,7 @@ package(std.experimental) {
             alloc.dispose(buffer);
             return hBitmap;
         }
-
+        
         HICON imageToIcon(ImageStorage!RGBA8 from, HDC hMemoryDC, IAllocator alloc) {
             HBITMAP hBitmap = imageToAlphaBitmap(from, hMemoryDC, alloc);
             HICON ret = bitmapToIcon(hBitmap, hMemoryDC, vec2!size_t(from.width, from.height));
@@ -523,7 +523,7 @@ package(std.experimental) {
             
             return ret;
         }
-
+        
         HICON bitmapToIcon(HBITMAP hBitmap, HDC hMemoryDC, vec2!size_t size_) {
             HICON ret;
             HBITMAP hbmMask = CreateCompatibleBitmap(hMemoryDC, cast(uint)size_.x, cast(uint)size_.y);
@@ -539,25 +539,25 @@ package(std.experimental) {
             
             return ret;
         }
-
+        
         HBITMAP resizeBitmap(HBITMAP hBitmap, HDC hDC, vec2!size_t toSize, vec2!size_t fromSize) {
             HDC hMemDC1 = CreateCompatibleDC(hDC);
             HBITMAP hBitmap1 = CreateCompatibleBitmap(hDC, toSize.x, toSize.y);
             HGDIOBJ hOld1 = SelectObject(hMemDC1, hBitmap1);
-
+            
             HDC hMemDC2 = CreateCompatibleDC(hDC);
             HGDIOBJ hOld2 = SelectObject(hMemDC2, hBitmap);
-
+            
             BITMAP bitmap;
             GetObjectW(hBitmap, BITMAP.sizeof, &bitmap);
-
+            
             StretchBlt(hMemDC1, 0, 0, toSize.x, toSize.y, hMemDC2, 0, 0, fromSize.x, fromSize.y, SRCCOPY);
-
+            
             SelectObject(hMemDC1, hOld1);
             SelectObject(hMemDC2, hOld2);
             DeleteDC(hMemDC1);
             DeleteDC(hMemDC2);
-
+            
             return hBitmap1;
         }
     }
@@ -696,9 +696,9 @@ package(std.experimental) {
                     menuItems = AllocList!MenuItemImpl(alloc);
                 
                 menuItemsCount = 9000;
-
+                
                 if (processOwns)
-                    setCursor(WindowCursorStyle.Standard);
+                    hCursor = LoadImageW(null, cast(wchar*)IDC_APPSTARTING, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
                 else
                     cursorStyle = WindowCursorStyle.Underterminate;
             }
@@ -931,7 +931,7 @@ package(std.experimental) {
         
         void setCursor(WindowCursorStyle style) {
             assert(cursorStyle != WindowCursorStyle.Underterminate);
-
+            
             version(Windows) {
                 if (cursorStyle == WindowCursorStyle.Custom) {
                     // unload systemy stuff
@@ -943,7 +943,7 @@ package(std.experimental) {
                 
                 if (style != WindowCursorStyle.Custom) {
                     // load up reference to system one
-
+                    
                     switch(style) {
                         case WindowCursorStyle.Busy:
                             hCursor = LoadImageW(null, cast(wchar*)IDC_WAIT, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
@@ -986,47 +986,47 @@ package(std.experimental) {
         void setCustomCursor(ImageStorage!RGBA8 image) {
             import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
             import std.experimental.graphic.image.interfaces : imageObjectFrom;
-
+            
             assert(cursorStyle != WindowCursorStyle.Underterminate);
-
+            
             version(Windows) {
                 // The comments here specify the preferred way to do this.
                 // Unfortunately at the time of writing, it is not possible to
                 //  use std.experimental.graphic.image for resizing.
-
+                
                 setCursor(WindowCursorStyle.Custom);
-
+                
                 HDC hFrom = GetDC(null);
                 HDC hMemoryDC = CreateCompatibleDC(hFrom);
-
+                
                 // duplicate image, store
                 //FIXME: customCursor = imageObjectFrom!(ImageStorageHorizontal!RGBA8)(image, alloc);
                 
                 // customCursor must be a set size, as defined by:
                 vec2!size_t toSize = vec2!size_t(GetSystemMetrics(SM_CXCURSOR), GetSystemMetrics(SM_CYCURSOR));
-
+                
                 // so customCursor must be resized to the given size
-
+                
                 // load systemy copy of image
                 // imageToIcon
-
+                
                 HBITMAP hBitmap = imageToAlphaBitmap(image, hMemoryDC, alloc);
                 HBITMAP hBitmap2 = resizeBitmap(hBitmap, hMemoryDC, toSize, vec2!size_t(image.width, image.height));
                 HICON hIcon = bitmapToIcon(hBitmap2, hMemoryDC, toSize);
-
+                
                 scope(exit) {
-
+                    
                 }
-
+                
                 // GetIconInfo
-
+                
                 ICONINFO ii;
                 GetIconInfo(hIcon, &ii);
-
+                
                 // CreateCursor
-
+                
                 hCursor = CreateCursor(null, ii.xHotspot, ii.yHotspot, cast(int)toSize.x, cast(int)toSize.y, ii.hbmColor, ii.hbmMask);
-
+                
                 DeleteObject(hBitmap);
                 DeleteObject(hBitmap2);
                 DeleteDC(hMemoryDC);
@@ -1245,7 +1245,7 @@ package(std.experimental) {
         }
     }
     
-    final class WindowCreatorImpl : IWindowCreator, Have_Icon, Feature_Icon {
+    final class WindowCreatorImpl : IWindowCreator, Have_Icon, Have_Cursor, Feature_Icon, Feature_Cursor {
         private {
             ImplPlatform platform;
             
@@ -1255,6 +1255,9 @@ package(std.experimental) {
             IAllocator alloc;
             
             ImageStorage!RGBA8 icon;
+            
+            WindowCursorStyle cursorStyle = WindowCursorStyle.Standard;
+            ImageStorage!RGBA8 cursorIcon;
             
             version(Windows) {
                 DWORD dwExStyle = 0;
@@ -1319,6 +1322,11 @@ package(std.experimental) {
                 WindowImpl ret = alloc.make!WindowImpl(hwnd, context, alloc, platform, hMenu, true);
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, cast(size_t)cast(void*)ret);
                 ret.setIcon(icon);
+
+                if (cursorStyle == WindowCursorStyle.Custom)
+                    ret.setCustomCursor(cursorIcon);
+                else
+                    ret.setCursor(cursorStyle);
                 
                 InvalidateRgn(hwnd, null, true);
                 return ret;
@@ -1335,9 +1343,26 @@ package(std.experimental) {
                 assert(0);
         }
         
+        Feature_Cursor __getFeatureCursor() {
+            version(Windows)
+                return this;
+            else
+                assert(0);
+        }
+        
         @property {
             ImageStorage!RGBA8 getIcon() { return icon; }
             void setIcon(ImageStorage!RGBA8 v) { icon = v; }
         }
+        
+        void setCursor(WindowCursorStyle v) { cursorStyle = v; }
+        WindowCursorStyle getCursor() { return cursorStyle; }
+        
+        void setCustomCursor(ImageStorage!RGBA8 v) {
+            cursorStyle = WindowCursorStyle.Custom;
+            cursorIcon = v;
+        }
+        
+        ImageStorage!RGBA8 getCursorIcon() { return cursorIcon; }
     }
 }
