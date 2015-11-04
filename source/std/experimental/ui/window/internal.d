@@ -2,8 +2,8 @@
 
 package(std.experimental) {
     import std.experimental.internal.containers.list;
-    import std.experimental.ui.window.defs;
-    import std.experimental.platform : IDisplay, ImplPlatform;
+    import std.experimental.ui.window.defs : IWindow, IWindowCreator, UIPoint;
+    import std.experimental.platform : IDisplay, ImplPlatform, IRenderPoint, IRenderPointCreator, IContext;
     import std.experimental.allocator : IAllocator, processAllocator, theAllocator, make, makeArray, dispose;
     import std.experimental.math.linearalgebra.vector : vec2;
     import std.experimental.graphic.image : ImageStorage;
@@ -25,7 +25,15 @@ package(std.experimental) {
             // set as VRAM context
             return creator.create();
         }
-        
+
+        DummyRefCount!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator()) {
+            return DummyRefCount!IRenderPointCreator(alloc.make!WindowCreatorImpl(this, alloc), alloc);
+        }
+
+        IRenderPoint createARenderPoint(IAllocator alloc = theAllocator()) {
+            return createAWindow(alloc);
+        }
+
         @property {
             DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator()) {
                 foreach(display; displays) {

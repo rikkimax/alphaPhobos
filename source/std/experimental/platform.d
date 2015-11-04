@@ -8,6 +8,9 @@ import std.experimental.allocator : IAllocator, processAllocator, theAllocator;
 import std.datetime : Duration, seconds;
 
 interface IPlatform {
+    DummyRefCount!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator());
+    IRenderPoint createARenderPoint(IAllocator alloc = theAllocator()); // completely up to platform implementation to what the defaults are
+
     DummyRefCount!IWindowCreator createWindow(IAllocator alloc = theAllocator());
     IWindow createAWindow(IAllocator alloc = theAllocator()); // completely up to platform implementation to what the defaults are
 
@@ -33,6 +36,16 @@ IPlatform defaultPlatform() {
     return defaultPlatform_;
 }
 
+interface IRenderPoint {
+    @property {
+        DummyRefCount!IDisplay display();
+        IContext context();
+        IAllocator allocator();
+    }
+    
+    void close();
+}
+
 interface IDisplay {
     @property {
         string name();
@@ -41,6 +54,19 @@ interface IDisplay {
         DummyRefCount!(IWindow[]) windows();
         void* __handle();
     }
+}
+
+interface IRenderPointCreator {
+    @property {
+        void display(IDisplay); // default platform().primaryDisplay
+        void allocator(IAllocator); // default std.experimental.allocator.theAllocator()
+    }
+    
+    IWindow create();
+}
+
+interface IContext {
+    void swapBuffers();
 }
 
 private {
