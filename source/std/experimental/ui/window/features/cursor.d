@@ -8,8 +8,6 @@ import std.experimental.internal.dummyRefCount;
  * What the cursor will be displayed to the user
  */
 enum WindowCursorStyle {
-    Invalid,
-
     /**
      * The standard arrow cursor
      */

@@ -63,6 +63,7 @@ package(std.experimental) {
         static wstring ClassNameW = __MODULE__ ~ ":Class\0"w;
         
         import core.sys.windows.windows;
+        import core.sys.windows.windows;
         alias HMONITOR = HANDLE;
         
         enum MONITORINFOF_PRIMARY = 1;
@@ -85,7 +86,51 @@ package(std.experimental) {
         enum MF_STRING = 0;
         enum MF_POPUP = 0x00000010;
         enum GWLP_USERDATA = -21;
-        
+        enum HTCLIENT = 1;
+        enum IMAGE_CURSOR = 2;
+        enum LR_DEFAULTSIZE = 0x00000040;
+        enum LR_SHARED = 0x00008000;
+
+        /**
+         * Boost licensed, will be removed when it is part of core.sys.windows.winuser
+         */
+
+        template MAKEINTRESOURCE_T(WORD i) {
+            enum LPTSTR MAKEINTRESOURCE_T = cast(LPTSTR)(i);
+        }
+
+        enum {
+            IDC_ARROW       = MAKEINTRESOURCE_T!(32512),
+            IDC_IBEAM       = MAKEINTRESOURCE_T!(32513),
+            IDC_WAIT        = MAKEINTRESOURCE_T!(32514),
+            IDC_CROSS       = MAKEINTRESOURCE_T!(32515),
+            IDC_UPARROW     = MAKEINTRESOURCE_T!(32516),
+            IDC_SIZE        = MAKEINTRESOURCE_T!(32640),
+            IDC_ICON        = MAKEINTRESOURCE_T!(32641),
+            IDC_SIZENWSE    = MAKEINTRESOURCE_T!(32642),
+            IDC_SIZENESW    = MAKEINTRESOURCE_T!(32643),
+            IDC_SIZEWE      = MAKEINTRESOURCE_T!(32644),
+            IDC_SIZENS      = MAKEINTRESOURCE_T!(32645),
+            IDC_SIZEALL     = MAKEINTRESOURCE_T!(32646),
+            IDC_NO          = MAKEINTRESOURCE_T!(32648),
+            IDC_HAND        = MAKEINTRESOURCE_T!(32649),
+            IDC_APPSTARTING = MAKEINTRESOURCE_T!(32650),
+            IDC_HELP        = MAKEINTRESOURCE_T!(32651),
+            IDI_APPLICATION = MAKEINTRESOURCE_T!(32512),
+            IDI_HAND        = MAKEINTRESOURCE_T!(32513),
+            IDI_QUESTION    = MAKEINTRESOURCE_T!(32514),
+            IDI_EXCLAMATION = MAKEINTRESOURCE_T!(32515),
+            IDI_ASTERISK    = MAKEINTRESOURCE_T!(32516),
+            IDI_WINLOGO     = MAKEINTRESOURCE_T!(32517),
+            IDI_WARNING     = IDI_EXCLAMATION,
+            IDI_ERROR       = IDI_HAND,
+            IDI_INFORMATION = IDI_ASTERISK
+        }
+
+        /**
+         * Boost licensed, will be removed when it is part of core.sys.windows.winuser
+         */
+
         alias TCHAR = char;
         
         struct MONITORINFOEX {
@@ -206,6 +251,9 @@ package(std.experimental) {
                 bool GetClassInfoEXW(HINSTANCE, wchar*, WNDCLASSEXW*);
                 LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR);
                 LONG_PTR GetWindowLongPtrW(HWND, int) nothrow;
+                bool DestroyCursor(HCURSOR);
+                HANDLE LoadImageW(HINSTANCE, wchar*, uint, int, int, uint);
+                HCURSOR CreateCursor(HINSTANCE, int, int, int, int, void*, void*);
             }
             
             struct GetDisplays {
@@ -276,17 +324,23 @@ package(std.experimental) {
                 
                 return true;
             }
-
+            
             LRESULT callbackWindowHandler(HWND hwnd, uint uMsg, WPARAM wParam, LPARAM lParam) nothrow {
                 WindowImpl window = cast(WindowImpl)cast(void*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
                 
                 switch(uMsg) {
                     case WM_DESTROY:
                         return 0;
+                    case WM_SETCURSOR:
+                        if (LOWORD(lParam) == HTCLIENT) {
+                            SetCursor(window.hCursor);
+                            return 1;
+                        } else
+                            return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                     default:
                         return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                 }
-
+                
                 assert(0);
             }
         }
@@ -459,12 +513,20 @@ package(std.experimental) {
             alloc.dispose(buffer);
             return hBitmap;
         }
-        
+
         HICON imageToIcon(ImageStorage!RGBA8 from, HDC hMemoryDC, IAllocator alloc) {
-            HICON ret;
-            
             HBITMAP hBitmap = imageToAlphaBitmap(from, hMemoryDC, alloc);
-            HBITMAP hbmMask = CreateCompatibleBitmap(hMemoryDC, cast(uint)from.width, cast(uint)from.height);
+            HICON ret = bitmapToIcon(hBitmap, hMemoryDC, vec2!size_t(from.width, from.height));
+            
+            scope(exit)
+                DeleteObject(hBitmap);
+            
+            return ret;
+        }
+
+        HICON bitmapToIcon(HBITMAP hBitmap, HDC hMemoryDC, vec2!size_t size_) {
+            HICON ret;
+            HBITMAP hbmMask = CreateCompatibleBitmap(hMemoryDC, cast(uint)size_.x, cast(uint)size_.y);
             
             ICONINFO ii;
             ii.fIcon = true;
@@ -474,9 +536,29 @@ package(std.experimental) {
             ret = CreateIconIndirect(&ii);
             
             DeleteObject(hbmMask);
-            DeleteObject(hBitmap);
             
             return ret;
+        }
+
+        HBITMAP resizeBitmap(HBITMAP hBitmap, HDC hDC, vec2!size_t toSize, vec2!size_t fromSize) {
+            HDC hMemDC1 = CreateCompatibleDC(hDC);
+            HBITMAP hBitmap1 = CreateCompatibleBitmap(hDC, toSize.x, toSize.y);
+            HGDIOBJ hOld1 = SelectObject(hMemDC1, hBitmap1);
+
+            HDC hMemDC2 = CreateCompatibleDC(hDC);
+            HGDIOBJ hOld2 = SelectObject(hMemDC2, hBitmap);
+
+            BITMAP bitmap;
+            GetObjectW(hBitmap, BITMAP.sizeof, &bitmap);
+
+            StretchBlt(hMemDC1, 0, 0, toSize.x, toSize.y, hMemDC2, 0, 0, fromSize.x, fromSize.y, SRCCOPY);
+
+            SelectObject(hMemDC1, hOld1);
+            SelectObject(hMemDC2, hOld2);
+            DeleteDC(hMemDC1);
+            DeleteDC(hMemDC2);
+
+            return hBitmap1;
         }
     }
     
@@ -578,7 +660,7 @@ package(std.experimental) {
         }
     }
     
-    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Have_ScreenShot, Have_Icon, Have_Menu {
+    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor {
         private {
             import std.experimental.internal.containers.map;
             
@@ -592,9 +674,13 @@ package(std.experimental) {
             
             bool redrawMenu;
             
+            WindowCursorStyle cursorStyle;
+            ImageStorage!RGBA8 customCursor;
+            
             version(Windows) {
                 HWND hwnd;
                 HMENU hMenu;
+                HCURSOR hCursor;
             }
         }
         
@@ -610,6 +696,8 @@ package(std.experimental) {
                     menuItems = AllocList!MenuItemImpl(alloc);
                 
                 menuItemsCount = 9000;
+
+                setCursor(WindowCursorStyle.Standard);
             }
         }
         
@@ -829,6 +917,122 @@ package(std.experimental) {
         
         @property immutable(MenuItem[]) items() {
             return cast(immutable(MenuItem[]))menuItems.__internalValues;
+        }
+        
+        Feature_Cursor __getFeatureCursor() {
+            version(Windows)
+                return this;
+            else
+                assert(0);
+        }
+        
+        void setCursor(WindowCursorStyle style) {
+            version(Windows) {
+                if (cursorStyle == WindowCursorStyle.Custom) {
+                    // unload systemy stuff
+                    DestroyCursor(hCursor);
+                    //FIXME: alloc.dispose(customCursor);
+                }
+                
+                cursorStyle = style;
+                
+                if (style != WindowCursorStyle.Custom) {
+                    // load up reference to system one
+
+                    switch(style) {
+                        case WindowCursorStyle.Busy:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_WAIT, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                        case WindowCursorStyle.Hand:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_HAND, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                        case WindowCursorStyle.NoAction:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_NO, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                        case WindowCursorStyle.ResizeCornerLeft:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_SIZENESW, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                        case WindowCursorStyle.ResizeCornerRight:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_SIZENWSE, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                        case WindowCursorStyle.ResizeHorizontal:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_SIZEWE, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                        case WindowCursorStyle.ResizeVertical:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_SIZENS, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                        case WindowCursorStyle.Standard:
+                        default:
+                            hCursor = LoadImageW(null, cast(wchar*)IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            break;
+                    }
+                }
+            } else
+                assert(0);
+        }
+        
+        WindowCursorStyle getCursor() {
+            version(Windows) {
+                return cursorStyle;
+            } else
+                assert(0);
+        }
+        
+        void setCustomCursor(ImageStorage!RGBA8 image) {
+            import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
+            import std.experimental.graphic.image.interfaces : imageObjectFrom;
+            
+            version(Windows) {
+                // The comments here specify the preferred way to do this.
+                // Unfortunately at the time of writing, it is not possible to
+                //  use std.experimental.graphic.image for resizing.
+
+                setCursor(WindowCursorStyle.Custom);
+
+                HDC hFrom = GetDC(null);
+                HDC hMemoryDC = CreateCompatibleDC(hFrom);
+
+                // duplicate image, store
+                //FIXME: customCursor = imageObjectFrom!(ImageStorageHorizontal!RGBA8)(image, alloc);
+                
+                // customCursor must be a set size, as defined by:
+                vec2!size_t toSize = vec2!size_t(GetSystemMetrics(SM_CXCURSOR), GetSystemMetrics(SM_CYCURSOR));
+
+                // so customCursor must be resized to the given size
+
+                // load systemy copy of image
+                // imageToIcon
+
+                HBITMAP hBitmap = imageToAlphaBitmap(image, hMemoryDC, alloc);
+                HBITMAP hBitmap2 = resizeBitmap(hBitmap, hMemoryDC, toSize, vec2!size_t(image.width, image.height));
+                HICON hIcon = bitmapToIcon(hBitmap2, hMemoryDC, toSize);
+
+                scope(exit) {
+
+                }
+
+                // GetIconInfo
+
+                ICONINFO ii;
+                GetIconInfo(hIcon, &ii);
+
+                // CreateCursor
+
+                hCursor = CreateCursor(null, ii.xHotspot, ii.yHotspot, cast(int)toSize.x, cast(int)toSize.y, ii.hbmColor, ii.hbmMask);
+
+                DeleteObject(hBitmap);
+                DeleteObject(hBitmap2);
+                DeleteDC(hMemoryDC);
+                ReleaseDC(hwnd, hFrom);
+            } else
+                assert(0);
+        }
+        
+        ImageStorage!RGBA8 getCursorIcon() {
+            version(Windows) {
+                return customCursor;
+            } else
+                assert(0);
         }
     }
     
@@ -1071,19 +1275,19 @@ package(std.experimental) {
                 WNDCLASSEXW wndClass;
                 wndClass.cbSize = WNDCLASSEXW.sizeof;
                 HINSTANCE hInstance = GetModuleHandleW(null);
-
+                
                 // not currently being set/used, so for now lets stub it out
                 IContext context = null;
                 HMENU hMenu = null;
-
+                
                 if (GetClassInfoEXW(hInstance, cast(wchar*)ClassNameW.ptr, &wndClass) == 0) {
                     wndClass.cbSize = WNDCLASSEXW.sizeof;
                     wndClass.hInstance = hInstance;
                     wndClass.lpszClassName = cast(wchar*)ClassNameW.ptr;
-                    wndClass.hCursor = LoadCursorW(null, cast(wchar*)IDC_ARROW);
+                    wndClass.hCursor = LoadImageW(null, cast(wchar*)IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
                     wndClass.style = CS_OWNDC/+ | CS_HREDRAW | CS_VREDRAW+/; // causes flickering
                     wndClass.lpfnWndProc = &callbackWindowHandler;
-
+                    
                     assert(RegisterClassExW(&wndClass) != 0);
                 }
                 
@@ -1104,11 +1308,11 @@ package(std.experimental) {
                     null,
                     hInstance,
                     null);
-
+                
                 WindowImpl ret = alloc.make!WindowImpl(hwnd, context, alloc, platform, hMenu);
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, cast(size_t)cast(void*)ret);
                 ret.setIcon(icon);
-
+                
                 InvalidateRgn(hwnd, null, true);
                 return ret;
             } else
