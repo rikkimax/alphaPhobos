@@ -766,3 +766,23 @@ auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @tru
     import std.experimental.allocator : make;
     return allocator.make!(ImageObject!Impl)(instance);
 }
+
+/**
+ * Constructs an object based upon an existing image.
+ *
+ * Params: 
+ *      from        =   Instance to wrap
+ *      allocator   =   Allocator to use
+ *
+ * Returns:
+ *      An ImageObject wrapper around the implementation specified.
+ *
+ * See_Also:
+ *      ImageObject
+ */
+auto imageObjectFrom(Impl, Image)(Image from, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isImage!Image) {
+    import std.experimental.graphic.image.primitives : copyTo;
+    import std.experimental.allocator : make;
+
+    return from.copyTo(imageObject!Impl(from.width, from.height, allocator));
+}
