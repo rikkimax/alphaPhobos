@@ -1316,7 +1316,7 @@ package(std.experimental) {
                     hInstance,
                     null);
                 
-                WindowImpl ret = alloc.make!WindowImpl(hwnd, context, alloc, platform, hMenu);
+                WindowImpl ret = alloc.make!WindowImpl(hwnd, context, alloc, platform, hMenu, true);
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, cast(size_t)cast(void*)ret);
                 ret.setIcon(icon);
                 
