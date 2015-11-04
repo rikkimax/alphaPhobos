@@ -332,7 +332,7 @@ package(std.experimental) {
                     case WM_DESTROY:
                         return 0;
                     case WM_SETCURSOR:
-                        if (LOWORD(lParam) == HTCLIENT) {
+                        if (LOWORD(lParam) == HTCLIENT && window.cursorStyle != WindowCursorStyle.Underterminate) {
                             SetCursor(window.hCursor);
                             return 1;
                         } else
@@ -685,7 +685,7 @@ package(std.experimental) {
         }
         
         version(Windows) {
-            this(HWND hwnd, IContext context, IAllocator alloc, IPlatform platform, HMENU hMenu=null) {
+            this(HWND hwnd, IContext context, IAllocator alloc, IPlatform platform, HMENU hMenu=null, bool processOwns=false) {
                 this.hwnd = hwnd;
                 this.platform = platform;
                 this.alloc = alloc;
@@ -697,7 +697,10 @@ package(std.experimental) {
                 
                 menuItemsCount = 9000;
 
-                setCursor(WindowCursorStyle.Standard);
+                if (processOwns)
+                    setCursor(WindowCursorStyle.Standard);
+                else
+                    cursorStyle = WindowCursorStyle.Underterminate;
             }
         }
         
@@ -927,6 +930,8 @@ package(std.experimental) {
         }
         
         void setCursor(WindowCursorStyle style) {
+            assert(cursorStyle != WindowCursorStyle.Underterminate);
+
             version(Windows) {
                 if (cursorStyle == WindowCursorStyle.Custom) {
                     // unload systemy stuff
@@ -981,7 +986,9 @@ package(std.experimental) {
         void setCustomCursor(ImageStorage!RGBA8 image) {
             import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
             import std.experimental.graphic.image.interfaces : imageObjectFrom;
-            
+
+            assert(cursorStyle != WindowCursorStyle.Underterminate);
+
             version(Windows) {
                 // The comments here specify the preferred way to do this.
                 // Unfortunately at the time of writing, it is not possible to
