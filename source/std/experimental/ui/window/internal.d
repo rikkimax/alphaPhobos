@@ -1014,10 +1014,6 @@ package(std.experimental) {
                 HBITMAP hBitmap2 = resizeBitmap(hBitmap, hMemoryDC, toSize, vec2!size_t(image.width, image.height));
                 HICON hIcon = bitmapToIcon(hBitmap2, hMemoryDC, toSize);
                 
-                scope(exit) {
-                    
-                }
-                
                 // GetIconInfo
                 
                 ICONINFO ii;
