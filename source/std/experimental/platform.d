@@ -120,7 +120,7 @@ private {
         LibEvent = 1 << 6,
     }
 
-    final class ImplPlatform : IPlatform, Have_Notification {
+    final class ImplPlatform : IPlatform, Feature_Notification, Have_Notification {
         private {
             import std.experimental.ui.window.internal;
 

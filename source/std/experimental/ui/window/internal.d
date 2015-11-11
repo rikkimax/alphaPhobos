@@ -64,7 +64,142 @@ package(std.experimental) {
             }
         }
         
-        Feature_Notification __getFeatureNotification() { return null; }
+        Feature_Notification __getFeatureNotification() {
+            version(Windows)
+                return this;
+            else
+                assert(0);
+        }
+
+        @property {
+            ImageStorage!RGBA8 getNotificationIcon(IAllocator alloc=theAllocator) {
+                import std.experimental.graphic.image.interfaces : imageObjectFrom;
+                import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
+
+                version(Windows) {
+                    return imageObjectFrom!(ImageStorageHorizontal!RGBA8)(taskbarCustomIcon, alloc);
+                } else {
+                    assert(0);
+                }
+            }
+
+            void setNotificationIcon(ImageStorage!RGBA8 icon, IAllocator alloc=theAllocator) {
+                import std.experimental.graphic.image.interfaces : imageObjectFrom;
+                import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
+
+                version(Windows) {
+                    if (icon is null) {
+                        Shell_NotifyIconW(NIM_DELETE, &taskbarIconNID);
+                        taskbarIconNID = NOTIFYICONDATAW.init;
+                    } else {
+                        bool toAdd = taskbarIconNID is NOTIFYICONDATAW.init;
+
+                        taskbarIconNID.uVersion = NOTIFYICON_VERSION_4;
+                        taskbarIconNID.uFlags = NIF_ICON;
+                        taskbarIconNID.dwState = NIS_SHAREDICON;
+                        taskbarIconNID.hWnd = GetDesktopWindow();
+
+                        HDC hFrom = GetDC(null);
+                        HDC hMemoryDC = CreateCompatibleDC(hFrom);
+                        
+                        scope(exit) {
+                            DeleteDC(hMemoryDC);
+                            ReleaseDC(null, hFrom);
+                        }
+
+                        if (taskbarIconNID.hIcon !is null) {
+                            DeleteObject(taskbarIconNID.hIcon);
+                            taskbarCustomIconAllocator.dispose(taskbarCustomIcon);
+                        }
+
+                        taskbarCustomIconAllocator = alloc;
+                        taskbarCustomIcon = imageObjectFrom!(ImageStorageHorizontal!RGBA8)(icon, alloc);
+
+                        taskbarIconNID.hIcon = imageToIcon(icon, hMemoryDC, alloc);
+
+                        if (toAdd) {
+                            Shell_NotifyIconW(NIM_ADD, &taskbarIconNID);
+                        } else {
+                            Shell_NotifyIconW(NIM_MODIFY, &taskbarIconNID);
+                        }
+
+                        Shell_NotifyIconW(NIM_SETVERSION, &taskbarIconNID);
+                    }
+                } else
+                    assert(0);
+            }
+        }
+        
+        void notify(ImageStorage!RGBA8 icon, dstring title, dstring text, IAllocator alloc=theAllocator) {
+            import std.utf : byUTF;
+            version(Windows) {
+                NOTIFYICONDATAW nid;
+                nid.uVersion = NOTIFYICON_VERSION_4;
+                nid.uFlags = NIF_MESSAGE | NIF_SHOWTIP;
+                nid.hWnd = GetDesktopWindow();
+
+                HDC hFrom = GetDC(null);
+                HDC hMemoryDC = CreateCompatibleDC(hFrom);
+                
+                scope(exit) {
+                    DeleteDC(hMemoryDC);
+                    ReleaseDC(null, hFrom);
+                }
+
+                nid.hBalloonIcon = imageToIcon(icon, hMemoryDC, alloc);
+
+                size_t i;
+                foreach(c; byUTF!wchar(title)) {
+                    if (i >= nid.szInfoTitle.length - 1) {
+                        nid.szInfoTitle[i] = '\0';
+                        break;
+                    } else
+                        nid.szInfoTitle[i] = c;
+                    i++;
+                }
+
+                i = 0;
+                foreach(c; byUTF!wchar(text)) {
+                    if (i >= nid.szInfo.length - 1) {
+                        nid.szInfo[i] = '\0';
+                        break;
+                    } else
+                        nid.szInfo[i] = c;
+                    i++;
+                }
+
+                Shell_NotifyIconW(NIM_ADD, &nid);
+                Shell_NotifyIconW(NIM_SETVERSION, &nid);
+
+                if (notifications.length == 0) {
+                    notifications = AllocList!NOTIFYICONDATAW(alloc);
+                }
+                notifications ~= nid;
+            } else
+                assert(0);
+        }
+
+        void clearNotifications(){
+            version(Windows) {
+                foreach(nid; notifications) {
+                    Shell_NotifyIconW(NIM_DELETE, &nid);
+                }
+
+                notifications.length = 0;
+            } else {
+                assert(0);
+            }
+        }
+
+        private {
+            IAllocator taskbarCustomIconAllocator;
+            ImageStorage!RGBA8 taskbarCustomIcon;
+
+            version(Windows) {
+                NOTIFYICONDATAW taskbarIconNID;
+                AllocList!NOTIFYICONDATAW notifications;
+            }
+        }
     }
     
     version(Windows) {
@@ -98,6 +233,15 @@ package(std.experimental) {
         enum IMAGE_CURSOR = 2;
         enum LR_DEFAULTSIZE = 0x00000040;
         enum LR_SHARED = 0x00008000;
+        enum NOTIFYICON_VERSION_4 = 4;
+        enum NIF_ICON = 2;
+        enum NIF_MESSAGE = 1;
+        enum NIM_ADD = 0;
+        enum NIM_MODIFY = 1;
+        enum NIM_DELETE = 2;
+        enum NIM_SETVERSION = 4;
+        enum NIF_SHOWTIP = 0x00000080;
+        enum NIS_SHAREDICON = 0x00000002;
         
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
@@ -220,6 +364,34 @@ package(std.experimental) {
             UINT      cch;
             HBITMAP   hbmpItem;
         }
+
+        struct NOTIFYICONDATAW {
+            DWORD cbSize;
+            HWND  hWnd;
+            UINT  uID;
+            UINT  uFlags;
+            UINT  uCallbackMessage;
+            HICON hIcon;
+            WCHAR[64] szTip;
+            DWORD dwState;
+            DWORD dwStateMask;
+            WCHAR[256] szInfo;
+            union {
+                UINT uTimeout;
+                UINT uVersion;
+            }
+            WCHAR[64] szInfoTitle;
+            DWORD dwInfoFlags;
+            GUID  guidItem;
+            HICON hBalloonIcon;
+        }
+
+        struct GUID {
+            DWORD Data1;
+            WORD  Data2;
+            WORD  Data3;
+            BYTE[8]  Data4;
+        }
         
         extern(Windows) {
             alias MONITORENUMPROC = bool function(HMONITOR, HDC, LPRECT, LPARAM);
@@ -262,6 +434,8 @@ package(std.experimental) {
                 bool DestroyCursor(HCURSOR);
                 HANDLE LoadImageW(HINSTANCE, wchar*, uint, int, int, uint);
                 HCURSOR CreateCursor(HINSTANCE, int, int, int, int, void*, void*);
+                bool Shell_NotifyIconW(DWORD, NOTIFYICONDATAW*);
+                HWND GetDesktopWindow();
             }
             
             struct GetDisplays {
@@ -877,7 +1051,7 @@ package(std.experimental) {
                 
                 scope(exit) {
                     DeleteDC(hMemoryDC);
-                    ReleaseDC(hwnd, hFrom);
+                    ReleaseDC(null, hFrom);
                 }
                 
                 return bitmapToAlphaImage(hBitmap, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), alloc);
@@ -902,7 +1076,7 @@ package(std.experimental) {
                 }
                 
                 DeleteDC(hMemoryDC);
-                ReleaseDC(hwnd, hFrom);
+                ReleaseDC(null, hFrom);
             } else
                 assert(0);
         }
@@ -1034,7 +1208,7 @@ package(std.experimental) {
                 DeleteObject(hBitmap);
                 DeleteObject(hBitmap2);
                 DeleteDC(hMemoryDC);
-                ReleaseDC(hwnd, hFrom);
+                ReleaseDC(null, hFrom);
             } else
                 assert(0);
         }
