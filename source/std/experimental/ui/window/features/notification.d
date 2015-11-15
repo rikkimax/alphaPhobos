@@ -31,18 +31,16 @@ void notificationIcon(IPlatform self, ImageStorage!RGBA8 to, IAllocator alloc=th
     }
 }
     
-@property {
-    DummyRefCount!(ImageStorage!RGBA8) notificationIcon(IPlatform self, IAllocator alloc=theAllocator) {
-        if (self is null)
-            return DummyRefCount!(ImageStorage!RGBA8)(null, null);
-        if (Have_Notification ss = cast(Have_Notification)self) {
-            auto fss = ss.__getFeatureNotification();
-            if (fss !is null) {
-                return DummyRefCount!(ImageStorage!RGBA8)(fss.getNotificationIcon(alloc), alloc);
-            }
-        }
+DummyRefCount!(ImageStorage!RGBA8) notificationIcon(IPlatform self, IAllocator alloc=theAllocator) {
+    if (self is null)
         return DummyRefCount!(ImageStorage!RGBA8)(null, null);
+    if (Have_Notification ss = cast(Have_Notification)self) {
+        auto fss = ss.__getFeatureNotification();
+        if (fss !is null) {
+            return DummyRefCount!(ImageStorage!RGBA8)(fss.getNotificationIcon(alloc), alloc);
+        }
     }
+    return DummyRefCount!(ImageStorage!RGBA8)(null, null);
 }
 
 void notify(IPlatform self, ImageStorage!RGBA8 image=null, dstring title=null, dstring text=null, IAllocator alloc=theAllocator) {

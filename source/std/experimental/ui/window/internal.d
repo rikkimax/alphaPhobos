@@ -12,8 +12,10 @@ package(std.experimental) {
     import std.experimental.internal.dummyRefCount;
     
     mixin template WindowPlatformImpl() {
-        version(Windows)
+        version(Windows) {
             pragma(lib, "gdi32");
+            pragma(lib, "user32");
+        }
         
         DummyRefCount!IWindowCreator createWindow(IAllocator alloc = theAllocator()) {
             return DummyRefCount!IWindowCreator(alloc.make!WindowCreatorImpl(this, alloc), alloc);
@@ -94,14 +96,19 @@ package(std.experimental) {
                     } else {
                         bool toAdd = taskbarIconNID is NOTIFYICONDATAW.init;
 
+                        if (taskbarIconWindow is null) {
+                            taskbarIconWindow = thePlatform().createAWindow(alloc);
+                        }
+
+                        taskbarIconNID.cbSize = NOTIFYICONDATAW.sizeof;
                         taskbarIconNID.uVersion = NOTIFYICON_VERSION_4;
-                        taskbarIconNID.uFlags = NIF_ICON;
+                        taskbarIconNID.uFlags = NIF_ICON | NIF_STATE;
                         taskbarIconNID.dwState = NIS_SHAREDICON;
-                        taskbarIconNID.hWnd = GetDesktopWindow();
+                        taskbarIconNID.hWnd = *cast(HWND*)taskbarIconWindow.__handle;
 
                         HDC hFrom = GetDC(null);
                         HDC hMemoryDC = CreateCompatibleDC(hFrom);
-                        
+
                         scope(exit) {
                             DeleteDC(hMemoryDC);
                             ReleaseDC(null, hFrom);
@@ -133,10 +140,46 @@ package(std.experimental) {
         void notify(ImageStorage!RGBA8 icon, dstring title, dstring text, IAllocator alloc=theAllocator) {
             import std.utf : byUTF;
             version(Windows) {
+                if (notifications.length == 0)
+                    notifications = AllocList!NOTIFYICONDATAW(alloc);
+                if (taskbarIconWindow is null)
+                    taskbarIconWindow = thePlatform().createAWindow(alloc);
+
                 NOTIFYICONDATAW nid;
+                nid.cbSize = NOTIFYICONDATAW.sizeof;
                 nid.uVersion = NOTIFYICON_VERSION_4;
-                nid.uFlags = NIF_MESSAGE | NIF_SHOWTIP;
-                nid.hWnd = GetDesktopWindow();
+                nid.uFlags = NIF_ICON | NIF_SHOWTIP | NIF_INFO | NIF_STATE | NIF_REALTIME;
+                nid.dwState = NIS_HIDDEN | NIS_SHAREDICON;
+                nid.dwInfoFlags = NIIF_USER;
+                taskbarId++;
+                nid.uID = taskbarId;
+                nid.hWnd = *cast(HWND*)taskbarIconWindow.__handle;
+
+                size_t i;
+                foreach(c; byUTF!wchar(title)) {
+                    if (i >= nid.szInfoTitle.length - 1) {
+                        nid.szInfoTitle[i] = cast(wchar)0;
+                        break;
+                    } else
+                        nid.szInfoTitle[i] = c;
+
+                    i++;
+                    if (i == title.length)
+                        nid.szInfoTitle[i] = cast(wchar)0;
+                }
+                
+                i = 0;
+                foreach(c; byUTF!wchar(text)) {
+                    if (i >= nid.szInfo.length - 1) {
+                        nid.szInfo[i] = cast(wchar)0;
+                        break;
+                    } else
+                        nid.szInfo[i] = c;
+
+                    i++;
+                    if (i == text.length)
+                        nid.szInfo[i] = cast(wchar)0;
+                }
 
                 HDC hFrom = GetDC(null);
                 HDC hMemoryDC = CreateCompatibleDC(hFrom);
@@ -145,47 +188,25 @@ package(std.experimental) {
                     DeleteDC(hMemoryDC);
                     ReleaseDC(null, hFrom);
                 }
-
-                nid.hBalloonIcon = imageToIcon(icon, hMemoryDC, alloc);
-
-                size_t i;
-                foreach(c; byUTF!wchar(title)) {
-                    if (i >= nid.szInfoTitle.length - 1) {
-                        nid.szInfoTitle[i] = '\0';
-                        break;
-                    } else
-                        nid.szInfoTitle[i] = c;
-                    i++;
-                }
-
-                i = 0;
-                foreach(c; byUTF!wchar(text)) {
-                    if (i >= nid.szInfo.length - 1) {
-                        nid.szInfo[i] = '\0';
-                        break;
-                    } else
-                        nid.szInfo[i] = c;
-                    i++;
-                }
+                
+                nid.hIcon = imageToIcon(icon, hMemoryDC, alloc);
 
                 Shell_NotifyIconW(NIM_ADD, &nid);
                 Shell_NotifyIconW(NIM_SETVERSION, &nid);
 
-                if (notifications.length == 0) {
-                    notifications = AllocList!NOTIFYICONDATAW(alloc);
-                }
                 notifications ~= nid;
             } else
                 assert(0);
         }
 
-        void clearNotifications(){
+        void clearNotifications() {
             version(Windows) {
                 foreach(nid; notifications) {
                     Shell_NotifyIconW(NIM_DELETE, &nid);
                 }
 
                 notifications.length = 0;
+                taskbarId = 0;
             } else {
                 assert(0);
             }
@@ -196,6 +217,8 @@ package(std.experimental) {
             ImageStorage!RGBA8 taskbarCustomIcon;
 
             version(Windows) {
+                uint taskbarId;
+                IWindow taskbarIconWindow;
                 NOTIFYICONDATAW taskbarIconNID;
                 AllocList!NOTIFYICONDATAW notifications;
             }
@@ -242,7 +265,13 @@ package(std.experimental) {
         enum NIM_SETVERSION = 4;
         enum NIF_SHOWTIP = 0x00000080;
         enum NIS_SHAREDICON = 0x00000002;
-        
+        enum NIF_TIP  = 0x00000004;
+        enum NIF_INFO = 0x00000010;
+        enum NIF_STATE = 0x00000008;
+        enum NIS_HIDDEN = 0x00000001;
+        enum NIF_REALTIME = 0x00000040;
+        enum NIIF_USER  = 0x00000004;
+
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
          */
@@ -372,7 +401,7 @@ package(std.experimental) {
             UINT  uFlags;
             UINT  uCallbackMessage;
             HICON hIcon;
-            WCHAR[64] szTip;
+            WCHAR[128] szTip;
             DWORD dwState;
             DWORD dwStateMask;
             WCHAR[256] szInfo;
@@ -428,7 +457,7 @@ package(std.experimental) {
                 bool RemoveMenu(HMENU, uint, uint);
                 bool AppendMenuA(HMENU, uint, UINT_PTR, void*);
                 HMENU CreatePopupMenu();
-                bool GetClassInfoEXW(HINSTANCE, wchar*, WNDCLASSEXW*);
+                bool GetClassInfoExW(HINSTANCE, wchar*, WNDCLASSEXW*);
                 LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR);
                 LONG_PTR GetWindowLongPtrW(HWND, int) nothrow;
                 bool DestroyCursor(HCURSOR);
@@ -553,8 +582,8 @@ package(std.experimental) {
             BITMAPINFOHEADER bi;
             
             bi.biSize = BITMAPINFOHEADER.sizeof;
-            bi.biWidth = size_.x;
-            bi.biHeight = size_.y;
+            bi.biWidth = cast(int)size_.x;
+            bi.biHeight = cast(int)size_.y;
             bi.biPlanes = 1;
             bi.biBitCount = 32;
             bi.biCompression = BI_RGB;
@@ -567,7 +596,7 @@ package(std.experimental) {
             BITMAPINFO bitmapInfo;
             bitmapInfo.bmiHeader = bi;
             
-            GetDIBits(hMemoryDC, hBitmap, 0, size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
+            GetDIBits(hMemoryDC, hBitmap, 0, cast(int)size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
             
             size_t x;
             size_t y = size_.y-1;
@@ -600,8 +629,8 @@ package(std.experimental) {
             BITMAPINFOHEADER bi;
             
             bi.biSize = BITMAPINFOHEADER.sizeof;
-            bi.biWidth = size_.x;
-            bi.biHeight = size_.y;
+            bi.biWidth = cast(int)size_.x;
+            bi.biHeight = cast(int)size_.y;
             bi.biPlanes = 1;
             bi.biBitCount = 32;
             bi.biCompression = BI_RGB;
@@ -614,7 +643,7 @@ package(std.experimental) {
             BITMAPINFO bitmapInfo;
             bitmapInfo.bmiHeader = bi;
             
-            GetDIBits(hMemoryDC, hBitmap, 0, size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
+            GetDIBits(hMemoryDC, hBitmap, 0, cast(int)size_.y, buffer.ptr, &bitmapInfo, DIB_RGB_COLORS);
             
             size_t x;
             size_t y = size_.y-1;
@@ -724,7 +753,7 @@ package(std.experimental) {
         
         HBITMAP resizeBitmap(HBITMAP hBitmap, HDC hDC, vec2!size_t toSize, vec2!size_t fromSize) {
             HDC hMemDC1 = CreateCompatibleDC(hDC);
-            HBITMAP hBitmap1 = CreateCompatibleBitmap(hDC, toSize.x, toSize.y);
+            HBITMAP hBitmap1 = CreateCompatibleBitmap(hDC, cast(int)toSize.x, cast(int)toSize.y);
             HGDIOBJ hOld1 = SelectObject(hMemDC1, hBitmap1);
             
             HDC hMemDC2 = CreateCompatibleDC(hDC);
@@ -733,7 +762,7 @@ package(std.experimental) {
             BITMAP bitmap;
             GetObjectW(hBitmap, BITMAP.sizeof, &bitmap);
             
-            StretchBlt(hMemDC1, 0, 0, toSize.x, toSize.y, hMemDC2, 0, 0, fromSize.x, fromSize.y, SRCCOPY);
+            StretchBlt(hMemDC1, 0, 0, cast(int)toSize.x, cast(int)toSize.y, hMemDC2, 0, 0, cast(int)fromSize.x, cast(int)fromSize.y, SRCCOPY);
             
             SelectObject(hMemDC1, hOld1);
             SelectObject(hMemDC2, hOld2);
@@ -899,7 +928,7 @@ package(std.experimental) {
                 version(Windows) {
                     int textLength = GetWindowTextLengthA(hwnd);
                     char[] buffer = alloc.makeArray!char(textLength + 1);
-                    assert(GetWindowTextA(hwnd, buffer.ptr, buffer.length) > 0);
+                    assert(GetWindowTextA(hwnd, buffer.ptr, cast(int)buffer.length) > 0);
                     alloc.shrinkArray(buffer, 1);
                     
                     return DummyRefCount!(char[])(buffer, alloc);
@@ -1468,7 +1497,7 @@ package(std.experimental) {
                 IContext context = null;
                 HMENU hMenu = null;
                 
-                if (GetClassInfoEXW(hInstance, cast(wchar*)ClassNameW.ptr, &wndClass) == 0) {
+                if (GetClassInfoExW(hInstance, cast(wchar*)ClassNameW.ptr, &wndClass) == 0) {
                     wndClass.cbSize = WNDCLASSEXW.sizeof;
                     wndClass.hInstance = hInstance;
                     wndClass.lpszClassName = cast(wchar*)ClassNameW.ptr;
@@ -1478,9 +1507,9 @@ package(std.experimental) {
                     
                     assert(RegisterClassExW(&wndClass) != 0);
                 }
-                
+
                 RECT rect;
-                rect.top = size_.x;
+                rect.right = size_.x;
                 rect.bottom = size_.y;
                 
                 assert(AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle));
@@ -1491,7 +1520,7 @@ package(std.experimental) {
                     null,
                     dwStyle,
                     location_.x, location_.y,
-                    rect.right, rect.bottom,
+                    rect.right - rect.left, rect.bottom - rect.top,
                     null,
                     null,
                     hInstance,
@@ -1499,7 +1528,8 @@ package(std.experimental) {
                 
                 WindowImpl ret = alloc.make!WindowImpl(hwnd, context, alloc, platform, hMenu, true);
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, cast(size_t)cast(void*)ret);
-                ret.setIcon(icon);
+                if (icon !is null)
+                    ret.setIcon(icon);
 
                 if (cursorStyle == WindowCursorStyle.Custom)
                     ret.setCustomCursor(cursorIcon);

@@ -126,7 +126,12 @@ private {
 
             // theoretically it is possible that you could have e.g. Wayland/X11 on a platform such as Windows
             //  but also have a Windows event loop *grrr*
-            ubyte enabledEventLoops;
+
+            version(Windows) {
+                ubyte enabledEventLoops = EnabledEventLoops.Windows;
+            } else {
+                ubyte enabledEventLoops;
+            }
         }
 
         mixin WindowPlatformImpl;

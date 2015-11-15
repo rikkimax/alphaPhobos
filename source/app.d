@@ -4,7 +4,21 @@ import std.experimental.allocator;
 void main() {
 	//VFSTest();
 	//WindowTest();
-    displaysTest();
+    //displaysTest();
+    notifyTest();
+}
+
+void notifyTest() {
+    import std.experimental.platform;
+    import std.experimental.ui.window.features;
+    import std.experimental.graphic.image.fileformats.png;
+    import std.file : read;
+
+    thePlatform().notificationIcon(loadPNG!RGBA8(cast(ubyte[])read("testAssets/test.png")));
+    thePlatform().notify(loadPNG!RGBA8(cast(ubyte[])read("testAssets/test2.png")), "Hey testing!"d, "Some text here..."d);
+
+    thePlatform().createAWindow().show();
+    thePlatform().optimizedEventLoop();
 }
 
 void displaysTest() {
