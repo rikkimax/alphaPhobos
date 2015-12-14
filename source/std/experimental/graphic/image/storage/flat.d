@@ -10,7 +10,11 @@ import std.experimental.graphic.color : isColor;
 import std.experimental.allocator : IAllocator, theAllocator;
 
 /**
- * A fairly simple image storage type using a horizontal scan line memory order.
+ * Represents an image using a flat array.
+ *
+ * Because the usage of multiplication is required to index and assign,
+ * it is not recommend to be used outside of drawing contexts.
+ * Where this is the least expensive option for a buffer to draw upon.
  * 
  * See_Also:
  *      ImageStorage
