@@ -446,8 +446,17 @@ package(std.experimental) {
                 bool AppendMenuA(HMENU, uint, UINT_PTR, void*);
                 HMENU CreatePopupMenu();
                 bool GetClassInfoExW(HINSTANCE, wchar*, WNDCLASSEXW*);
-                LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR);
-                LONG_PTR GetWindowLongPtrW(HWND, int) nothrow;
+                LONG GetWindowLongW(HWND hWnd,int nIndex) nothrow;
+                LONG SetWindowLongW(HWND hWnd,int nIndex,LONG dwNewLong) nothrow;
+                
+                version(X86_64){
+                    LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR) nothrow;
+                    LONG_PTR GetWindowLongPtrW(HWND, int) nothrow;
+                } else {
+                    alias GetWindowLongPtrW = GetWindowLongW;
+                    alias SetWindowLongPtrW = SetWindowLongW;
+                }
+                
                 bool DestroyCursor(HCURSOR);
                 HANDLE LoadImageW(HINSTANCE, wchar*, uint, int, int, uint);
                 HCURSOR CreateCursor(HINSTANCE, int, int, int, int, void*, void*);
