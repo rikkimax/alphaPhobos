@@ -187,7 +187,9 @@ package(std.experimental) {
 
                 Shell_NotifyIconW(NIM_ADD, &nid);
                 Shell_NotifyIconW(NIM_SETVERSION, &nid);
+                
                 Shell_NotifyIconW(NIM_DELETE, &nid);
+                DeleteObject(nid.hIcon);
             } else
                 assert(0);
         }
