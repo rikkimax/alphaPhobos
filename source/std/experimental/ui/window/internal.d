@@ -545,6 +545,10 @@ package(std.experimental) {
                             return 1;
                         } else
                             return DefWindowProcW(hwnd, uMsg, wParam, lParam);
+                    case WM_SIZE:
+                        InvalidateRgn(hwnd, null, true);
+                        // TODO: event
+                        return 0;
                     default:
                         return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                 }
