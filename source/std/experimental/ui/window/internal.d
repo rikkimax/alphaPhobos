@@ -103,7 +103,6 @@ package(std.experimental) {
                         taskbarIconNID.cbSize = NOTIFYICONDATAW.sizeof;
                         taskbarIconNID.uVersion = NOTIFYICON_VERSION_4;
                         taskbarIconNID.uFlags = NIF_ICON | NIF_STATE;
-                        taskbarIconNID.dwState = NIS_SHAREDICON;
                         taskbarIconNID.hWnd = *cast(HWND*)taskbarIconWindow.__handle;
 
                         HDC hFrom = GetDC(null);
@@ -140,8 +139,6 @@ package(std.experimental) {
         void notify(ImageStorage!RGBA8 icon, dstring title, dstring text, IAllocator alloc=theAllocator) {
             import std.utf : byUTF;
             version(Windows) {
-                if (notifications.length == 0)
-                    notifications = AllocList!NOTIFYICONDATAW(alloc);
                 if (taskbarIconWindow is null)
                     taskbarIconWindow = thePlatform().createAWindow(alloc);
 
@@ -149,10 +146,7 @@ package(std.experimental) {
                 nid.cbSize = NOTIFYICONDATAW.sizeof;
                 nid.uVersion = NOTIFYICON_VERSION_4;
                 nid.uFlags = NIF_ICON | NIF_SHOWTIP | NIF_INFO | NIF_STATE | NIF_REALTIME;
-                nid.dwState = NIS_HIDDEN | NIS_SHAREDICON;
-                nid.dwInfoFlags = NIIF_USER;
-                taskbarId++;
-                nid.uID = taskbarId;
+                nid.uID = 1;
                 nid.hWnd = *cast(HWND*)taskbarIconWindow.__handle;
 
                 size_t i;
@@ -193,20 +187,14 @@ package(std.experimental) {
 
                 Shell_NotifyIconW(NIM_ADD, &nid);
                 Shell_NotifyIconW(NIM_SETVERSION, &nid);
-
-                notifications ~= nid;
+                Shell_NotifyIconW(NIM_DELETE, &nid);
             } else
                 assert(0);
         }
 
         void clearNotifications() {
             version(Windows) {
-                foreach(nid; notifications) {
-                    Shell_NotifyIconW(NIM_DELETE, &nid);
-                }
-
-                notifications.length = 0;
-                taskbarId = 0;
+                // nothing needs to happen :)
             } else {
                 assert(0);
             }
@@ -217,10 +205,8 @@ package(std.experimental) {
             ImageStorage!RGBA8 taskbarCustomIcon;
 
             version(Windows) {
-                uint taskbarId;
                 IWindow taskbarIconWindow;
                 NOTIFYICONDATAW taskbarIconNID;
-                AllocList!NOTIFYICONDATAW notifications;
             }
         }
     }
