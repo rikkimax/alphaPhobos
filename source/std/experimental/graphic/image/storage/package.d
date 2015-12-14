@@ -6,3 +6,4 @@
  */
 module std.experimental.graphic.image.storage;
 public import std.experimental.graphic.image.storage.base;
+public import std.experimental.graphic.image.storage.flat;
