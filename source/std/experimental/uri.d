@@ -58,6 +58,7 @@ struct URIAddress
         char[][] arrbuffDirectories;
     }
 
+    /// Duplicates by copying the path string
     this(this)
     {
         arrbuffDirectories = alloc.makeArray!(char[])(arrbuffDirectories.length);
@@ -67,6 +68,7 @@ struct URIAddress
         value = cast(string) t;
     }
 
+    /// Deallocates the path string
     ~this()
     {
         alloc.dispose(cast(char[]) value);
