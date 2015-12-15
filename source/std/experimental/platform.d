@@ -1,8 +1,8 @@
-﻿module std.experimental.platform;
+module std.experimental.platform;
 import std.experimental.ui.window.defs : IWindow, IWindowCreator;
 import std.experimental.ui.window.features.notification;
 import std.experimental.ui.window.features.icon;
-import std.experimental.math.linearalgebra.vector : vec2;
+import std.experimental.ui.rendering;
 import std.experimental.internal.dummyRefCount;
 import std.experimental.allocator : IAllocator, processAllocator, theAllocator;
 import std.datetime : Duration, seconds;
@@ -34,39 +34,6 @@ IPlatform thePlatform() {
 
 IPlatform defaultPlatform() {
     return defaultPlatform_;
-}
-
-interface IRenderPoint {
-    @property {
-        DummyRefCount!IDisplay display();
-        IContext context();
-        IAllocator allocator();
-    }
-    
-    void close();
-}
-
-interface IDisplay {
-    @property {
-        string name();
-        vec2!ushort size();
-        uint refreshRate();
-        DummyRefCount!(IWindow[]) windows();
-        void* __handle();
-    }
-}
-
-interface IRenderPointCreator {
-    @property {
-        void display(IDisplay); // default platform().primaryDisplay
-        void allocator(IAllocator); // default std.experimental.allocator.theAllocator()
-    }
-    
-    IWindow create();
-}
-
-interface IContext {
-    void swapBuffers();
 }
 
 private {

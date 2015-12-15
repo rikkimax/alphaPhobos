@@ -1,9 +1,10 @@
-﻿module std.experimental.ui.window.internal;
+module std.experimental.ui.window.internal;
 
 package(std.experimental) {
     import std.experimental.internal.containers.list;
     import std.experimental.ui.window.defs : IWindow, IWindowCreator, UIPoint;
-    import std.experimental.platform : IDisplay, ImplPlatform, IRenderPoint, IRenderPointCreator, IContext;
+    import std.experimental.platform : ImplPlatform;
+    import std.experimental.ui.rendering;
     import std.experimental.allocator : IAllocator, processAllocator, theAllocator, make, makeArray, dispose;
     import std.experimental.math.linearalgebra.vector : vec2;
     import std.experimental.graphic.image : ImageStorage;
@@ -25,7 +26,7 @@ package(std.experimental) {
             auto creator = createWindow(alloc);
             creator.size = UIPoint(cast(short)800, cast(short)600);
             // set as VRAM context
-            return creator.create();
+            return creator.createWindow();
         }
 
         DummyRefCount!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator()) {
@@ -1485,7 +1486,11 @@ package(std.experimental) {
             void allocator(IAllocator v) { alloc = v; }
         }
         
-        IWindow create() {
+        IRenderPoint create() {
+            return cast(IRenderPoint)createWindow;
+        }
+        
+        IWindow createWindow() {
             if (display_ is null)
                 display_ = platform.primaryDisplay;
             
