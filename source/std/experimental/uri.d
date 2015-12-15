@@ -1076,13 +1076,16 @@ unittest
 // FIXME: requires std.string : indexOf be @nogc
 @safe /+@nogc+/ :
 
+alias URISchemeInvalid = Exception;
+
 ///
 string uriScheme(string value)
 {
     bool melformed;
 
     scope (exit)
-        assert(!melformed);
+        if (melformed)
+            throw new URISchemeInvalid("URI scheme is invalid");
 
     return uriScheme(value, melformed);
 }
