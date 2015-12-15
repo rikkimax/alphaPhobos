@@ -740,8 +740,9 @@ struct URIAddress
 
         if (temp[0] == '/')
             temp = temp[1 .. $];
-
-        if (temp[0] == '.' || temp[0] == '~')
+        
+        if (temp.length > 1 && temp[1] != '/') {}
+        else if (temp[0] == '.' || temp[0] == '~')
         {
             string replaceTo;
 
@@ -913,6 +914,9 @@ struct URIAddress
             URIAddress("/")) == "smb://server/C:\\");
         assert(URIAddress("smb://server/.").expand(URIAddress("/"),
             URIAddress("C:\\")) == "smb://server/C:\\");
+            
+        assert(URIAddress("file://~foo/bar").expand(URIAddress("file:///home/dhasenan"),
+            URIAddress("file:///tmp")) == "file:///~foo/bar");
     }
 
     /**
