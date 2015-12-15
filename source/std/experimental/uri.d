@@ -265,9 +265,40 @@ struct URIAddress
             assert(URIAddress("smb://test:mypass@server").password == "mypass");
             assert(URIAddress("smb://test:@server").password is null);
         }
-
+        
         /**
-         * The port provided as part of the connections tring.
+         * The hostname/IP provided as part of the connection string.
+         * 
+         * Returns:
+         *      The hostname/IP specified in the connection string or null if not provided.
+         */
+        string hostname()
+        {
+            import std.string : indexOf;
+            import std.conv : to;
+
+            string prefix = uriConnection(value);
+
+            ptrdiff_t i;
+            if ((i = prefix.indexOf(":")) > 0)
+                return prefix[0 .. i];
+            else if (i == -1)
+                return prefix;
+            else
+                return null;
+        }
+
+        ///
+        unittest
+        {
+            assert(URIAddress("smb://server:89").hostname == "server");
+            assert(URIAddress("smb://server:").hostname == "server");
+            assert(URIAddress("smb://server").hostname == "server");
+            assert(URIAddress("smb://:89").hostname is null);
+        }
+        
+        /**
+         * The port provided as part of the connection string.
          * 
          * Returns:
          *      The port specified in the connection string or null if not provided.
