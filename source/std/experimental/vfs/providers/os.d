@@ -51,7 +51,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
         import std.file : exists, isFile, isDir;
         
         path = path.expand(homeAddress, cwdAddress);
-        string pathS = URIEntries(path);
+        string pathS = uriEntries(path);
 
         if (!exists(pathS))
             return null;
@@ -67,7 +67,7 @@ final class OSFileSystemProvider : IFileSystemProvider {
     IFileEntry createFile(URIAddress path) {
         import std.file : FileException, write, exists;
         path = path.expand(homeAddress, cwdAddress);
-        string pathS = URIEntries(path);
+        string pathS = uriEntries(path);
 
         if (exists(pathS))
             return null;
@@ -144,20 +144,20 @@ final class OSFileEntry : IFileEntry {
         URIAddress path;
         OSFileSystemProvider provider_;
 
-        string[] nameParts;
+        string[] namepathEntries;
     }
 
     // emplace requires access to constructor, so package not private grrr
     package(std) this(OSFileSystemProvider provider, URIAddress path) {
         this.provider_ = provider;
         this.path = path;
-        nameParts = cast(string[])path.parts;
+        namepathEntries = cast(string[])path.pathEntries;
     }
 
     @property {
         ///
         string name() {
-            return nameParts[$-1];
+            return namepathEntries[$-1];
         }
 
         ///
@@ -165,10 +165,10 @@ final class OSFileEntry : IFileEntry {
             import std.file : rename;
 
             to = path.sibling(to);
-            string toS = URIEntries(to);
+            string toS = uriEntries(to);
             path.value.rename(toS);
 
-            nameParts = cast(string[])to.parts;
+            namepathEntries = cast(string[])to.pathEntries;
             path.__dtor;
             path = to;
         }
@@ -179,7 +179,7 @@ final class OSFileEntry : IFileEntry {
         ///
         ubyte permissions() {
             import std.file : append, read;
-            string pathS = URIEntries(path);
+            string pathS = uriEntries(path);
 
             bool readable, writable;
             try {
@@ -223,7 +223,7 @@ final class OSFileEntry : IFileEntry {
         ///
         bool remove() {
             import std.file : remove;
-            string pathS = URIEntries(path.value);
+            string pathS = uriEntries(path.value);
 
             try {
                 remove(pathS);
@@ -238,7 +238,7 @@ final class OSFileEntry : IFileEntry {
             import std.file : getSize;
             import std.stdio : File;
 
-            string pathS = URIEntries(path);
+            string pathS = uriEntries(path);
             File f = File(pathS, "rb");
 
             ulong theSize = getSize(pathS);
@@ -254,7 +254,7 @@ final class OSFileEntry : IFileEntry {
         ///
         size_t size() {
             import std.file : getSize;
-            string pathS = URIEntries(path);
+            string pathS = uriEntries(path);
 
             ulong v = getSize(pathS);
             assert(v < size_t.max);
@@ -266,14 +266,14 @@ final class OSFileEntry : IFileEntry {
     ///
     void write(ubyte[] buff) {
         import std.file : write;
-        string pathS = URIEntries(path);
+        string pathS = uriEntries(path);
         write(pathS, buff);
     }
 
     ///
     void append(ubyte[] buff) {
         import std.file : append;
-        string pathS = URIEntries(path);
+        string pathS = uriEntries(path);
         append(pathS, buff);
     }
 }
@@ -291,7 +291,7 @@ final class OSDirectoryEntry : IDirectoryEntry {
     package(std) this(OSFileSystemProvider provider, URIAddress path) {
         this.provider_ = provider;
         this.path = path;
-        nameParts = cast(string[])path.parts;
+        nameParts = cast(string[])path.pathEntries;
     }
     
     @property {
@@ -307,7 +307,7 @@ final class OSDirectoryEntry : IDirectoryEntry {
             to = path.sibling(to);
             to = to.expand(provider.homeDirectory, provider.currentWorkingDirectory);
 
-            string toS = URIEntries(to);
+            string toS = uriEntries(to);
             path.value.rename(toS);
             
             path.__dtor;
@@ -339,7 +339,7 @@ final class OSDirectoryEntry : IDirectoryEntry {
         ///
         bool remove() {
             import std.file : remove;
-            string pathS = URIEntries(path);
+            string pathS = uriEntries(path);
 
             try {
                 remove(pathS);

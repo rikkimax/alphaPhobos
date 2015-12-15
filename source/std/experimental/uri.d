@@ -119,7 +119,7 @@ struct URIAddress
             import std.string : indexOf;
 
             // $(LT)protName://$(GT)
-            string prot = URIProtocolPrefix(value);
+            string prot = uriScheme(value);
             string value2 = value[prot.length + 3 .. $];
             // [user[:pass]]@[host/ip[:port]][/][$(LT)dir/$(GT)...][file[.ext]]
 
@@ -158,17 +158,17 @@ struct URIAddress
          * The protocol prefix
          * 
          * Otherwise known as being "$(LT)protName://$(GT)"
-         * Forwards call to URIProtocolPrefix.
+         * Forwards call to uriScheme.
          * 
          * See_Also:
-         *      URIProtocolPrefix
+         *      uriScheme
          * 
          * Returns:
          *      Returns the protocol prefix without "://".
          */
-        string protocol()
+        string scheme()
         {
-            return URIProtocolPrefix(value);
+            return uriScheme(value);
         }
 
         /**
@@ -179,7 +179,7 @@ struct URIAddress
          */
         Nullable!char driveLetter()
         {
-            string addr = URIEntries(value);
+            string addr = uriEntries(value);
             if (addr.length > 2 && addr[1] == ':' && addr[2] == '\\')
                 return Nullable!char(addr[0]);
             else
@@ -209,7 +209,7 @@ struct URIAddress
         {
             import std.string : indexOf;
 
-            string prefix = URIAuthentication(value);
+            string prefix = uriAuthentication(value);
 
             ptrdiff_t i;
             if ((i = prefix.indexOf(":")) > 0)
@@ -245,7 +245,7 @@ struct URIAddress
         {
             import std.string : indexOf;
 
-            string prefix = URIAuthentication(value);
+            string prefix = uriAuthentication(value);
 
             ptrdiff_t i;
             if ((i = prefix.indexOf(":")) >= 0)
@@ -275,7 +275,7 @@ struct URIAddress
             import std.string : indexOf;
             import std.conv : to;
 
-            string prefix = URIConnection(value);
+            string prefix = uriConnection(value);
 
             ptrdiff_t i;
             if ((i = prefix.indexOf(":")) > 0 && prefix.length - i > 1)
@@ -297,16 +297,16 @@ struct URIAddress
         }
 
         /**
-         * The seperate parts of the directory entries.
+         * The seperate pathEntries of the directory entries.
          * 
          * Returns:
          *      An array containing each of the different entries.
          *      Without path seperators. Except after drive letters.
          */
-        immutable(string[]) parts()
+        immutable(string[]) pathEntries()
         {
             size_t numDir;
-            string addr = URIEntries(value);
+            string addr = uriEntries(value);
 
             bool haveDrive;
             string driveText;
@@ -375,37 +375,37 @@ struct URIAddress
         {
             URIAddress addr = URIAddress("/dir1/file.txt");
 
-            assert(addr.parts.length == 2);
-            assert(addr.parts[0] == "dir1");
-            assert(addr.parts[1] == "file.txt");
+            assert(addr.pathEntries.length == 2);
+            assert(addr.pathEntries[0] == "dir1");
+            assert(addr.pathEntries[1] == "file.txt");
 
             addr.value = "/dir1/dir2/file.txt";
             addr.sanitise();
 
-            assert(addr.parts.length == 3);
-            assert(addr.parts[0] == "dir1");
-            assert(addr.parts[1] == "dir2");
-            assert(addr.parts[2] == "file.txt");
+            assert(addr.pathEntries.length == 3);
+            assert(addr.pathEntries[0] == "dir1");
+            assert(addr.pathEntries[1] == "dir2");
+            assert(addr.pathEntries[2] == "file.txt");
 
             addr.value = "/dir1/file.txt";
             addr.sanitise();
 
-            assert(addr.parts.length == 2);
-            assert(addr.parts[0] == "dir1");
-            assert(addr.parts[1] == "file.txt");
+            assert(addr.pathEntries.length == 2);
+            assert(addr.pathEntries[0] == "dir1");
+            assert(addr.pathEntries[1] == "file.txt");
 
             assert(addr.arrbuffDirectories.length == 3);
 
             addr = URIAddress("smb://server/dir1/file.txt");
-            immutable(string[]) parts = addr.parts;
+            immutable(string[]) pathEntries = addr.pathEntries;
 
-            assert(parts.length == 2);
-            assert(parts[0] == "dir1");
-            assert(parts[1] == "file.txt");
+            assert(pathEntries.length == 2);
+            assert(pathEntries[0] == "dir1");
+            assert(pathEntries[1] == "file.txt");
         }
 
         /**
-         * Produces parts conjoined together in a stair case format.
+         * Produces pathEntries conjoined together in a stair case format.
          * So that a 3 directory structure results in 3 different values with 1 to 3 being included.
          * 
          * Params:
@@ -414,14 +414,14 @@ struct URIAddress
          * Returns:
          *      The stair cased version of the URI directory entries.
          */
-        immutable(string[]) partsStairCase(bool reverse = false)
+        immutable(string[]) pathEntriesStairCase(bool reverse = false)
         {
             import std.string : indexOf;
 
             size_t startI;
-            string addr = URIEntries(value);
+            string addr = uriEntries(value);
 
-            string[] ret = cast(string[]) parts();
+            string[] ret = cast(string[]) pathEntries();
 
             foreach (i, part; ret)
             {
@@ -452,20 +452,20 @@ struct URIAddress
         unittest
         {
             URIAddress addr = URIAddress("/dir1/dir2/file.ext");
-            immutable(string[]) parts = addr.partsStairCase;
+            immutable(string[]) pathEntries = addr.pathEntriesStairCase;
 
-            assert(parts.length == 3);
-            assert(parts[0] == "/dir1");
-            assert(parts[1] == "/dir1/dir2");
-            assert(parts[2] == "/dir1/dir2/file.ext");
+            assert(pathEntries.length == 3);
+            assert(pathEntries[0] == "/dir1");
+            assert(pathEntries[1] == "/dir1/dir2");
+            assert(pathEntries[2] == "/dir1/dir2/file.ext");
 
             addr = URIAddress("/dir1/dir2/file.ext");
-            immutable(string[]) parts2 = addr.partsStairCase(true);
+            immutable(string[]) pathEntries2 = addr.pathEntriesStairCase(true);
 
-            assert(parts2.length == 3);
-            assert(parts2[0] == "/dir1/dir2/file.ext");
-            assert(parts2[1] == "/dir1/dir2");
-            assert(parts2[2] == "/dir1");
+            assert(pathEntries2.length == 3);
+            assert(pathEntries2[0] == "/dir1/dir2/file.ext");
+            assert(pathEntries2[1] == "/dir1/dir2");
+            assert(pathEntries2[2] == "/dir1");
         }
     }
 
@@ -493,7 +493,7 @@ struct URIAddress
         }
 
         // make sure first directory entry starts with either a drive, root(/), . if not a protocol/drive or ~
-        if (URIConnection(value) is null)
+        if (uriConnection(value) is null)
         {
             if (temp.length > 0 && temp[0] == '~')
             {
@@ -511,7 +511,7 @@ struct URIAddress
             }
         }
 
-        if (URIProtocolPrefix(value) is null)
+        if (uriScheme(value) is null)
         {
             // add file://
             value = cast(string) temp;
@@ -534,7 +534,7 @@ struct URIAddress
         else
         {
             // ensure forward slashes after protocol
-            size_t offset = URIProtocolPrefix(cast(string) temp).length;
+            size_t offset = uriScheme(cast(string) temp).length;
             temp[offset + 1] = '/';
             temp[offset + 2] = '/';
         }
@@ -543,7 +543,7 @@ struct URIAddress
 
         // make directory seperator only /
         bool preColon;
-        foreach (ref c; cast(char[]) URIEntries(value))
+        foreach (ref c; cast(char[]) uriEntries(value))
         {
             if (c == ':')
                 preColon = true;
@@ -553,7 +553,7 @@ struct URIAddress
                 preColon = false;
         }
 
-        size_t i = URIProtocolPrefix(value).length;
+        size_t i = uriScheme(value).length;
 
         // remove last / if added
         if (temp[$ - 1] == '/' && temp.length > 1 && temp.length > i + 3)
@@ -675,7 +675,7 @@ struct URIAddress
     {
         import std.string : indexOf;
 
-        string prot = URIProtocolPrefix(value);
+        string prot = uriScheme(value);
         string temp = value;
 
         char[] retbuf;
@@ -715,18 +715,18 @@ struct URIAddress
             // perform expansion
             if (temp[0] == '.')
             {
-                string protPref = URIProtocolPrefix(cwd);
+                string protPref = uriScheme(cwd);
                 if (protPref !is null && protPref != "file")
                     throw new Exception("Protocol as directory cannot be used in expansion");
-                replaceTo = URIEntries(cwd);
+                replaceTo = uriEntries(cwd);
             }
             else if (temp[0] == '~')
             {
-                string protPref = URIProtocolPrefix(homeDirectory);
+                string protPref = uriScheme(homeDirectory);
                 if (protPref !is null && protPref != "file")
                     throw new Exception("Protocol as directory cannot be used in expansion");
 
-                replaceTo = URIEntries(homeDirectory);
+                replaceTo = uriEntries(homeDirectory);
             }
 
             if ((replaceTo.length > 0 && replaceTo[0] == '/')
@@ -782,15 +782,15 @@ struct URIAddress
         retbuf[] = addrt.value[];
 
         size_t skipDirs;
-        auto parts = addrt.parts;
+        auto pathEntries = addrt.pathEntries;
         size_t[] ibuffers;
 
-        if (haveDrive && parts !is null)
+        if (haveDrive && pathEntries !is null)
         {
-            (cast() parts) = parts[1 .. $];
+            (cast() pathEntries) = pathEntries[1 .. $];
         }
 
-        foreach_reverse (i, p; parts)
+        foreach_reverse (i, p; pathEntries)
         {
             if (p == ".")
                 continue;
@@ -814,10 +814,10 @@ struct URIAddress
 
         foreach_reverse (i; ibuffers)
         {
-            size_t len = parts[i].length;
+            size_t len = pathEntries[i].length;
             retbuf = charBuffer[0 .. retbuf.length + len + 1];
             retbuf[$ - (len + 1)] = '/';
-            retbuf[$ - len .. $] = parts[i];
+            retbuf[$ - len .. $] = pathEntries[i];
         }
 
         alloc.dispose(addrt);
@@ -892,7 +892,7 @@ struct URIAddress
     {
         import std.string : indexOf;
 
-        string current = URIEntries(value);
+        string current = uriEntries(value);
 
         size_t start;
         foreach_reverse (i, c; current)
@@ -926,7 +926,7 @@ struct URIAddress
      */
     URIAddress subPath(URIAddress sub)
     {
-        string suff = URIEntries(sub);
+        string suff = uriEntries(sub);
         char[] buff = tCopyBuffer[0 .. value.length + 1];
 
         buff[0 .. $ - 1] = value[];
@@ -958,8 +958,8 @@ struct URIAddress
     {
         import std.string : indexOf;
 
-        string current = URIEntries(value);
-        string suff = URIEntries(subling);
+        string current = uriEntries(value);
+        string suff = uriEntries(subling);
 
         size_t start;
         foreach_reverse (i, c; current)
@@ -1040,18 +1040,18 @@ unittest
 @safe /+@nogc+/ :
 
 ///
-string URIProtocolPrefix(string value)
+string uriScheme(string value)
 {
     bool melformed;
 
     scope (exit)
         assert(!melformed);
 
-    return URIProtocolPrefix(value, melformed);
+    return uriScheme(value, melformed);
 }
 
 ///
-string URIProtocolPrefix(string value, out bool melformed)
+string uriScheme(string value, out bool melformed)
 {
     import std.string : indexOf;
 
@@ -1091,47 +1091,47 @@ unittest
 {
     bool melformed;
 
-    assert(URIProtocolPrefix("smb://a/b/c.d", melformed) == "smb");
+    assert(uriScheme("smb://a/b/c.d", melformed) == "smb");
     assert(!melformed);
-    assert(URIProtocolPrefix("smb:\\\\a/b/c.d", melformed) == "smb");
+    assert(uriScheme("smb:\\\\a/b/c.d", melformed) == "smb");
     assert(!melformed);
-    assert(URIProtocolPrefix("d:\\a/b/c/.d", melformed)  is null);
+    assert(uriScheme("d:\\a/b/c/.d", melformed)  is null);
     assert(!melformed);
-    assert(URIProtocolPrefix("smb:/a/b/c.d", melformed)  is null);
+    assert(uriScheme("smb:/a/b/c.d", melformed)  is null);
     assert(melformed);
-    assert(URIProtocolPrefix("s://a/b/c.d", melformed)  is null);
-    assert(melformed);
-
-    assert(URIProtocolPrefix("abc", melformed)  is null);
-    assert(!melformed);
-    assert(URIProtocolPrefix("ab", melformed)  is null);
-    assert(!melformed);
-
-    assert(URIProtocolPrefix("a/b/c.d", melformed)  is null);
-    assert(!melformed);
-    assert(URIProtocolPrefix("d:/", melformed)  is null);
-    assert(melformed);
-    assert(URIProtocolPrefix("d://", melformed)  is null);
-    assert(melformed);
-    assert(URIProtocolPrefix("d://a/b.c", melformed)  is null);
-    assert(melformed);
-    assert(URIProtocolPrefix("D://a/b.c", melformed)  is null);
+    assert(uriScheme("s://a/b/c.d", melformed)  is null);
     assert(melformed);
 
-    assert(URIProtocolPrefix("a\\b\\c.d", melformed)  is null);
+    assert(uriScheme("abc", melformed)  is null);
     assert(!melformed);
-    assert(URIProtocolPrefix("d:\\", melformed)  is null);
+    assert(uriScheme("ab", melformed)  is null);
     assert(!melformed);
-    assert(URIProtocolPrefix("d:\\\\", melformed)  is null);
+
+    assert(uriScheme("a/b/c.d", melformed)  is null);
+    assert(!melformed);
+    assert(uriScheme("d:/", melformed)  is null);
     assert(melformed);
-    assert(URIProtocolPrefix("d:\\\\a\\b.c", melformed)  is null);
+    assert(uriScheme("d://", melformed)  is null);
     assert(melformed);
-    assert(URIProtocolPrefix("D:\\\\a\\b.c", melformed)  is null);
+    assert(uriScheme("d://a/b.c", melformed)  is null);
+    assert(melformed);
+    assert(uriScheme("D://a/b.c", melformed)  is null);
+    assert(melformed);
+
+    assert(uriScheme("a\\b\\c.d", melformed)  is null);
+    assert(!melformed);
+    assert(uriScheme("d:\\", melformed)  is null);
+    assert(!melformed);
+    assert(uriScheme("d:\\\\", melformed)  is null);
+    assert(melformed);
+    assert(uriScheme("d:\\\\a\\b.c", melformed)  is null);
+    assert(melformed);
+    assert(uriScheme("D:\\\\a\\b.c", melformed)  is null);
     assert(melformed);
 }
 
 ///
-string URIProtocolSuffix(string value)
+string uriProtocolSuffix(string value)
 {
     import std.string : indexOf;
 
@@ -1160,19 +1160,19 @@ string URIProtocolSuffix(string value)
 ///
 unittest
 {
-    assert(URIProtocolSuffix("a/b/c") == "a/b/c");
-    assert(URIProtocolSuffix("a\\b\\c") == "a\\b\\c");
+    assert(uriProtocolSuffix("a/b/c") == "a/b/c");
+    assert(uriProtocolSuffix("a\\b\\c") == "a\\b\\c");
 
-    assert(URIProtocolSuffix("a://b/c") == "a://b/c");
-    assert(URIProtocolSuffix("a:\\b\\c") == "a:\\b\\c");
+    assert(uriProtocolSuffix("a://b/c") == "a://b/c");
+    assert(uriProtocolSuffix("a:\\b\\c") == "a:\\b\\c");
 }
 
 ///
-string URIAuthentication(string value)
+string uriAuthentication(string value)
 {
     import std.string : indexOf;
 
-    string input = URIProtocolSuffix(value);
+    string input = uriProtocolSuffix(value);
 
     ptrdiff_t i;
     if ((i = input.indexOf("@")) > 0)
@@ -1188,17 +1188,17 @@ string URIAuthentication(string value)
 ///
 unittest
 {
-    assert(URIAuthentication("a/b/c")  is null);
-    assert(URIAuthentication("a@b/c") == "a");
-    assert(URIAuthentication("a:b@c/d") == "a:b");
+    assert(uriAuthentication("a/b/c")  is null);
+    assert(uriAuthentication("a@b/c") == "a");
+    assert(uriAuthentication("a:b@c/d") == "a:b");
 }
 
 ///
-string URIAuthenticationSuffix(string value)
+string uriAuthenticationSuffix(string value)
 {
     import std.string : indexOf;
 
-    string input = URIProtocolSuffix(value);
+    string input = uriProtocolSuffix(value);
 
     ptrdiff_t i;
     if ((i = input.indexOf("@")) > 0 && input.length - i > 1)
@@ -1214,26 +1214,26 @@ string URIAuthenticationSuffix(string value)
 ///
 unittest
 {
-    assert(URIAuthenticationSuffix("a/b/c") == "a/b/c");
-    assert(URIAuthenticationSuffix("a@b/c") == "b/c");
-    assert(URIAuthenticationSuffix("a:b@c/d") == "c/d");
+    assert(uriAuthenticationSuffix("a/b/c") == "a/b/c");
+    assert(uriAuthenticationSuffix("a@b/c") == "b/c");
+    assert(uriAuthenticationSuffix("a:b@c/d") == "c/d");
 }
 
 ///
-string URIConnection(string value)
+string uriConnection(string value)
 {
     import std.string : indexOf;
 
     bool melformed;
-    string prot = URIProtocolPrefix(value, melformed);
-    string auth = URIAuthentication(value);
+    string prot = uriScheme(value, melformed);
+    string auth = uriAuthentication(value);
 
     if ((prot.length == 1 && auth is null) || prot == "file" || (prot is null && melformed))
         return null;
     else if (prot.length > 1)
     {
         ptrdiff_t i;
-        string input = URIAuthenticationSuffix(value);
+        string input = uriAuthenticationSuffix(value);
         if ((i = input.indexOf("/")) > 0)
         {
             return input[0 .. i];
@@ -1256,23 +1256,23 @@ string URIConnection(string value)
 ///
 unittest
 {
-    assert(URIConnection("")  is null);
+    assert(uriConnection("")  is null);
 
-    assert(URIConnection("file://d:\\abc")  is null);
-    assert(URIConnection("d:\\abc")  is null);
-    assert(URIConnection("/etc/something.txt")  is null);
+    assert(uriConnection("file://d:\\abc")  is null);
+    assert(uriConnection("d:\\abc")  is null);
+    assert(uriConnection("/etc/something.txt")  is null);
 
-    assert(URIConnection("smb://abc/d/f") == "abc");
-    assert(URIConnection("smb:\\\\abc\\d\\f") == "abc");
-    assert(URIConnection("smb://abc") == "abc");
+    assert(uriConnection("smb://abc/d/f") == "abc");
+    assert(uriConnection("smb:\\\\abc\\d\\f") == "abc");
+    assert(uriConnection("smb://abc") == "abc");
 }
 
 ///
-string URIQuery(string value)
+string uriQuery(string value)
 {
     import std.string : indexOf;
 
-    string input = URIAuthenticationSuffix(value);
+    string input = uriAuthenticationSuffix(value);
 
     ptrdiff_t i;
     if ((i = input.indexOf("?")) > 0 && input.length - i > 1)
@@ -1288,21 +1288,21 @@ string URIQuery(string value)
 ///
 unittest
 {
-    assert(URIQuery("abc/d?b=e&z=y") == "b=e&z=y");
-    assert(URIQuery("smb://abc/d?b=e&z=y") == "b=e&z=y");
-    assert(URIQuery("/")  is null);
-    assert(URIQuery("/?")  is null);
+    assert(uriQuery("abc/d?b=e&z=y") == "b=e&z=y");
+    assert(uriQuery("smb://abc/d?b=e&z=y") == "b=e&z=y");
+    assert(uriQuery("/")  is null);
+    assert(uriQuery("/?")  is null);
 }
 
 ///
-string URIEntries(string value)
+string uriEntries(string value)
 {
     import std.string : indexOf;
 
-    string input = URIAuthenticationSuffix(value);
-    string prot = URIProtocolPrefix(value);
+    string input = uriAuthenticationSuffix(value);
+    string prot = uriScheme(value);
 
-    string query = URIQuery(input);
+    string query = uriQuery(input);
     if (query !is null)
         input = input[0 .. $ - (query.length + 1)];
 
@@ -1332,23 +1332,23 @@ string URIEntries(string value)
 ///
 unittest
 {
-    assert(URIEntries("file://d://abc") == "d://abc");
-    assert(URIEntries("file://d:\\\\abc") == "d:\\\\abc");
-    assert(URIEntries("file://d:\\abc") == "d:\\abc");
+    assert(uriEntries("file://d://abc") == "d://abc");
+    assert(uriEntries("file://d:\\\\abc") == "d:\\\\abc");
+    assert(uriEntries("file://d:\\abc") == "d:\\abc");
 
-    assert(URIEntries("file:///abc") == "/abc");
+    assert(uriEntries("file:///abc") == "/abc");
 
-    assert(URIEntries("/etc/something.txt") == "/etc/something.txt");
+    assert(uriEntries("/etc/something.txt") == "/etc/something.txt");
 
-    assert(URIEntries("smb://abc/d/f") == "d/f");
-    assert(URIEntries("smb:\\\\abc\\d\\f") == "d\\f");
+    assert(uriEntries("smb://abc/d/f") == "d/f");
+    assert(uriEntries("smb:\\\\abc\\d\\f") == "d\\f");
 
-    assert(URIEntries("smb://abc")  is null);
+    assert(uriEntries("smb://abc")  is null);
 
-    assert(URIEntries("abc/d?b=e&z=y") == "abc/d");
-    assert(URIEntries("smb://abc/d?b=e&z=y") == "d");
-    assert(URIEntries("/")  is null);
-    assert(URIEntries("/?")  is null);
+    assert(uriEntries("abc/d?b=e&z=y") == "abc/d");
+    assert(uriEntries("smb://abc/d?b=e&z=y") == "d");
+    assert(uriEntries("/")  is null);
+    assert(uriEntries("/?")  is null);
 
-    assert(URIEntries("smb://abc/c:\\d/e/f.g") == "c:\\d/e/f.g");
+    assert(uriEntries("smb://abc/c:\\d/e/f.g") == "c:\\d/e/f.g");
 }

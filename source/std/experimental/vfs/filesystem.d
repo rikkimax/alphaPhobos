@@ -72,7 +72,7 @@ class FileSystemImpl : IFileSystem {
     IFileSystemEntry opIndex(URIAddress path) {
         URIAddress t = URIAddress("file:///", alloc);
         URIAddress* childPath = &t;
-        path = URIAddress(URIEntries(path), alloc);
+        path = URIAddress(uriEntries(path), alloc);
         IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
 
         if (parent is null) {
@@ -85,7 +85,7 @@ class FileSystemImpl : IFileSystem {
             if (*childPath == "/") {
                 return parent;
             } else if (parent !is null) {
-                return parent[(*childPath).parts[0]];
+                return parent[(*childPath).pathEntries[0]];
             }
         }
 
@@ -167,7 +167,7 @@ class FileSystemImpl : IFileSystem {
         import std.path : globMatch, CaseSensitive;
 
         URIAddress dircon = baseDir.connectionInfo;
-        string baseDirPath = URIEntries(dircon);
+        string baseDirPath = uriEntries(dircon);
 
         auto globMatcher = &globMatch!(CaseSensitive.no, char, string);
         if (caseSensitive)
@@ -184,7 +184,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = URIEntries(addr);
+                    string addrpath = uriEntries(addr);
 
                     // if they match, del(mnt)
                     if (!globMatcher(addrpath, glo)) {
@@ -203,7 +203,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = URIEntries(addr);
+                    string addrpath = uriEntries(addr);
                     
                     // if they match, del(mnt)
                     if (!addrpath.globMatch!(CaseSensitive.osDefault)(glo)) {
@@ -231,7 +231,7 @@ class FileSystemImpl : IFileSystem {
         URIAddress[] removeBuffer;
 
         URIAddress dircon = baseDir.connectionInfo;
-        string baseDirPath = URIEntries(dircon);
+        string baseDirPath = uriEntries(dircon);
 
         auto globMatcher = &globMatch!(CaseSensitive.no, char, string);
         if (caseSensitive)
@@ -248,7 +248,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = URIEntries(addr);
+                    string addrpath = uriEntries(addr);
                     
                     // if they match, del(mnt)
                     if (!globMatcher(addrpath, glo)) {
@@ -268,7 +268,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = URIEntries(addr);
+                    string addrpath = uriEntries(addr);
                     
                     // if they match, del(mnt)
                     if (!addrpath.globMatch!(CaseSensitive.osDefault)(glo)) {
@@ -313,7 +313,7 @@ class FileSystemImpl : IFileSystem {
                     *childPath = URIAddress("/", alloc);
                     return entryd;
                 } else {
-                    immutable(string[]) parts = path.partsStairCase(true);
+                    immutable(string[]) parts = path.pathEntriesStairCase(true);
 
                     foreach(i, p; parts) {
                         if (i == 0) {
@@ -341,7 +341,7 @@ class FileSystemImpl : IFileSystem {
                 // path = /dir2
                 //            /dir2
 
-                immutable(string[]) parts = path.partsStairCase(true);
+                immutable(string[]) parts = path.pathEntriesStairCase(true);
 
                 foreach(i, p; parts) {
                     if ((entry = parent[URIAddress(p, alloc)]) !is null) {
