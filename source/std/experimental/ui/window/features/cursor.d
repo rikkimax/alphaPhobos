@@ -1,4 +1,4 @@
-﻿module std.experimental.ui.window.features.cursor;
+module std.experimental.ui.window.features.cursor;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGBA8;
@@ -52,6 +52,11 @@ enum WindowCursorStyle {
      * A custom cursor
      */
     Custom,
+    
+    /**
+     * Removes the cursor for display
+     */
+    None,
 
     /**
      * Unknown, may not be owned by current process.

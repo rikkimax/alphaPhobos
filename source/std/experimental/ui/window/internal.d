@@ -1207,6 +1207,9 @@ package(std.experimental) {
                         case WindowCursorStyle.ResizeVertical:
                             hCursor = LoadImageW(null, cast(wchar*)IDC_SIZENS, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
                             break;
+                        case WindowCursorStyle.None:
+                            hCursor = null;
+                            break;
                         case WindowCursorStyle.Standard:
                         default:
                             hCursor = LoadImageW(null, cast(wchar*)IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
