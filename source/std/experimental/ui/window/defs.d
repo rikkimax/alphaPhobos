@@ -80,7 +80,7 @@ enum WindowStyle {
 
     /**
      * Useful for e.g. message/input boxes
-     * Close/Minimize, non-resizable, moveable
+     * Close/Minimize, non-resizable, moveable, top most window
      */
     Popup,
 
@@ -107,7 +107,7 @@ interface Feature_Style {
 
 @property {
     ///
-    WindowStyle style(IWindow self) {
+    WindowStyle style(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return WindowStyle.Unknown;
         if (Have_Style ss = cast(Have_Style)self) {
@@ -121,7 +121,7 @@ interface Feature_Style {
     }
     
     ///
-    void style(IWindow self, WindowStyle to) {
+    void style(T)(T self, WindowStyle to) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return;
         if (Have_Style ss = cast(Have_Style)self) {

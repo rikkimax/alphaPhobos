@@ -2,7 +2,7 @@ module std.experimental.ui.window.internal;
 
 package(std.experimental) {
     import std.experimental.internal.containers.list;
-    import std.experimental.ui.window.defs : IWindow, IWindowCreator, UIPoint;
+    import std.experimental.ui.window.defs;
     import std.experimental.platform : ImplPlatform;
     import std.experimental.ui.rendering;
     import std.experimental.allocator : IAllocator, processAllocator, theAllocator, make, makeArray, dispose;
@@ -215,10 +215,25 @@ package(std.experimental) {
     }
     
     version(Windows) {
+        import core.sys.windows.windows;
         static wstring ClassNameW = __MODULE__ ~ ":Class\0"w;
         
-        import core.sys.windows.windows;
-        import core.sys.windows.windows;
+        enum WindowDWStyles : DWORD {
+            Dialog = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
+            DialogEx = WS_EX_ACCEPTFILES | WS_EX_APPWINDOW,
+            
+            Borderless = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX,
+            BorderlessEx = WS_EX_ACCEPTFILES | WS_EX_APPWINDOW,
+            
+            Popup = WS_POPUPWINDOW | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX,
+            PopupEx = WS_EX_ACCEPTFILES | WS_EX_APPWINDOW | WS_EX_TOPMOST,
+            
+            Fullscreen = WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+            FullscreenEx = WS_EX_APPWINDOW | WS_EX_TOPMOST
+        } 
+        
+        //
+        
         alias HMONITOR = HANDLE;
         
         enum MONITORINFOF_PRIMARY = 1;
@@ -550,6 +565,17 @@ package(std.experimental) {
                         InvalidateRgn(hwnd, null, true);
                         // TODO: event
                         return 0;
+                    case WM_PAINT:
+                            // This fixes a bug where when a window is fullscreen Windows
+                            //  will not auto draw the background of a window.
+                            // If the context is not yet assigned or VRAM, it
+                            //  should default to this.
+                    
+                            PAINTSTRUCT ps;
+                            HDC hdc = BeginPaint(hwnd, &ps);
+                            FillRect(hdc, &ps.rcPaint, cast(HBRUSH) (COLOR_WINDOW+1));
+                            EndPaint(hwnd, &ps);
+                        return 0;
                     default:
                         return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                 }
@@ -801,7 +827,7 @@ package(std.experimental) {
                 
                 MONITORINFOEX info;
                 info.cbSize = MONITORINFOEX.sizeof;
-                GetMonitorInfoA(hMonitor, &info);
+                assert(GetMonitorInfoA(hMonitor, &info));
                 
                 char[] temp = info.szDevice.ptr.fromStringz;
                 name_ = alloc.makeArray!char(temp.length + 1);
@@ -873,7 +899,7 @@ package(std.experimental) {
         }
     }
     
-    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor {
+    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {
         private {
             import std.experimental.internal.containers.map;
             
@@ -889,6 +915,8 @@ package(std.experimental) {
             
             WindowCursorStyle cursorStyle;
             ImageStorage!RGBA8 customCursor;
+            
+            WindowStyle windowStyle;
             
             version(Windows) {
                 HWND hwnd;
@@ -1250,6 +1278,83 @@ package(std.experimental) {
             } else
                 assert(0);
         }
+        
+        Feature_Style __getFeatureStyle() {
+            version(Windows) {
+                return this;
+            } else
+                assert(0);
+        }
+        
+        void setStyle(WindowStyle style) {
+            windowStyle = style;
+            
+            version(Windows) {
+                RECT rect;
+                DWORD dwStyle, dwExStyle;
+                
+                switch(style) {
+                    case WindowStyle.Fullscreen:
+                        dwStyle = WindowDWStyles.Fullscreen;
+                        dwExStyle = WindowDWStyles.FullscreenEx;
+                        break;
+                
+                    case WindowStyle.Popup:
+                        dwStyle = WindowDWStyles.Popup;
+                        dwExStyle = WindowDWStyles.PopupEx;
+                        break;
+                
+                    case WindowStyle.Borderless:
+                        dwStyle = WindowDWStyles.Borderless;
+                        dwExStyle = WindowDWStyles.BorderlessEx;
+                        break;
+                
+                    case WindowStyle.Dialog:
+                    default:
+                        dwStyle = WindowDWStyles.Dialog;
+                        dwExStyle = WindowDWStyles.DialogEx;
+                        break;
+                }
+                
+                // multiple monitors support
+                
+                UIPoint setpos = location();
+                MONITORINFOEX mi;
+                mi.cbSize = MONITORINFOEX.sizeof;
+                
+                HMONITOR hMonitor = *cast(HMONITOR*)display().__handle;
+                assert(GetMonitorInfoA(hMonitor, &mi));
+                
+                if (windowStyle == WindowStyle.Fullscreen) {
+                    rect = mi.rcMonitor;
+                    
+                    setpos.x = cast(short)rect.left;
+                    setpos.y = cast(short)rect.top;
+                }
+                
+                setpos.x -= rect.left;
+                setpos.y -= rect.top;
+                
+                if (windowStyle != WindowStyle.Fullscreen) {
+                    assert(AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle));
+                }
+                
+                // multiple monitors support
+                
+                SetWindowLongW(hwnd, GWL_STYLE, dwStyle);
+                SetWindowLongW(hwnd, GWL_EXSTYLE, dwExStyle);
+                SetWindowPos(hwnd, null, setpos.x, setpos.y, rect.right - rect.left, rect.bottom - rect.top, SWP_NOCOPYBITS | SWP_NOZORDER | SWP_NOOWNERZORDER);
+                
+                if (windowStyle == WindowStyle.Fullscreen) {
+                    SetWindowPos(hwnd, cast(HWND)0 /*HWND_TOP*/, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER);
+                }
+            } else
+                assert(0);
+        }
+        
+        WindowStyle getStyle() {
+            return windowStyle;
+        }
     }
     
     final class MenuItemImpl : MenuItem {
@@ -1454,11 +1559,11 @@ package(std.experimental) {
         }
     }
     
-    final class WindowCreatorImpl : IWindowCreator, Have_Icon, Have_Cursor, Feature_Icon, Feature_Cursor {
+    final class WindowCreatorImpl : IWindowCreator, Have_Icon, Have_Cursor, Have_Style, Feature_Icon, Feature_Cursor, Feature_Style {
         private {
             ImplPlatform platform;
             
-            UIPoint size_;
+            UIPoint size_ = UIPoint(cast(short)800, cast(short)600);
             UIPoint location_;
             IDisplay display_;
             IAllocator alloc;
@@ -1468,10 +1573,7 @@ package(std.experimental) {
             WindowCursorStyle cursorStyle = WindowCursorStyle.Standard;
             ImageStorage!RGBA8 cursorIcon;
             
-            version(Windows) {
-                DWORD dwExStyle = 0;
-                DWORD dwStyle = WS_OVERLAPPEDWINDOW;
-            }
+            WindowStyle windowStyle = WindowStyle.Dialog;
         }
         
         this(ImplPlatform platform, IAllocator alloc) {
@@ -1518,14 +1620,62 @@ package(std.experimental) {
                 rect.right = size_.x;
                 rect.bottom = size_.y;
                 
-                assert(AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle));
+                DWORD dwStyle, dwExStyle;
+                
+                switch(windowStyle) {
+                    case WindowStyle.Fullscreen:
+                        dwStyle = WindowDWStyles.Fullscreen;
+                        dwExStyle = WindowDWStyles.FullscreenEx;
+                        break;
+                
+                    case WindowStyle.Popup:
+                        dwStyle = WindowDWStyles.Popup;
+                        dwExStyle = WindowDWStyles.PopupEx;
+                        break;
+                
+                    case WindowStyle.Borderless:
+                        dwStyle = WindowDWStyles.Borderless;
+                        dwExStyle = WindowDWStyles.BorderlessEx;
+                        break;
+                
+                    case WindowStyle.Dialog:
+                    default:
+                        dwStyle = WindowDWStyles.Dialog;
+                        dwExStyle = WindowDWStyles.DialogEx;
+                        break;
+                }
+                
+                // multiple monitor support
+                
+                UIPoint setpos = location_;
+                MONITORINFOEX mi;
+                mi.cbSize = MONITORINFOEX.sizeof;
+                
+                HMONITOR hMonitor = *cast(HMONITOR*)display_.__handle;
+                assert(GetMonitorInfoA(hMonitor, &mi));
+                
+                if (windowStyle == WindowStyle.Fullscreen) {
+                    rect = mi.rcMonitor;
+                    
+                    setpos.x = cast(short)rect.left;
+                    setpos.y = cast(short)rect.top;
+                }
+                
+                setpos.x -= rect.left;
+                setpos.y -= rect.top;
+                
+                if (windowStyle != WindowStyle.Fullscreen) {
+                    assert(AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle));
+                }
+                
+                // multiple monitor support
                 
                 HWND hwnd = CreateWindowExW(
                     dwExStyle,
                     cast(wchar*)ClassNameW.ptr,
                     null,
                     dwStyle,
-                    location_.x, location_.y,
+                    setpos.x, setpos.y,
                     rect.right - rect.left, rect.bottom - rect.top,
                     null,
                     null,
@@ -1578,5 +1728,20 @@ package(std.experimental) {
         }
         
         ImageStorage!RGBA8 getCursorIcon() { return cursorIcon; }
+        
+        Feature_Style __getFeatureStyle() {
+            version(Windows)
+                return this;
+            else
+                assert(0);
+        }
+        
+        void setStyle(WindowStyle style) {
+            windowStyle = style;
+        }
+    
+        WindowStyle getStyle() {
+            return windowStyle;
+        }
     }
 }

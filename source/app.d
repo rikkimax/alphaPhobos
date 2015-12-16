@@ -2,10 +2,10 @@ import std.stdio : writeln;
 import std.experimental.allocator;
 
 void main() {
-	//VFSTest();
-	//WindowTest();
+    //VFSTest();
+    windowTest();
     //displaysTest();
-    notifyTest();
+    //notifyTest();
 }
 
 void notifyTest() {
@@ -127,6 +127,17 @@ void VFSTest() {
     }
 }
 
-void WindowTest() {
-	import std.experimental.ui.window;
+void windowTest() {
+    import std.experimental.platform;
+    import std.experimental.ui.window;
+    
+    auto creator = thePlatform.createWindow();
+    //creator.style = WindowStyle.Fullscreen;
+    //creator.size = UIPoint(cast(short)800, cast(short)600);
+    
+    IWindow window = creator.createWindow();
+    window.title = "Title!";
+    
+    window.show();
+    thePlatform().optimizedEventLoop();
 }
