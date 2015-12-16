@@ -4,7 +4,7 @@
  * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
  * Authors: $(LINK2 http://cattermole.co.nz/, Richard Andrew Cattermole)
  */
-module std.experimental.bindings.magic;
+module std.experimental.bindings.autoloader;
 public import std.experimental.bindings.symbolloader : SharedLibVersion;
 import std.experimental.bindings.symbolloader;
 
@@ -15,10 +15,10 @@ struct SymbolName {
 }
 
 ///
-alias MagicalSharedLibLoader(string mod = __MODULE__) = MagicalSharedLibLoader!([mod]);
+alias SharedLibAutoLoader(string mod = __MODULE__) = SharedLibAutoLoader!([mod]);
 
 ///
-final class MagicalSharedLibLoader(StructWrappers...) : SharedLibLoader {
+final class SharedLibAutoLoader(StructWrappers...) : SharedLibLoader {
     private {
         import std.traits : isFunctionPointer, hasUDA, getUDAs;
         SharedLibVersion minVersion;
@@ -49,7 +49,7 @@ final class MagicalSharedLibLoader(StructWrappers...) : SharedLibLoader {
 }
 
 ///
-final class MagicalSharedLibLoader(string[] modules) : SharedLibLoader {
+final class SharedLibAutoLoader(string[] modules) : SharedLibLoader {
     private {
         import std.traits : isFunctionPointer, hasUDA, getUDAs;
         SharedLibVersion minVersion;
@@ -74,6 +74,51 @@ final class MagicalSharedLibLoader(string[] modules) : SharedLibLoader {
     }
 }
 
+string bindFuncsCodeGeneration(string[] modules, string getminVersion="SharedLibVersion.init")() pure {
+    import std.conv : text;
+    string ret;
+    
+    string handle() pure {
+        string ret2;
+        
+        foreach(i; 0 .. modules.length){
+            if (modules[i].length == 0)
+                continue;
+            string moduleName = "theModule" ~ i.text;
+            ret2 ~= "static import theModule = " ~ modules[i] ~ ";\n"; 
+            ret2 ~= "ret ~= bindFuncsHandleContainer!(theModule, \"" ~ moduleName ~ "\", getminVersion);\n";
+        }
+        
+        return ret2;
+    }
+    
+    foreach(i; 0 .. modules.length){
+        if (modules[i].length == 0)
+            continue;
+        string moduleName = "theModule" ~ i.text;
+        ret ~= "static import " ~ moduleName ~ " = " ~ modules[i] ~ ";\n";
+    }
+    
+    mixin(handle());
+    return ret;
+}
+
+string bindFuncsCodeGeneration(string variableWithStructs, StructWrappers...)() pure {
+    import std.traits : hasUDA;
+    string ret;
+    
+    foreach(i, ST; StructWrappers){
+        static if (hasUDA!(ST, SharedLibVersion))
+            enum getminVersion = "getUDAs!(Container, SharedLibVersion)[0]";
+        else
+            enum getminVersion = "SharedLibVersion.init";
+    
+         ret ~= bindFuncsHandleContainer!(ST, variableWithStructs ~ "[i]", getminVersion);
+    }
+    
+    return ret;
+}
+
 private {
     string generateForImports(string[] modules) pure {
         import std.conv : text;
@@ -84,6 +129,12 @@ private {
                 continue;
             string moduleName = "theModule" ~ i.text;
             ret ~= "static import " ~ moduleName ~ " = " ~ modules[i] ~ ";\n";
+        }
+        
+        foreach(i; 0 .. modules.length){
+            if (modules[i].length == 0)
+                continue;
+            string moduleName = "theModule" ~ i.text;
             ret ~= handleContainer(moduleName, moduleName);
         }
         
@@ -112,5 +163,43 @@ foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
         bindFunc(cast(void**)mixin(\"&" ~ getvar ~ ".\" ~ sym), symbolName, introducedVersion <= minVersion);
     }
 }""";
+    }
+    
+    string bindFuncsHandleContainer(alias Container, string getvar, string getminVersion)() {
+        import std.traits : isFunctionPointer, hasUDA, getUDAs;
+        string ret, symbolName;
+        bool haveIntroducedVersion;
+        
+        ret ~= "import std.traits : getUDAs;\n";
+
+        string handle() pure {
+            string ret2;
+        
+            foreach(sym; __traits(allMembers, Container)) {
+                ret2 ~= """
+static if (__traits(compiles, { bool b = isFunctionPointer!(Container." ~ sym ~ "); }) &&
+    isFunctionPointer!(Container." ~ sym ~ ")) {
+    static if (hasUDA!(Container." ~ sym ~ ", SymbolName))
+        symbolName = getUDAs!(Container." ~ sym ~ ", SymbolName)[0].name;
+    else
+        symbolName = \"" ~ sym ~  "\";
+    haveIntroducedVersion = hasUDA!(Container." ~ sym ~ ", SharedLibVersion);
+    
+    ret ~= \"bindFunc(cast(void**)&" ~ getvar ~ "." ~ sym ~ ", \\\"\" ~ symbolName ~ \"\\\", \";
+    
+    if (haveIntroducedVersion) {
+        ret ~= \"getUDAs!(" ~ getvar ~ "." ~ sym ~ ", SharedLibVersion)[0] <= \" ~ getminVersion ~ \");\\n\";
+    } else {
+        ret ~= \"true);\\n\";
+    }
+}""";
+            }
+            
+            return ret2;
+        }
+        
+        mixin(handle());
+        
+        return ret;
     }
 }
