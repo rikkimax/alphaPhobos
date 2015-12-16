@@ -14,11 +14,17 @@ alias UIPoint = vec2!short;
 interface IWindow : IRenderPoint {
     @property {
         ///
-        DummyRefCount!(char[]) title();
+        DummyRefCount!(dchar[]) title();
         
         ///
         void title(string);
 
+        ///
+        void title(wstring);
+        
+        ///
+        void title(dstring);
+        
         ///
         UIPoint size();
         

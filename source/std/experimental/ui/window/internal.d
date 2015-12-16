@@ -443,9 +443,9 @@ package(std.experimental) {
                 HMONITOR MonitorFromWindow(HWND, DWORD);
                 HMENU GetMenu(HWND);
                 LONG GetWindowLongA(HWND, int);
-                int GetWindowTextLengthA(HWND);
-                int GetWindowTextA(HWND, char*, int);
-                BOOL SetWindowTextA(HWND, char*);
+                int GetWindowTextLengthW(HWND);
+                int GetWindowTextW(HWND, wchar*, int);
+                BOOL SetWindowTextW(HWND, wchar*);
                 bool CloseWindow(HWND);
                 bool IsWindowVisible(HWND);
                 DWORD GetClassLongA(HWND, int);
@@ -902,6 +902,7 @@ package(std.experimental) {
     final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {
         private {
             import std.experimental.internal.containers.map;
+            import std.traits : isSomeString;
             
             IPlatform platform;
             IAllocator alloc;
@@ -954,25 +955,63 @@ package(std.experimental) {
         }
         
         @property {
-            DummyRefCount!(char[]) title() {
+            DummyRefCount!(dchar[]) title() {
+                import std.utf : byDchar;
+                
                 version(Windows) {
-                    int textLength = GetWindowTextLengthA(hwnd);
-                    char[] buffer = alloc.makeArray!char(textLength + 1);
-                    assert(GetWindowTextA(hwnd, buffer.ptr, cast(int)buffer.length) > 0);
-                    alloc.shrinkArray(buffer, 1);
+                    int textLength = GetWindowTextLengthW(hwnd);
+                    wchar[] buffer = alloc.makeArray!wchar(textLength + 1);
+                    assert(GetWindowTextW(hwnd, buffer.ptr, cast(int)buffer.length) > 0);
                     
-                    return DummyRefCount!(char[])(buffer, alloc);
+                    // what is allocated could potentially be _more_ then required
+                    dchar[] buffer2 = alloc.makeArray!dchar(textLength + 1);
+                    
+                    size_t i;
+                    foreach(c; buffer.byDchar) {
+                        if (i > buffer2.length) {
+                            alloc.expandArray(buffer2, 1);
+                        }
+                        
+                        buffer2[i] = c;
+                        i++;
+                    }
+                    
+                    // removes the last character (\0)
+                    if (i < buffer2.length - 1) {
+                        alloc.shrinkArray(buffer2, buffer.length - i);
+                    }
+                    
+                    alloc.dispose(buffer);
+                    return DummyRefCount!(dchar[])(buffer2, alloc);
                 } else
                     assert(0);
             }
             
-            void title(string text) {
+            void title(string text) { setTitle(text); }
+            void title(wstring text) { setTitle(text); }
+            void title(dstring text) { setTitle(text); }
+            
+            final void setTitle(String)(String text) if (isSomeString!String) {
+                import std.utf : byWchar;
+            
                 version(Windows) {
-                    char[] buffer = alloc.makeArray!char(text.length + 1);
-                    buffer[0 .. $-1] = text[];
+                    wchar[] buffer = alloc.makeArray!wchar((text.length + 1) * 2);
+                    
+                    size_t i;
+                    foreach(c; text.byWchar) {
+                        if (i > buffer.length) {
+                            alloc.expandArray(buffer, 1);
+                        }
+                        
+                        buffer[i] = c;
+                        i++;
+                    }
+                    
+                    if (i == buffer.length)
+                        alloc.expandArray(buffer, 1);
                     buffer[$-1] = 0;
                     
-                    SetWindowTextA(hwnd, buffer.ptr);
+                    SetWindowTextW(hwnd, buffer.ptr);
                     alloc.dispose(buffer);
                 } else
                     assert(0);
