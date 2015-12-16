@@ -43,6 +43,9 @@ struct SharedLibVersion {
     }
 }
 
+/// Informs the symbol loader too look inside the host binary.
+enum SELF_SYMBOL_LOOKUP = "!..SelfLookup..!";
+
 /**
  * The return type of the MissingSymbolCallbackFunc/Dg.
  */
@@ -97,6 +100,9 @@ abstract class SharedLibLoader {
      * Constructs a new instance of shared lib loader with a string of one
      * or more shared library names to use as default.
      *
+     * If SELF_SYMBOL_LOOKUP is provided as a library name, it will look up
+     * symbols inside of the host binary.
+     *
      * Params:
      *      libNames    =   A string containing one or more comma-separated shared
      *                       library names.
@@ -105,7 +111,7 @@ abstract class SharedLibLoader {
         _libNames = libNames;
     }
     
-    ///
+    /// Ditto
     public this( string[] libNames ...) {
         _libNames2 = libNames;
     }
@@ -178,11 +184,13 @@ abstract class SharedLibLoader {
          *  of an exceptin chain containing one instance of the exception for each library
          *  that failed.
          *
+         * If SELF_SYMBOL_LOOKUP is provided as a library name, it will look up
+         * symbols inside of the host binary.
+         *
          * Examples:
          *      If this loader supports versions 2.0 and 2.1 of a shared libary,
          *       this method will attempt to load 2.1 and will fail if only 2.0
          *       is present on the system.
-         *
          * Params:
          *      libNames    =   A string containing one or more comma-separated shared
          *                       library names.
@@ -212,6 +220,9 @@ abstract class SharedLibLoader {
          *  will only be thrown if all of the libraries fail to load. It will be the head
          *  of an exceptin chain containing one instance of the exception for each library
          *  that failed.
+         *
+         * If SELF_SYMBOL_LOOKUP is provided as a library name, it will look up
+         * symbols inside of the host binary.
          *
          * Examples:
          *      If this loader supports versions 2.0 and 2.1 of a shared library,
@@ -245,6 +256,9 @@ abstract class SharedLibLoader {
          *  of an exceptin chain containing one instance of the exception for each library
          *  that failed.
          *
+         * If SELF_SYMBOL_LOOKUP is provided as a library name, it will look up
+         * symbols inside of the host binary.
+         *
          * Params:
          *      libNames    =   An array containing one or more shared library names,
          *                       with one name per index.
@@ -268,6 +282,9 @@ abstract class SharedLibLoader {
          *  will only be thrown if all of the libraries fail to load. It will be the head
          *  of an exceptin chain containing one instance of the exception for each library
          *  that failed.
+         *
+         * If SELF_SYMBOL_LOOKUP is provided as a library name, it will look up
+         * symbols inside of the host binary.
          *
          * Examples:
          *      If this loader supports versions 2.0 and 2.1 of a shared library,
@@ -637,7 +654,10 @@ private {
     
         private {
             SharedLibHandle LoadSharedLib( string libName )    {
-                return dlopen( libName.toStringz(), RTLD_NOW );
+                if (libName == SELF_SYMBOL_LOOKUP)
+                    return dlopen(null, RTLD_NOW);
+                else
+                    return dlopen( libName.toStringz(), RTLD_NOW );
             }
     
             void UnloadSharedLib( SharedLibHandle hlib ) {
@@ -651,17 +671,30 @@ private {
             string GetErrorStr() {
                 auto err = dlerror();
                 if( err is null )
-                    return "Uknown Error";
+                    return "Unknown Error";
     
                 return to!string( err );
             }
         }
     } else version(Windows) {
-        import core.sys.windows.windows : LoadLibraryA, FreeLibrary, GetProcAddress, GetLastError;
+        import core.sys.windows.windows : LoadLibraryA, FreeLibrary, GetProcAddress, GetLastError, HMODULE, DWORD, LPCTSTR;
+    
+        // TODO: remove
+        extern(Windows)
+            bool GetModuleHandleExA(
+              DWORD   dwFlags,
+              LPCTSTR lpModuleName,
+              HMODULE *phModule
+            );
     
         private {
             SharedLibHandle LoadSharedLib( string libName ) {
-                return LoadLibraryA( libName.toStringz() );
+                if (libName == SELF_SYMBOL_LOOKUP) {
+                    HMODULE handle;
+                    GetModuleHandleExA(0, null, &handle);
+                    return cast(SharedLibHandle)handle;
+                } else
+                    return LoadLibraryA( libName.toStringz() );
             }
     
             void UnloadSharedLib( SharedLibHandle hlib ) {
