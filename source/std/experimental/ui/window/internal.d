@@ -970,8 +970,10 @@ package(std.experimental) {
                 version(Windows) {
                     char[] buffer = alloc.makeArray!char(text.length + 1);
                     buffer[0 .. $-1] = text[];
+                    buffer[$-1] = 0;
                     
                     SetWindowTextA(hwnd, buffer.ptr);
+                    alloc.dispose(buffer);
                 } else
                     assert(0);
             }
