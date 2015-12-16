@@ -74,7 +74,20 @@ final class SharedLibAutoLoader(string[] modules) : SharedLibLoader {
     }
 }
 
-string bindFuncsCodeGeneration(string[] modules, string getminVersion="SharedLibVersion.init")() pure {
+/**
+ * Generates bindFunc's for usage in a SharedLibLoader loadSymbols method.
+ *
+ * Params:
+ *      getMinVersion   =   A way to get a SharedLibVersion.
+ *                          If a function cannot be loaded that is less then this value
+ *                           it will throw an exception.
+ *                          If it is null it will default to "SharedLibVersion.init".
+ *      modules         =   The modules to look for function pointers
+ *
+ * Returns:
+ *      A string that is usable at CTFE but predominately meant for outputting via pragma msg.
+ */
+string bindFuncsCodeGeneration(string getMinVersion, string[] modules)() pure {
     import std.conv : text;
     string ret;
     
@@ -86,7 +99,7 @@ string bindFuncsCodeGeneration(string[] modules, string getminVersion="SharedLib
                 continue;
             string moduleName = "theModule" ~ i.text;
             ret2 ~= "static import theModule = " ~ modules[i] ~ ";\n"; 
-            ret2 ~= "ret ~= bindFuncsHandleContainer!(theModule, \"" ~ moduleName ~ "\", getminVersion);\n";
+            ret2 ~= "ret ~= bindFuncsHandleContainer!(theModule, \"" ~ moduleName ~ "\",  getMinVersion is null ? \"SharedLibVersion.init\" : getMinVersion);\n";
         }
         
         return ret2;
@@ -103,6 +116,19 @@ string bindFuncsCodeGeneration(string[] modules, string getminVersion="SharedLib
     return ret;
 }
 
+/**
+ * Generates bindFunc's for usage in a SharedLibLoader loadSymbols method.
+ *
+ * Will automatically grab the minimum library version as per struct (UDA).
+ * If the version does not match, it will throw an exception.
+ *
+ * Params:
+ *      variableWithStructs =   Where the struct instances are to be assigned to.
+ *      StructWrappers      =   The structs to generate from.
+ *
+ * Returns:
+ *      A string that is usable at CTFE but predominately meant for outputting via pragma msg.
+ */
 string bindFuncsCodeGeneration(string variableWithStructs, StructWrappers...)() pure {
     import std.traits : hasUDA;
     string ret;
@@ -114,6 +140,31 @@ string bindFuncsCodeGeneration(string variableWithStructs, StructWrappers...)() 
             enum getminVersion = "SharedLibVersion.init";
     
          ret ~= bindFuncsHandleContainer!(ST, variableWithStructs ~ "[i]", getminVersion);
+    }
+    
+    return ret;
+}
+
+/**
+ * Generates bindFunc's for usage in a SharedLibLoader loadSymbols method.
+ *
+ * Params:
+ *      variableWithStructs =   Where the struct instances are to be assigned to.
+ *      getMinVersion       =   A way to get a SharedLibVersion.
+ *                              If a function cannot be loaded that is less then this value
+ *                               it will throw an exception.
+ *                              If it is null it will default to "SharedLibVersion.init".
+ *      StructWrappers      =   The structs to generate from.
+ *
+ * Returns:
+ *      A string that is usable at CTFE but predominately meant for outputting via pragma msg.
+ */
+string bindFuncsCodeGeneration(string variableWithStructs, string getMinVersion, StructWrappers...)() pure {
+    import std.traits : hasUDA;
+    string ret;
+    
+    foreach(i, ST; StructWrappers){
+         ret ~= bindFuncsHandleContainer!(ST, variableWithStructs ~ "[i]", getMinVersion is null ? "SharedLibVersion.init" : getMinVersion);
     }
     
     return ret;
