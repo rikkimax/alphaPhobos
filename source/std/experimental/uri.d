@@ -174,11 +174,24 @@ struct URIAddress
          * The raw string representation of the path segments
          *
          * Returns:
-         *      The path segments in raw string form
+         *      The path segments in raw string form or null
          */
         string rawPathSegments()
         {
             return uriEntries(value);
+        }
+        
+        /**
+         * The query string
+         *
+         * Will be in the format of <var>=<value>&...
+         * It will be missing the preceding question mark.
+         *
+         * Returns:
+         *      The query string in raw string form or null
+         */
+        string rawQueryString() {
+            return uriQuery(value);
         }
 
         /**
