@@ -85,7 +85,7 @@ class FileSystemImpl : IFileSystem {
             if (*childPath == "/") {
                 return parent;
             } else if (parent !is null) {
-                return parent[(*childPath).pathEntries[0]];
+                return parent[(*childPath).pathSegments[0]];
             }
         }
 
@@ -313,7 +313,7 @@ class FileSystemImpl : IFileSystem {
                     *childPath = URIAddress("/", alloc);
                     return entryd;
                 } else {
-                    immutable(string[]) parts = path.pathEntriesStairCase(true);
+                    immutable(string[]) parts = path.pathSegmentsStairCase(true);
 
                     foreach(i, p; parts) {
                         if (i == 0) {
@@ -341,7 +341,7 @@ class FileSystemImpl : IFileSystem {
                 // path = /dir2
                 //            /dir2
 
-                immutable(string[]) parts = path.pathEntriesStairCase(true);
+                immutable(string[]) parts = path.pathSegmentsStairCase(true);
 
                 foreach(i, p; parts) {
                     if ((entry = parent[URIAddress(p, alloc)]) !is null) {

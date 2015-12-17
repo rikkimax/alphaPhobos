@@ -144,20 +144,20 @@ final class OSFileEntry : IFileEntry {
         URIAddress path;
         OSFileSystemProvider provider_;
 
-        string[] namepathEntries;
+        string[] namepathSegments;
     }
 
     // emplace requires access to constructor, so package not private grrr
     package(std) this(OSFileSystemProvider provider, URIAddress path) {
         this.provider_ = provider;
         this.path = path;
-        namepathEntries = cast(string[])path.pathEntries;
+        namepathSegments = cast(string[])path.pathSegments;
     }
 
     @property {
         ///
         string name() {
-            return namepathEntries[$-1];
+            return namepathSegments[$-1];
         }
 
         ///
@@ -168,7 +168,7 @@ final class OSFileEntry : IFileEntry {
             string toS = uriEntries(to);
             path.value.rename(toS);
 
-            namepathEntries = cast(string[])to.pathEntries;
+            namepathSegments = cast(string[])to.pathSegments;
             path.__dtor;
             path = to;
         }
@@ -291,7 +291,7 @@ final class OSDirectoryEntry : IDirectoryEntry {
     package(std) this(OSFileSystemProvider provider, URIAddress path) {
         this.provider_ = provider;
         this.path = path;
-        nameParts = cast(string[])path.pathEntries;
+        nameParts = cast(string[])path.pathSegments;
     }
     
     @property {

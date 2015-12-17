@@ -330,13 +330,13 @@ struct URIAddress
         }
 
         /**
-         * The seperate pathEntries of the directory entries.
+         * The seperate pathSegments of the directory entries.
          * 
          * Returns:
          *      An array containing each of the different entries.
          *      Without path seperators. Except after drive letters.
          */
-        immutable(string[]) pathEntries()
+        immutable(string[]) pathSegments()
         {
             size_t numDir;
             string addr = uriEntries(value);
@@ -408,37 +408,37 @@ struct URIAddress
         {
             URIAddress addr = URIAddress("/dir1/file.txt");
 
-            assert(addr.pathEntries.length == 2);
-            assert(addr.pathEntries[0] == "dir1");
-            assert(addr.pathEntries[1] == "file.txt");
+            assert(addr.pathSegments.length == 2);
+            assert(addr.pathSegments[0] == "dir1");
+            assert(addr.pathSegments[1] == "file.txt");
 
             addr.value = "/dir1/dir2/file.txt";
             addr.sanitise();
 
-            assert(addr.pathEntries.length == 3);
-            assert(addr.pathEntries[0] == "dir1");
-            assert(addr.pathEntries[1] == "dir2");
-            assert(addr.pathEntries[2] == "file.txt");
+            assert(addr.pathSegments.length == 3);
+            assert(addr.pathSegments[0] == "dir1");
+            assert(addr.pathSegments[1] == "dir2");
+            assert(addr.pathSegments[2] == "file.txt");
 
             addr.value = "/dir1/file.txt";
             addr.sanitise();
 
-            assert(addr.pathEntries.length == 2);
-            assert(addr.pathEntries[0] == "dir1");
-            assert(addr.pathEntries[1] == "file.txt");
+            assert(addr.pathSegments.length == 2);
+            assert(addr.pathSegments[0] == "dir1");
+            assert(addr.pathSegments[1] == "file.txt");
 
             assert(addr.arrbuffDirectories.length == 3);
 
             addr = URIAddress("smb://server/dir1/file.txt");
-            immutable(string[]) pathEntries = addr.pathEntries;
+            immutable(string[]) pathSegments = addr.pathSegments;
 
-            assert(pathEntries.length == 2);
-            assert(pathEntries[0] == "dir1");
-            assert(pathEntries[1] == "file.txt");
+            assert(pathSegments.length == 2);
+            assert(pathSegments[0] == "dir1");
+            assert(pathSegments[1] == "file.txt");
         }
 
         /**
-         * Produces pathEntries conjoined together in a stair case format.
+         * Produces pathSegments conjoined together in a stair case format.
          * So that a 3 directory structure results in 3 different values with 1 to 3 being included.
          * 
          * Params:
@@ -447,14 +447,14 @@ struct URIAddress
          * Returns:
          *      The stair cased version of the URI directory entries.
          */
-        immutable(string[]) pathEntriesStairCase(bool reverse = false)
+        immutable(string[]) pathSegmentsStairCase(bool reverse = false)
         {
             import std.string : indexOf;
 
             size_t startI;
             string addr = uriEntries(value);
 
-            string[] ret = cast(string[]) pathEntries();
+            string[] ret = cast(string[]) pathSegments();
 
             foreach (i, part; ret)
             {
@@ -485,20 +485,20 @@ struct URIAddress
         unittest
         {
             URIAddress addr = URIAddress("/dir1/dir2/file.ext");
-            immutable(string[]) pathEntries = addr.pathEntriesStairCase;
+            immutable(string[]) pathSegments = addr.pathSegmentsStairCase;
 
-            assert(pathEntries.length == 3);
-            assert(pathEntries[0] == "/dir1");
-            assert(pathEntries[1] == "/dir1/dir2");
-            assert(pathEntries[2] == "/dir1/dir2/file.ext");
+            assert(pathSegments.length == 3);
+            assert(pathSegments[0] == "/dir1");
+            assert(pathSegments[1] == "/dir1/dir2");
+            assert(pathSegments[2] == "/dir1/dir2/file.ext");
 
             addr = URIAddress("/dir1/dir2/file.ext");
-            immutable(string[]) pathEntries2 = addr.pathEntriesStairCase(true);
+            immutable(string[]) pathSegments2 = addr.pathSegmentsStairCase(true);
 
-            assert(pathEntries2.length == 3);
-            assert(pathEntries2[0] == "/dir1/dir2/file.ext");
-            assert(pathEntries2[1] == "/dir1/dir2");
-            assert(pathEntries2[2] == "/dir1");
+            assert(pathSegments2.length == 3);
+            assert(pathSegments2[0] == "/dir1/dir2/file.ext");
+            assert(pathSegments2[1] == "/dir1/dir2");
+            assert(pathSegments2[2] == "/dir1");
         }
     }
 
@@ -816,15 +816,15 @@ struct URIAddress
         retbuf[] = addrt.value[];
 
         size_t skipDirs;
-        auto pathEntries = addrt.pathEntries;
+        auto pathSegments = addrt.pathSegments;
         size_t[] ibuffers;
 
-        if (haveDrive && pathEntries !is null)
+        if (haveDrive && pathSegments !is null)
         {
-            (cast() pathEntries) = pathEntries[1 .. $];
+            (cast() pathSegments) = pathSegments[1 .. $];
         }
 
-        foreach_reverse (i, p; pathEntries)
+        foreach_reverse (i, p; pathSegments)
         {
             if (p == ".")
                 continue;
@@ -848,10 +848,10 @@ struct URIAddress
 
         foreach_reverse (i; ibuffers)
         {
-            size_t len = pathEntries[i].length;
+            size_t len = pathSegments[i].length;
             retbuf = charBuffer[0 .. retbuf.length + len + 1];
             retbuf[$ - (len + 1)] = '/';
-            retbuf[$ - len .. $] = pathEntries[i];
+            retbuf[$ - len .. $] = pathSegments[i];
         }
 
         alloc.dispose(addrt);
