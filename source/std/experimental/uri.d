@@ -121,7 +121,7 @@ struct URIAddress
             import std.string : indexOf;
 
             // $(LT)protName://$(GT)
-            string prot = uriScheme(value);
+            string prot = scheme;
             string value2 = value[prot.length + 3 .. $];
             // [user[:pass]]@[host/ip[:port]][/][$(LT)dir/$(GT)...][file[.ext]]
 
@@ -152,18 +152,14 @@ struct URIAddress
 
             assert(URIAddress("smb://user@test").connectionInfo == "smb://user@test");
             assert(URIAddress("smb://user:pass@test").connectionInfo == "smb://user:pass@test");
-            assert(
-                URIAddress("smb://user:pass@test/dir1/dir2").connectionInfo == "smb://user:pass@test");
+            assert(URIAddress("smb://user:pass@test/dir1/dir2").connectionInfo == "smb://user:pass@test");
         }
 
         /**
          * The protocol prefix
          * 
-         * Otherwise known as being "$(LT)protName://$(GT)"
+         * Otherwise known as being "$(LT)protName:[//]$(GT)"
          * Forwards call to uriScheme.
-         * 
-         * See_Also:
-         *      uriScheme
          * 
          * Returns:
          *      Returns the protocol prefix without "://".
@@ -171,6 +167,12 @@ struct URIAddress
         string scheme()
         {
             return uriScheme(value);
+        }
+        
+        ///
+        string rawPathSegments()
+        {
+            return uriEntries(value);
         }
 
         /**
@@ -181,7 +183,7 @@ struct URIAddress
          */
         Nullable!char driveLetter()
         {
-            string addr = uriEntries(value);
+            string addr = rawPathSegments;
             if (addr.length > 2 && addr[1] == ':' && addr[2] == '\\')
                 return Nullable!char(addr[0]);
             else
@@ -227,7 +229,7 @@ struct URIAddress
                 return prefix;
             }
         }
-
+        
         ///
         unittest
         {
@@ -328,7 +330,7 @@ struct URIAddress
             assert(URIAddress("smb://server:").port.isNull);
             assert(URIAddress("smb://server").port.isNull);
         }
-
+    
         /**
          * The seperate pathSegments of the directory entries.
          * 
@@ -339,7 +341,7 @@ struct URIAddress
         immutable(string[]) pathSegments()
         {
             size_t numDir;
-            string addr = uriEntries(value);
+            string addr = rawPathSegments;
 
             bool haveDrive;
             string driveText;
@@ -402,7 +404,7 @@ struct URIAddress
 
             return cast(immutable(string[])) arrbuffDirectories[0 .. numDir];
         }
-
+    
         ///
         unittest
         {
@@ -452,9 +454,9 @@ struct URIAddress
             import std.string : indexOf;
 
             size_t startI;
-            string addr = uriEntries(value);
+            string addr = rawPathSegments;
 
-            string[] ret = cast(string[]) pathSegments();
+            string[] ret = cast(string[])pathSegments();
 
             foreach (i, part; ret)
             {
@@ -480,7 +482,7 @@ struct URIAddress
 
             return cast(immutable) ret;
         }
-
+        
         ///
         unittest
         {
@@ -708,7 +710,7 @@ struct URIAddress
     {
         import std.string : indexOf;
 
-        string prot = uriScheme(value);
+        string prot = scheme;
         string temp = value;
 
         char[] retbuf;
@@ -749,18 +751,18 @@ struct URIAddress
             // perform expansion
             if (temp[0] == '.')
             {
-                string protPref = uriScheme(cwd);
+                string protPref = cwd.scheme;
                 if (protPref !is null && protPref != "file")
                     throw new Exception("Protocol as directory cannot be used in expansion");
-                replaceTo = uriEntries(cwd);
+                replaceTo = cwd.rawPathSegments;
             }
             else if (temp[0] == '~')
             {
-                string protPref = uriScheme(homeDirectory);
+                string protPref = homeDirectory.scheme;
                 if (protPref !is null && protPref != "file")
                     throw new Exception("Protocol as directory cannot be used in expansion");
 
-                replaceTo = uriEntries(homeDirectory);
+                replaceTo = homeDirectory.rawPathSegments;
             }
 
             if ((replaceTo.length > 0 && replaceTo[0] == '/')
@@ -929,7 +931,7 @@ struct URIAddress
     {
         import std.string : indexOf;
 
-        string current = uriEntries(value);
+        string current = rawPathSegments;
 
         size_t start;
         foreach_reverse (i, c; current)
@@ -963,7 +965,7 @@ struct URIAddress
      */
     URIAddress subPath(URIAddress sub)
     {
-        string suff = uriEntries(sub);
+        string suff = sub.rawPathSegments;
         char[] buff = tCopyBuffer[0 .. value.length + 1];
 
         buff[0 .. $ - 1] = value[];
@@ -995,8 +997,8 @@ struct URIAddress
     {
         import std.string : indexOf;
 
-        string current = uriEntries(value);
-        string suff = uriEntries(subling);
+        string current = rawPathSegments;
+        string suff = subling.rawPathSegments;
 
         size_t start;
         foreach_reverse (i, c; current)
@@ -1051,7 +1053,6 @@ struct URIAddress
     }
 }
 
-///
 unittest
 {
     assert(URIAddress("").value == "file:///");
@@ -1076,319 +1077,275 @@ unittest
 // FIXME: requires std.string : indexOf be @nogc
 @safe /+@nogc+/ :
 
-alias URISchemeInvalid = Exception;
-
-///
-string uriScheme(string value)
-{
-    bool melformed;
-
-    scope (exit)
-        if (melformed)
-            throw new URISchemeInvalid("URI scheme is invalid");
-
-    return uriScheme(value, melformed);
-}
-
-///
-string uriScheme(string value, out bool melformed)
-{
-    import std.string : indexOf;
-
-    melformed = false;
-
-    ptrdiff_t i;
-    if ((i = value.indexOf("://")) > 1)
-    {
-        return value[0 .. i];
-    }
-    else if ((i = value.indexOf(":\\\\")) > 0)
-    {
-        if (i > 1)
-            return value[0 .. i];
-        else
-        {
-            melformed = true;
-            return null;
-        }
-    }
-    else if ((i = value.indexOf(":/")) > 0)
-    {
-        melformed = true;
-        return null;
-    }
-    else if ((i = value.indexOf(":\\")) > 1)
-    { // drive letter *grumbles*
-        melformed = true;
-        return null;
-    }
-    else
-        return null;
-}
-
-///
-unittest
-{
-    bool melformed;
-
-    assert(uriScheme("smb://a/b/c.d", melformed) == "smb");
-    assert(!melformed);
-    assert(uriScheme("smb:\\\\a/b/c.d", melformed) == "smb");
-    assert(!melformed);
-    assert(uriScheme("d:\\a/b/c/.d", melformed)  is null);
-    assert(!melformed);
-    assert(uriScheme("smb:/a/b/c.d", melformed)  is null);
-    assert(melformed);
-    assert(uriScheme("s://a/b/c.d", melformed)  is null);
-    assert(melformed);
-
-    assert(uriScheme("abc", melformed)  is null);
-    assert(!melformed);
-    assert(uriScheme("ab", melformed)  is null);
-    assert(!melformed);
-
-    assert(uriScheme("a/b/c.d", melformed)  is null);
-    assert(!melformed);
-    assert(uriScheme("d:/", melformed)  is null);
-    assert(melformed);
-    assert(uriScheme("d://", melformed)  is null);
-    assert(melformed);
-    assert(uriScheme("d://a/b.c", melformed)  is null);
-    assert(melformed);
-    assert(uriScheme("D://a/b.c", melformed)  is null);
-    assert(melformed);
-
-    assert(uriScheme("a\\b\\c.d", melformed)  is null);
-    assert(!melformed);
-    assert(uriScheme("d:\\", melformed)  is null);
-    assert(!melformed);
-    assert(uriScheme("d:\\\\", melformed)  is null);
-    assert(melformed);
-    assert(uriScheme("d:\\\\a\\b.c", melformed)  is null);
-    assert(melformed);
-    assert(uriScheme("D:\\\\a\\b.c", melformed)  is null);
-    assert(melformed);
-}
-
-///
-string uriProtocolSuffix(string value)
-{
-    import std.string : indexOf;
-
-    if (value.length < 3)
-        return null;
-
-    ptrdiff_t i;
-    if ((i = value.indexOf("://")) > 1)
-    {
-        if (value.length > i + 3)
-            return value[i + 3 .. $];
-        else
-            return null;
-    }
-    else if ((i = value.indexOf(":\\\\")) > 0)
-    {
-        if (value.length > i + 3)
-            return value[i + 3 .. $];
-        else
-            return null;
-    }
-    else
-        return value;
-}
-
-///
-unittest
-{
-    assert(uriProtocolSuffix("a/b/c") == "a/b/c");
-    assert(uriProtocolSuffix("a\\b\\c") == "a\\b\\c");
-
-    assert(uriProtocolSuffix("a://b/c") == "a://b/c");
-    assert(uriProtocolSuffix("a:\\b\\c") == "a:\\b\\c");
-}
-
-///
-string uriAuthentication(string value)
-{
-    import std.string : indexOf;
-
-    string input = uriProtocolSuffix(value);
-
-    ptrdiff_t i;
-    if ((i = input.indexOf("@")) > 0)
-    {
-        return input[0 .. i];
-    }
-    else
-    {
-        return null;
-    }
-}
-
-///
-unittest
-{
-    assert(uriAuthentication("a/b/c")  is null);
-    assert(uriAuthentication("a@b/c") == "a");
-    assert(uriAuthentication("a:b@c/d") == "a:b");
-}
-
-///
-string uriAuthenticationSuffix(string value)
-{
-    import std.string : indexOf;
-
-    string input = uriProtocolSuffix(value);
-
-    ptrdiff_t i;
-    if ((i = input.indexOf("@")) > 0 && input.length - i > 1)
-    {
-        return input[i + 1 .. $];
-    }
-    else
-    {
-        return input;
-    }
-}
-
-///
-unittest
-{
-    assert(uriAuthenticationSuffix("a/b/c") == "a/b/c");
-    assert(uriAuthenticationSuffix("a@b/c") == "b/c");
-    assert(uriAuthenticationSuffix("a:b@c/d") == "c/d");
-}
-
-///
-string uriConnection(string value)
-{
-    import std.string : indexOf;
-
-    bool melformed;
-    string prot = uriScheme(value, melformed);
-    string auth = uriAuthentication(value);
-
-    if ((prot.length == 1 && auth is null) || prot == "file" || (prot is null && melformed))
-        return null;
-    else if (prot.length > 1)
-    {
+private {
+    string uriScheme(string value) {
+        import std.string : indexOf;
+        
         ptrdiff_t i;
-        string input = uriAuthenticationSuffix(value);
-        if ((i = input.indexOf("/")) > 0)
+        if ((i = value.indexOf(":")) > 1)
         {
-            return input[0 .. i];
+            return value[0 .. i];
         }
-        else if ((i = input.indexOf("\\")) > 0)
+        else
+            return null;
+    }
+    
+    unittest
+    {
+        assert(uriScheme("smb://a/b/c.d") == "smb");
+        assert(uriScheme("smb:\\\\a/b/c.d") == "smb");
+        assert(uriScheme("d:\\a/b/c/.d") is null);
+        assert(uriScheme("smb:/a/b/c.d") == "smb");
+        assert(uriScheme("s://a/b/c.d") is null);
+    
+        assert(uriScheme("abc") is null);
+        assert(uriScheme("ab") is null);
+    
+        assert(uriScheme("a/b/c.d") is null);
+        assert(uriScheme("d:/") is null);
+        assert(uriScheme("d://") is null);
+        assert(uriScheme("d://a/b.c") is null);
+        assert(uriScheme("D://a/b.c") is null);
+    
+        assert(uriScheme("a\\b\\c.d") is null);
+        assert(uriScheme("d:\\") is null);
+        assert(uriScheme("d:\\\\") is null);
+        assert(uriScheme("d:\\\\a\\b.c") is null);
+        assert(uriScheme("D:\\\\a\\b.c") is null);
+    }
+    
+    string uriEntries(string value) {
+        import std.string : indexOf;
+    
+        string input = uriAuthenticationSuffix(value);
+        string prot = uriScheme(value);
+    
+        string query = uriQuery(value);
+        if (query !is null)
+            input = input[0 .. $ - (query.length + 1)];
+    
+        ptrdiff_t i;
+        if (prot == "file")
         {
-            return input[0 .. i];
+            return input;
+        }
+        else if (prot.length > 1 && (i = input.indexOf("/")) > 0 && input.length - i > 1)
+        {
+            return input[i + 1 .. $];
+        }
+        else if (prot.length > 1 && (i = input.indexOf("\\")) > 0 && input.length - i > 1)
+        {
+            return input[i + 1 .. $];
+        }
+        else if (prot.length > 1)
+        {
+            return null;
         }
         else
         {
             return input;
         }
     }
-    else
+    
+    unittest
     {
-        return null;
+        assert(uriEntries("file://d://abc") == "d://abc");
+        assert(uriEntries("file://d:\\\\abc") == "d:\\\\abc");
+        assert(uriEntries("file://d:\\abc") == "d:\\abc");
+    
+        assert(uriEntries("file:///abc") == "/abc");
+    
+        assert(uriEntries("/etc/something.txt") == "/etc/something.txt");
+    
+        assert(uriEntries("smb://abc/d/f") == "d/f");
+        assert(uriEntries("smb:\\\\abc\\d\\f") == "d\\f");
+    
+        assert(uriEntries("smb://abc")  is null);
+    
+        assert(uriEntries("abc/d?b=e&z=y") == "abc/d");
+        assert(uriEntries("smb://abc/d?b=e&z=y") == "d");
+        assert(uriEntries("/")  is null);
+        assert(uriEntries("/?")  is null);
+    
+        assert(uriEntries("smb://abc/c:\\d/e/f.g") == "c:\\d/e/f.g");
     }
-}
-
-///
-unittest
-{
-    assert(uriConnection("")  is null);
-
-    assert(uriConnection("file://d:\\abc")  is null);
-    assert(uriConnection("d:\\abc")  is null);
-    assert(uriConnection("/etc/something.txt")  is null);
-
-    assert(uriConnection("smb://abc/d/f") == "abc");
-    assert(uriConnection("smb:\\\\abc\\d\\f") == "abc");
-    assert(uriConnection("smb://abc") == "abc");
-}
-
-///
-string uriQuery(string value)
-{
-    import std.string : indexOf;
-
-    string input = uriAuthenticationSuffix(value);
-
-    ptrdiff_t i;
-    if ((i = input.indexOf("?")) > 0 && input.length - i > 1)
+    
+    string uriQuery(string value)
     {
-        return input[i + 1 .. $];
+        import std.string : indexOf;
+    
+        string input = uriAuthenticationSuffix(value);
+    
+        ptrdiff_t i;
+        if ((i = input.indexOf("?")) > 0 && input.length - i > 1)
+        {
+            return input[i + 1 .. $];
+        }
+        else
+        {
+            return null;
+        }
     }
-    else
+    
+    unittest
     {
-        return null;
+        assert(uriQuery("abc/d?b=e&z=y") == "b=e&z=y");
+        assert(uriQuery("smb://abc/d?b=e&z=y") == "b=e&z=y");
+        assert(uriQuery("/") is null);
+        assert(uriQuery("/?") is null);
     }
-}
 
-///
-unittest
-{
-    assert(uriQuery("abc/d?b=e&z=y") == "b=e&z=y");
-    assert(uriQuery("smb://abc/d?b=e&z=y") == "b=e&z=y");
-    assert(uriQuery("/")  is null);
-    assert(uriQuery("/?")  is null);
-}
-
-///
-string uriEntries(string value)
-{
-    import std.string : indexOf;
-
-    string input = uriAuthenticationSuffix(value);
-    string prot = uriScheme(value);
-
-    string query = uriQuery(input);
-    if (query !is null)
-        input = input[0 .. $ - (query.length + 1)];
-
-    ptrdiff_t i;
-    if (prot == "file")
+    string uriProtocolSuffix(string value)
     {
-        return input;
+        import std.string : indexOf;
+    
+        if (value.length < 3)
+            return null;
+    
+        ptrdiff_t i;
+        if ((i = value.indexOf("://")) >= 0)
+        {
+            if (i == 1) {
+                // drive letter
+                return value;
+            } else if (i == 0) {
+                // no scheme
+                return null;
+            } else {
+                // has scheme, going after it
+                return value[i + 3 .. $];
+            }
+        }
+        else if ((i = value.indexOf(":\\\\")) >= 0)
+        {
+            if (i == 1) {
+                // drive letter
+                return value;
+            } else if (i == 0) {
+                // no scheme
+                return null;
+            } else {
+                // has scheme, going after it
+                return value[i + 3 .. $];
+            }
+        } else if ((i = value.indexOf(":")) >= 0) {
+            if (i == 1) {
+                // drive letter
+                return value;
+            } else if (i == 0) {
+                // no scheme
+                return null;
+            } else {
+                // has scheme, going after it
+                return value[i + 1 .. $];
+            }
+        } else
+            return value;
     }
-    else if (prot.length > 1 && (i = input.indexOf("/")) > 0 && input.length - i > 1)
+    
+    unittest
     {
-        return input[i + 1 .. $];
+        assert(uriProtocolSuffix("a/b/c") == "a/b/c");
+        assert(uriProtocolSuffix("a\\b\\c") == "a\\b\\c");
+
+        assert(uriProtocolSuffix("a://b/c") == "a://b/c");
+        assert(uriProtocolSuffix("a:\\b\\c") == "a:\\b\\c");
+        
+        assert(uriProtocolSuffix("://b/c") is null);
+        assert(uriProtocolSuffix(":\\b\\c") is null);
     }
-    else if (prot.length > 1 && (i = input.indexOf("\\")) > 0 && input.length - i > 1)
+    
+    string uriAuthentication(string value)
     {
-        return input[i + 1 .. $];
+        import std.string : indexOf;
+    
+        string input = uriProtocolSuffix(value);
+    
+        ptrdiff_t i;
+        if ((i = input.indexOf("@")) > 0)
+        {
+            return input[0 .. i];
+        }
+        else
+        {
+            return null;
+        }
     }
-    else if (prot.length > 1)
+    
+    unittest
     {
-        return null;
+        assert(uriAuthentication("a/b/c")  is null);
+        assert(uriAuthentication("a@b/c") == "a");
+        assert(uriAuthentication("a:b@c/d") == "a:b");
     }
-    else
+    
+    string uriConnection(string value)
     {
-        return input;
+        import std.string : indexOf;
+    
+        string prot = uriScheme(value);
+        string auth = uriAuthentication(value);
+    
+        if ((prot.length == 1 && auth is null) || prot == "file" || prot is null)
+            return null;
+        else if (prot.length > 1)
+        {
+            ptrdiff_t i;
+            string input = uriAuthenticationSuffix(value);
+            if ((i = input.indexOf("/")) > 0)
+            {
+                return input[0 .. i];
+            }
+            else if ((i = input.indexOf("\\")) > 0)
+            {
+                return input[0 .. i];
+            }
+            else
+            {
+                return input;
+            }
+        }
+        else
+        {
+            return null;
+        }
     }
-}
 
-///
-unittest
-{
-    assert(uriEntries("file://d://abc") == "d://abc");
-    assert(uriEntries("file://d:\\\\abc") == "d:\\\\abc");
-    assert(uriEntries("file://d:\\abc") == "d:\\abc");
+    unittest
+    {
+        assert(uriConnection("")  is null);
+    
+        assert(uriConnection("file://d:\\abc")  is null);
+        assert(uriConnection("d:\\abc")  is null);
+        assert(uriConnection("/etc/something.txt")  is null);
+    
+        assert(uriConnection("smb://abc/d/f") == "abc");
+        assert(uriConnection("smb:\\\\abc\\d\\f") == "abc");
+        assert(uriConnection("smb://abc") == "abc");
+    }
 
-    assert(uriEntries("file:///abc") == "/abc");
 
-    assert(uriEntries("/etc/something.txt") == "/etc/something.txt");
-
-    assert(uriEntries("smb://abc/d/f") == "d/f");
-    assert(uriEntries("smb:\\\\abc\\d\\f") == "d\\f");
-
-    assert(uriEntries("smb://abc")  is null);
-
-    assert(uriEntries("abc/d?b=e&z=y") == "abc/d");
-    assert(uriEntries("smb://abc/d?b=e&z=y") == "d");
-    assert(uriEntries("/")  is null);
-    assert(uriEntries("/?")  is null);
-
-    assert(uriEntries("smb://abc/c:\\d/e/f.g") == "c:\\d/e/f.g");
+    string uriAuthenticationSuffix(string value)
+    {
+        import std.string : indexOf;
+    
+        string input = uriProtocolSuffix(value);
+    
+        ptrdiff_t i;
+        if ((i = input.indexOf("@")) > 0 && input.length - i > 1)
+        {
+            return input[i + 1 .. $];
+        }
+        else
+        {
+            return input;
+        }
+    }
+    
+    unittest
+    {
+        assert(uriAuthenticationSuffix("a/b/c") == "a/b/c");
+        assert(uriAuthenticationSuffix("a@b/c") == "b/c");
+        assert(uriAuthenticationSuffix("a:b@c/d") == "c/d");
+    }
 }

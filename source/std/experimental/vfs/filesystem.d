@@ -72,7 +72,7 @@ class FileSystemImpl : IFileSystem {
     IFileSystemEntry opIndex(URIAddress path) {
         URIAddress t = URIAddress("file:///", alloc);
         URIAddress* childPath = &t;
-        path = URIAddress(uriEntries(path), alloc);
+        path = URIAddress(path.rawPathSegments, alloc);
         IDirectoryEntry parent = locateTopMostDirectory(path, childPath, null);
 
         if (parent is null) {
@@ -167,7 +167,7 @@ class FileSystemImpl : IFileSystem {
         import std.path : globMatch, CaseSensitive;
 
         URIAddress dircon = baseDir.connectionInfo;
-        string baseDirPath = uriEntries(dircon);
+        string baseDirPath = dircon.rawPathSegments;
 
         auto globMatcher = &globMatch!(CaseSensitive.no, char, string);
         if (caseSensitive)
@@ -184,7 +184,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = uriEntries(addr);
+                    string addrpath = addr.rawPathSegments;
 
                     // if they match, del(mnt)
                     if (!globMatcher(addrpath, glo)) {
@@ -203,7 +203,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = uriEntries(addr);
+                    string addrpath = addr.rawPathSegments;
                     
                     // if they match, del(mnt)
                     if (!addrpath.globMatch!(CaseSensitive.osDefault)(glo)) {
@@ -231,7 +231,7 @@ class FileSystemImpl : IFileSystem {
         URIAddress[] removeBuffer;
 
         URIAddress dircon = baseDir.connectionInfo;
-        string baseDirPath = uriEntries(dircon);
+        string baseDirPath = dircon.rawPathSegments;
 
         auto globMatcher = &globMatch!(CaseSensitive.no, char, string);
         if (caseSensitive)
@@ -248,7 +248,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = uriEntries(addr);
+                    string addrpath = addr.rawPathSegments;
                     
                     // if they match, del(mnt)
                     if (!globMatcher(addrpath, glo)) {
@@ -268,7 +268,7 @@ class FileSystemImpl : IFileSystem {
                 // check mounts, does it match?
                 foreach(ref addr, mount; mounted_) {
                     import std.path : globMatch, CaseSensitive;
-                    string addrpath = uriEntries(addr);
+                    string addrpath = addr.rawPathSegments;
                     
                     // if they match, del(mnt)
                     if (!addrpath.globMatch!(CaseSensitive.osDefault)(glo)) {
