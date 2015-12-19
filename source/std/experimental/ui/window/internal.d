@@ -1541,6 +1541,7 @@ package(std.experimental) {
                     }
                     
                     window.alloc.expandArray(buffer, 1); // \0 last byte
+                    buffer[$-1] = '\0';
                     
                     ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_STRING, null, buffer.ptr);
                     window.alloc.dispose(buffer);
