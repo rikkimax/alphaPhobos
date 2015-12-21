@@ -30,7 +30,7 @@ import std.experimental.allocator : IAllocator, theAllocator;
  *  image.fill(RGB8(77, 82, 31));
  * -------------
  */
-Image fillOn(Image, Color = ImageColor!Image)(ref Image image, Color value) @nogc @safe {
+Image fillOn(Image, Color = ImageColor!Image)(Image image, Color value) @nogc @safe {
     foreach(x; 0 .. image.width) {
         foreach(y; 0 .. image.height) {
             image[x, y] = value;

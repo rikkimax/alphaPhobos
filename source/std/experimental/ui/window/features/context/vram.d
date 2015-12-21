@@ -1,4 +1,5 @@
 ﻿module std.experimental.ui.window.features.context.vram;
+import std.experimental.ui.rendering;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8, RGBA8;
@@ -37,7 +38,7 @@ interface Feature_VRam {
         return null;
     }
 
-    ImageStorage!RGB8 vramAlphaBuffer(T)(T self) if (is(T : IContext)) {
+    ImageStorage!RGBA8 vramAlphaBuffer(T)(T self) if (is(T : IContext)) {
         if (self is null)
             return null;
         if (Have_VRam ss = cast(Have_VRam)self) {

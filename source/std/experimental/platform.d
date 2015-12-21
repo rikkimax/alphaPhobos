@@ -5,7 +5,9 @@ import std.experimental.ui.window.features.icon;
 import std.experimental.ui.rendering;
 import std.experimental.internal.dummyRefCount;
 import std.experimental.allocator : IAllocator, processAllocator, theAllocator;
-import std.datetime : Duration, seconds;
+import std.datetime : Duration, seconds, msecs;
+
+void delegate() onDrawDel;
 
 interface IPlatform {
     DummyRefCount!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator());
@@ -20,7 +22,10 @@ interface IPlatform {
         DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator());
     }
 
+    void optimizedEventLoop(bool delegate() callback);
     void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null);
+
+    bool eventLoopIteration(bool untilEmpty);
     bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false);
 
     final void setAsDefault() {
@@ -68,6 +73,8 @@ private {
                 QS_MOUSE = (QS_MOUSEMOVE | QS_MOUSEBUTTON),
                 QS_INPUT = (QS_MOUSE | QS_KEY | QS_RAWINPUT),
                 QS_ALLEVENTS = (QS_INPUT | QS_POSTMESSAGE | QS_TIMER | QS_PAINT | QS_HOTKEY),
+
+                QS_SENDMESSAGE = 0x0040
             };
 
             enum {
@@ -103,6 +110,10 @@ private {
 
         mixin WindowPlatformImpl;
 
+        void optimizedEventLoop(bool delegate() callback) {
+            optimizedEventLoop(0.seconds, callback);
+        }
+
         void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null) {
             import std.datetime : to;
             import std.algorithm : min;
@@ -131,18 +142,21 @@ private {
                             cast(DWORD)0,
                             null,
                             msTimeout,
-                            QS_ALLEVENTS,
+                            QS_ALLEVENTS | QS_SENDMESSAGE,
                             // MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
                             // MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
                             MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
-                            );
+                        );
 
                         // there are no messages so lets make sure the callback is called then repeat
-                        if (signal == WAIT_TIMEOUT)
+                        if (signal == WAIT_TIMEOUT) {
+                            import core.thread : Thread;
+                            Thread.sleep(50.msecs);
                             continue;
+                        }
 
                         // remove all messages from the queue
-                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
+                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE) > 0) {
                             TranslateMessage(&msg);
                             DispatchMessageW(&msg);
                         }
@@ -162,6 +176,10 @@ private {
             }
         }
 
+        bool eventLoopIteration(bool untilEmpty) {
+            return eventLoopIteration(0.seconds, untilEmpty);
+        }
+
         bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false) {
             import std.datetime : to;
             import std.algorithm : min;
@@ -175,7 +193,7 @@ private {
                         cast(DWORD)0,
                         null,
                         msTimeout,
-                        QS_ALLEVENTS,
+                        QS_ALLEVENTS | QS_SENDMESSAGE,
                         // MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
                         // MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
                         MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
@@ -187,7 +205,7 @@ private {
                     MSG msg;
 
                     if (untilEmpty) {
-                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
+                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE) > 0) {
                             TranslateMessage(&msg);
                             DispatchMessageW(&msg);
                         }

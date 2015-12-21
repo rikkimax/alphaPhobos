@@ -696,8 +696,13 @@ struct PixelPoint(Color) if (isColor!Color) {
 final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == struct)) {
     alias Color = ImageColor!Impl;
 
-    ///
-    this(size_t width, size_t height, IAllocator allocator = theAllocator()) @trusted {
+    // If I could make this private, I would...
+    this()(Impl* instance) @trusted {
+        swpInst = instance;
+    }
+
+    // Ditto
+    this()(size_t width, size_t height, IAllocator allocator = theAllocator()) @trusted {
         import std.experimental.allocator : make;
         swpInst = allocator.make!Impl(width, height, allocator);
         _alloc = allocator;
@@ -717,10 +722,6 @@ final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == st
     private {
         IAllocator _alloc;
         Impl* swpInst;
-
-        this(Impl* instance) @nogc nothrow @safe {
-            swpInst = instance;
-        }
 
         ~this() {
             import std.experimental.allocator : dispose;

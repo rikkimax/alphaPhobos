@@ -49,7 +49,7 @@ struct FlatImageStorage(Color) if (isColor!Color) {
     Color getPixel(size_t x, size_t y) @nogc @safe { return data[(y * width) + x]; }
 
     ///
-    void setPixel(size_t x, size_t y, Color value) @nogc  @safe{ data[(y * width) + x] = value; }
+    void setPixel(size_t x, size_t y, Color value) @nogc @safe { data[(y * width) + x] = value; }
 
     ///
     Color opIndex(size_t x, size_t y) @nogc  @safe{ return getPixel(x, y); }
@@ -58,29 +58,37 @@ struct FlatImageStorage(Color) if (isColor!Color) {
     void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe { setPixel(x, y, value); }
     
     ///
-    bool resize(size_t newWidth, size_t newHeight) @trusted
-    in {
-        assert(newWidth > 0);
-        assert(newHeight > 0);
-    } body {
-        import std.experimental.allocator : dispose;
+    bool resize(size_t newWidth, size_t newHeight) @trusted {
+        import std.experimental.allocator : dispose, makeArray;
         import std.algorithm : min;
-        Color[] newData = allocator.makeArray!(Color)(width * height);
-        
-        size_t minWidth = min(width, newWidth);
-        size_t offsetOld, offsetNew;
-        foreach(y; 0 .. min(height, newHeight)) {
-            newData[offsetNew .. offsetNew + minWidth] = data[offset .. offset + minWidth];
+
+        scope(failure)
+            return false;
+
+        Color[] newData;
+
+        if (newWidth == 0 || newHeight == 0) {
+        } else {
+            newData = allocator.makeArray!(Color)(newWidth * newHeight);
             
-            offsetOld += width;
-            offsetNew += newWidth;
+            size_t minWidth = min(width, newWidth);
+            size_t offsetOld, offsetNew;
+            foreach(y; 0 .. min(height, newHeight)) {
+                newData[offsetNew .. offsetNew + minWidth] = data[offsetOld .. offsetOld + minWidth];
+                
+                offsetOld += width;
+                offsetNew += newWidth;
+            }
+            
         }
-        
+
         allocator.dispose(data);
-        
-        width = newWidth;
-        height = newHeight;
+
+        width_ = newWidth;
+        height_ = newHeight;
         data = newData;
+
+        return true;
     }
     
     /**

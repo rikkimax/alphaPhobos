@@ -130,14 +130,29 @@ void VFSTest() {
 void windowTest() {
     import std.experimental.platform;
     import std.experimental.ui.window;
+    import std.experimental.graphic.image.manipulation.base : fillOn;
+
+    IWindow window;
+    void onIteration() {
+        window.context.vramAlphaBuffer.fillOn(RGBA8(255, 0, 0, 255));
+        window.context.swapBuffers();
+    }
     
+    onDrawDel = &onIteration;
+
     auto creator = thePlatform.createWindow();
     //creator.style = WindowStyle.Fullscreen;
     //creator.size = UIPoint(cast(short)800, cast(short)600);
     
-    IWindow window = creator.createWindow();
+    window = creator.createWindow();
     window.title = "Title!";
-    
+
+    import std.datetime : msecs;
+
     window.show();
-    thePlatform().optimizedEventLoop();
+    thePlatform().optimizedEventLoop(/+() { onIteration(); return true;}+/);
+    /+while(window.visible) {
+        thePlatform().eventLoopIteration(true);
+        //onIteration();
+    }+/
 }

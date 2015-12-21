@@ -275,6 +275,7 @@ package(std.experimental) {
         enum NIS_HIDDEN = 0x00000001;
         enum NIF_REALTIME = 0x00000040;
         enum NIIF_USER  = 0x00000004;
+        enum WM_EXITSIZEMOVE = 0x232;
 
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
@@ -551,7 +552,7 @@ package(std.experimental) {
             
             LRESULT callbackWindowHandler(HWND hwnd, uint uMsg, WPARAM wParam, LPARAM lParam) nothrow {
                 WindowImpl window = cast(WindowImpl)cast(void*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
-                
+
                 switch(uMsg) {
                     case WM_DESTROY:
                         return 0;
@@ -562,19 +563,32 @@ package(std.experimental) {
                         } else
                             return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                     case WM_SIZE:
+                    case WM_EXITSIZEMOVE:
                         InvalidateRgn(hwnd, null, true);
                         // TODO: event
                         return 0;
+                    case WM_ERASEBKGND:
                     case WM_PAINT:
+                        import std.experimental.platform : onDrawDel;
+
+                        if (onDrawDel is null || window.context_ is null) {
                             // This fixes a bug where when a window is fullscreen Windows
                             //  will not auto draw the background of a window.
                             // If the context is not yet assigned or VRAM, it
                             //  should default to this.
-                    
+
                             PAINTSTRUCT ps;
                             HDC hdc = BeginPaint(hwnd, &ps);
                             FillRect(hdc, &ps.rcPaint, cast(HBRUSH) (COLOR_WINDOW+1));
                             EndPaint(hwnd, &ps);
+                        } else {
+                            try {
+                            onDrawDel();
+                            } catch (Exception e) {}
+
+                            ValidateRgn(hwnd, null);
+                        }
+
                         return 0;
                     default:
                         return DefWindowProcW(hwnd, uMsg, wParam, lParam);
@@ -824,11 +838,11 @@ package(std.experimental) {
                 this.platform = platform;
                 
                 this.hMonitor = hMonitor;
-                
+
                 MONITORINFOEX info;
                 info.cbSize = MONITORINFOEX.sizeof;
-                assert(GetMonitorInfoA(hMonitor, &info));
-                
+                GetMonitorInfoA(hMonitor, &info);
+
                 char[] temp = info.szDevice.ptr.fromStringz;
                 name_ = alloc.makeArray!char(temp.length + 1);
                 name_[0 .. $-1] = temp[];
@@ -837,11 +851,11 @@ package(std.experimental) {
                 size_.x = cast(ushort)(info.rcMonitor.right - info.rcMonitor.left);
                 size_.y = cast(ushort)(info.rcMonitor.bottom - info.rcMonitor.top);
                 
-                primaryDisplay_ = info.dwFlags & MONITORINFOF_PRIMARY;
-                
+                primaryDisplay_ = (info.dwFlags & MONITORINFOF_PRIMARY) == MONITORINFOF_PRIMARY;
+
                 DEVMODE devMode;
                 devMode.dmSize = DEVMODE.sizeof;
-                assert(EnumDisplaySettingsA(name_.ptr, ENUM_CURRENT_SETTINGS, &devMode) >  0);
+                EnumDisplaySettingsA(name_.ptr, ENUM_CURRENT_SETTINGS, &devMode);
                 refreshRate_ = devMode.dmDisplayFrequency;
             }
         }
@@ -961,7 +975,7 @@ package(std.experimental) {
                 version(Windows) {
                     int textLength = GetWindowTextLengthW(hwnd);
                     wchar[] buffer = alloc.makeArray!wchar(textLength + 1);
-                    assert(GetWindowTextW(hwnd, buffer.ptr, cast(int)buffer.length) > 0);
+                    GetWindowTextW(hwnd, buffer.ptr, cast(int)buffer.length);
                     
                     // what is allocated could potentially be _more_ then required
                     dchar[] buffer2 = alloc.makeArray!dchar(textLength + 1);
@@ -1036,7 +1050,7 @@ package(std.experimental) {
             UIPoint location() {
                 version(Windows) {
                     RECT rect;
-                    assert(GetWindowRect(hwnd, &rect));
+                    GetWindowRect(hwnd, &rect);
                     return UIPoint(cast(short)rect.left, cast(short)rect.top);
                 } else
                     assert(0);
@@ -1093,9 +1107,10 @@ package(std.experimental) {
         }
         
         void show() {
-            version(Windows)
+            version(Windows) {
                 ShowWindow(hwnd, SW_SHOW);
-            else
+                UpdateWindow(hwnd);
+            } else
                 assert(0);
         }
         
@@ -1367,7 +1382,7 @@ package(std.experimental) {
                 mi.cbSize = MONITORINFOEX.sizeof;
                 
                 HMONITOR hMonitor = *cast(HMONITOR*)display().__handle;
-                assert(GetMonitorInfoA(hMonitor, &mi));
+                GetMonitorInfoA(hMonitor, &mi);
                 
                 if (windowStyle == WindowStyle.Fullscreen) {
                     rect = mi.rcMonitor;
@@ -1380,7 +1395,7 @@ package(std.experimental) {
                 setpos.y -= rect.top;
                 
                 if (windowStyle != WindowStyle.Fullscreen) {
-                    assert(AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle));
+                    AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle);
                 }
                 
                 // multiple monitors support
@@ -1604,7 +1619,7 @@ package(std.experimental) {
         }
     }
     
-    final class WindowCreatorImpl : IWindowCreator, Have_Icon, Have_Cursor, Have_Style, Feature_Icon, Feature_Cursor, Feature_Style {
+    final class WindowCreatorImpl : IWindowCreator, Have_Icon, Have_Cursor, Have_Style, Have_VRamCtx, Feature_Icon, Feature_Cursor, Feature_Style {
         private {
             ImplPlatform platform;
             
@@ -1619,11 +1634,15 @@ package(std.experimental) {
             ImageStorage!RGBA8 cursorIcon;
             
             WindowStyle windowStyle = WindowStyle.Dialog;
+
+            bool useVRAMContext, vramWithAlpha;
         }
         
         this(ImplPlatform platform, IAllocator alloc) {
             this.alloc = alloc;
             this.platform = platform;
+
+            useVRAMContext = true;
         }
         
         @property {
@@ -1638,9 +1657,10 @@ package(std.experimental) {
         }
         
         IWindow createWindow() {
-            if (display_ is null)
-                display_ = platform.primaryDisplay;
-            
+            auto primaryDisplay = platform.primaryDisplay;
+
+            import std.stdio;
+
             version(Windows) {
                 WNDCLASSEXW wndClass;
                 wndClass.cbSize = WNDCLASSEXW.sizeof;
@@ -1649,7 +1669,7 @@ package(std.experimental) {
                 // not currently being set/used, so for now lets stub it out
                 IContext context = null;
                 HMENU hMenu = null;
-                
+
                 if (GetClassInfoExW(hInstance, cast(wchar*)ClassNameW.ptr, &wndClass) == 0) {
                     wndClass.cbSize = WNDCLASSEXW.sizeof;
                     wndClass.hInstance = hInstance;
@@ -1658,7 +1678,7 @@ package(std.experimental) {
                     wndClass.style = CS_OWNDC/+ | CS_HREDRAW | CS_VREDRAW+/; // causes flickering
                     wndClass.lpfnWndProc = &callbackWindowHandler;
                     
-                    assert(RegisterClassExW(&wndClass) != 0);
+                    RegisterClassExW(&wndClass);
                 }
 
                 RECT rect;
@@ -1689,16 +1709,20 @@ package(std.experimental) {
                         dwExStyle = WindowDWStyles.DialogEx;
                         break;
                 }
-                
+
                 // multiple monitor support
                 
                 UIPoint setpos = location_;
                 MONITORINFOEX mi;
                 mi.cbSize = MONITORINFOEX.sizeof;
-                
-                HMONITOR hMonitor = *cast(HMONITOR*)display_.__handle;
-                assert(GetMonitorInfoA(hMonitor, &mi));
-                
+
+                HMONITOR hMonitor;
+                if (display_ is null)
+                    hMonitor = *cast(HMONITOR*)primaryDisplay.__handle;
+                else
+                    hMonitor = *cast(HMONITOR*)display_.__handle;
+                GetMonitorInfoA(hMonitor, &mi);
+
                 if (windowStyle == WindowStyle.Fullscreen) {
                     rect = mi.rcMonitor;
                     
@@ -1708,11 +1732,11 @@ package(std.experimental) {
                 
                 setpos.x -= rect.left;
                 setpos.y -= rect.top;
-                
+
                 if (windowStyle != WindowStyle.Fullscreen) {
-                    assert(AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle));
+                    AdjustWindowRectEx(&rect, dwStyle, false, dwExStyle);
                 }
-                
+
                 // multiple monitor support
                 
                 HWND hwnd = CreateWindowExW(
@@ -1726,7 +1750,11 @@ package(std.experimental) {
                     null,
                     hInstance,
                     null);
-                
+
+                if (useVRAMContext) {
+                    context = alloc.make!VRAMContextImpl(hwnd, vramWithAlpha, alloc);
+                }
+
                 WindowImpl ret = alloc.make!WindowImpl(hwnd, context, alloc, platform, hMenu, true);
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, cast(size_t)cast(void*)ret);
                 if (icon !is null)
@@ -1736,8 +1764,9 @@ package(std.experimental) {
                     ret.setCustomCursor(cursorIcon);
                 else
                     ret.setCursor(cursorStyle);
-                
+
                 InvalidateRgn(hwnd, null, true);
+
                 return ret;
             } else
                 assert(0);
@@ -1787,6 +1816,131 @@ package(std.experimental) {
     
         WindowStyle getStyle() {
             return windowStyle;
+        }
+
+        void assignVRamContext(bool withAlpha=false) {
+            useVRAMContext = true;
+            vramWithAlpha = withAlpha;
+        }
+    }
+
+    final class VRAMContextImpl : IContext, Have_VRam, Feature_VRam {
+        import std.experimental.graphic.image.interfaces : SwappableImage, imageObject;
+        import std.experimental.graphic.image.storage.flat;
+
+        private {
+            bool assignedAlpha;
+
+            // how we exposed the storage
+            ImageStorage!RGB8 storage2;
+            ImageStorage!RGBA8 alphaStorage2;
+
+            // the intermediary between the exposed (pixel format) and the actual supported one
+            SwappableImage!RGB8 storage3 = void;
+            SwappableImage!RGBA8 alphaStorage3 = void;
+
+            version(Windows) {
+                import std.experimental.graphic.color.rgb : BGR8, BGRA8;
+
+                HWND hwnd;
+                HDC hdc, hdcMem;
+
+                // where the actual pixels are stored
+                FlatImageStorage!BGR8 storage1 = void;
+                FlatImageStorage!BGRA8 alphaStorage1 = void;
+            }
+        }
+
+        // sets up our internal image buffer
+        this(bool assignAlpha, size_t width, size_t height, IAllocator alloc) {
+            assignedAlpha = assignAlpha;
+
+            if (assignAlpha) {
+                // create the actual storage
+                alphaStorage1 = FlatImageStorage!BGRA8(width, height, alloc);
+
+                // we need to do a bit of magic to translate the colors
+                storage3 = SwappableImage!RGB8(&alphaStorage1, alloc);
+                storage2 = imageObject(&storage3, alloc);
+
+                alphaStorage3 = SwappableImage!RGBA8(&alphaStorage1, alloc);
+                alphaStorage2 = imageObject(&alphaStorage3, alloc);
+            } else {
+                // create the actual storage
+                storage1 = FlatImageStorage!BGR8(width, height, alloc);
+
+                // we need to do a bit of magic to translate the colors
+                storage3 = SwappableImage!RGB8(&storage1, alloc);
+                storage2 = imageObject(&storage3, alloc);
+                
+                alphaStorage3 = SwappableImage!RGBA8(&storage1, alloc);
+                alphaStorage2 = imageObject(&alphaStorage3, alloc);
+            }
+        }
+
+        version(Windows) {
+            this(HWND hwnd, bool assignAlpha, IAllocator alloc) {
+                this(true, 1, 1, alloc);
+
+                this.hwnd = hwnd;
+
+                hdc = GetDC(hwnd);
+                hdcMem = CreateCompatibleDC(hdc);
+                swapBuffers();
+            }
+        }
+
+        @property {
+            ImageStorage!RGB8 vramBuffer() { return storage2; }
+            ImageStorage!RGBA8 vramAlphaBuffer() { return alphaStorage2; }
+        }
+
+        Feature_VRam __getFeatureVRam() {
+            return this;
+        }
+
+        void swapBuffers() {
+            version(Windows) {
+                if (!IsWindowVisible(hwnd))
+                    return;
+
+                ubyte* bufferPtr;
+                uint bitsCount;
+
+                if (assignedAlpha) {
+                    bitsCount = 32;
+                    bufferPtr = cast(ubyte*)alphaStorage1.__pixelsRawArray.ptr;
+                } else {
+                    bitsCount = 24;
+                    bufferPtr = cast(ubyte*)storage1.__pixelsRawArray.ptr;
+                }
+
+                RECT windowRect;
+                GetClientRect(hwnd, &windowRect);
+
+                HBITMAP hBitmap = CreateBitmap(cast(uint)storage2.width, cast(uint)storage2.height, 1, bitsCount, bufferPtr);
+
+                HGDIOBJ oldBitmap = SelectObject(hdcMem, hBitmap);
+
+                HBITMAP bitmap;
+                GetObjectA(hBitmap, HBITMAP.sizeof, &bitmap);
+
+                StretchBlt(hdc, 0, 0, cast(uint)storage2.width, cast(uint)storage2.height, hdcMem, 0, 0, cast(uint)windowRect.right, cast(uint)windowRect.bottom, SRCCOPY);
+
+                SelectObject(hdcMem, oldBitmap);
+                DeleteObject(hBitmap);
+
+                if (windowRect.right != storage2.width || windowRect.bottom != storage2.height) {
+                    if (assignedAlpha) {
+                        alphaStorage1.resize(windowRect.right, windowRect.bottom);
+                    } else {
+                        storage1.resize(windowRect.right, windowRect.bottom);
+                    }
+                }
+
+                InvalidateRgn(hwnd, null, true);
+            } else
+                assert(0);
         }
     }
 }
