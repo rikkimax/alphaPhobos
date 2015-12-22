@@ -7,34 +7,55 @@ import std.datetime : Duration, seconds;
 
 void delegate() onDrawDel;
 
+///
 interface IPlatform {
+    ///
     DummyRefCount!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator());
+    
+    ///
     IRenderPoint createARenderPoint(IAllocator alloc = theAllocator()); // completely up to platform implementation to what the defaults are
 
+    ///
     DummyRefCount!IWindowCreator createWindow(IAllocator alloc = theAllocator());
+    
+    ///
     IWindow createAWindow(IAllocator alloc = theAllocator()); // completely up to platform implementation to what the defaults are
 
     @property {
+        ///
         DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator());
+        
+        ///
         DummyRefCount!(IDisplay[]) displays(IAllocator alloc = processAllocator());
+        
+        ///
         DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator());
     }
 
+    ///
     void optimizedEventLoop(bool delegate() callback);
+    
+    ///
     void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null);
 
+    ///
     bool eventLoopIteration(bool untilEmpty);
+    
+    ///
     bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false);
 
+    ///
     final void setAsDefault() {
         thePlatform_ = this;
     }
 }
 
+///
 IPlatform thePlatform() {
     return thePlatform_;
 }
 
+///
 IPlatform defaultPlatform() {
     return defaultPlatform_;
 }
