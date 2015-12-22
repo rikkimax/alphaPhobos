@@ -20,8 +20,6 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
     auto image1 = loadPNG!RGBA16(cast(ubyte[])read(file));
     check(image1);
 
-    //image1.IHDR.interlaceMethod = PngIHDRInterlaceMethod.NoInterlace;
-
     // export
     testOutput("export");
     write(baseName(file).tempLocation, image1.toBytes());
@@ -57,10 +55,8 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
         }
     }
     
-    
-    import std.stdio;writeln(baseName(file).tempLocation);
     // cleanup
-    //baseName(file).tempLocation.remove();
+    baseName(file).tempLocation.remove();
     
     exitTest(file);
 }
