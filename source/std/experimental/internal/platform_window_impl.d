@@ -1,9 +1,11 @@
-module std.experimental.ui.window.internal;
+module std.experimental.internal.platform_window_impl;
 
 package(std.experimental) {
     import std.experimental.internal.containers.list;
     import std.experimental.ui.window.defs;
-    import std.experimental.platform : ImplPlatform;
+    import std.experimental.ui.context_features;
+    import std.experimental.ui.window.features;
+    import std.experimental.ui.notifications;
     import std.experimental.ui.rendering;
     import std.experimental.allocator : IAllocator, processAllocator, theAllocator, make, makeArray, dispose;
     import std.experimental.math.linearalgebra.vector : vec2;
@@ -11,8 +13,34 @@ package(std.experimental) {
     import std.experimental.ui.window.features;
     import std.experimental.graphic.color : RGB8, RGBA8;
     import std.experimental.internal.dummyRefCount;
+    import std.datetime : Duration, seconds, msecs;
+    import std.experimental.platform;
     
-    mixin template WindowPlatformImpl() {
+    enum EnabledEventLoops {
+        None = 1 << 0,
+        Windows = 1 << 1,
+        X11 = 1 << 2,
+        Cocoa = 1 << 3,
+        Wayland = 1 << 4,
+        Epoll = 1 << 5,
+        LibEvent = 1 << 6,
+    }
+
+    /*
+     * Do not forget when implementing the event loop on non Windows
+     *  it will be necessary to process a second event loop e.g. kqueue or epoll.
+     */
+    final class WindowPlatformImpl : IPlatform, Feature_Notification, Have_Notification {
+        private {
+            // theoretically it is possible that you could have e.g. Wayland/X11 on a platform such as Windows
+            //  but also have a Windows event loop *grrr*
+
+            version(Windows) {
+                ubyte enabledEventLoops = EnabledEventLoops.Windows;
+            } else {
+                ubyte enabledEventLoops;
+            }
+        }
         version(Windows) {
             pragma(lib, "gdi32");
             pragma(lib, "user32");
@@ -212,6 +240,126 @@ package(std.experimental) {
                 NOTIFYICONDATAW taskbarIconNID;
             }
         }
+        void optimizedEventLoop(bool delegate() callback) {
+            optimizedEventLoop(0.seconds, callback);
+        }
+
+        void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null) {
+            import std.datetime : to;
+            import std.algorithm : min;
+
+            version(Windows) {
+                if (enabledEventLoops & EnabledEventLoops.Windows) {
+                    import core.sys.windows.windows : DWORD, PeekMessageW, TranslateMessage, DispatchMessageW, PM_REMOVE, MSG, WAIT_TIMEOUT, INFINITE;
+
+                    DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
+                    MSG msg;
+
+                    // Effectively the purpose of this Windows event loop is to
+                    //  ensure that all messages get dispatched as soon as possible.
+                    // Of course, this is great for GUI's or asynchronous IO where they
+                    //  only respond to external events, such as user input or socket
+                    //  connections. But for games this could be slightly problematic.
+                    // Atleast in the case for game development, it is quite common
+                    //  to implement your own event loops or as per the game engine.
+                    // In the case of your own event loop, it becomes more important to
+                    //  be able to handle your own side independently of the external events
+                    //  to the application. A single iteration is the best approach here.
+
+                    do {
+                        // effectively a sleep until more events
+                        DWORD signal = MsgWaitForMultipleObjectsEx(
+                            cast(DWORD)0,
+                            null,
+                            msTimeout,
+                            QS_ALLEVENTS | QS_SENDMESSAGE,
+                            // MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
+                            // MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
+                            MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
+                        );
+
+                        // there are no messages so lets make sure the callback is called then repeat
+                        if (signal == WAIT_TIMEOUT) {
+                            import core.thread : Thread;
+                            Thread.sleep(50.msecs);
+                            continue;
+                        }
+
+                        // remove all messages from the queue
+                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE) > 0) {
+                            TranslateMessage(&msg);
+                            DispatchMessageW(&msg);
+                        }
+                    } while(callback is null ? true : callback());
+                }
+            } else version(OSX) {
+                if (enabledEventLoops & EnabledEventLoops.Cocoa) {
+                    assert(0);
+                }
+            }
+
+            if (enabledEventLoops & EnabledEventLoops.X11) {
+                assert(0);
+            }
+            if (enabledEventLoops & EnabledEventLoops.Wayland) {
+                assert(0);
+            }
+        }
+
+        bool eventLoopIteration(bool untilEmpty) {
+            return eventLoopIteration(0.seconds, untilEmpty);
+        }
+
+        bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false) {
+            import std.datetime : to;
+            import std.algorithm : min;
+
+            version(Windows) {
+                if (enabledEventLoops & EnabledEventLoops.Windows) {
+                    import core.sys.windows.windows : DWORD, PeekMessageW, TranslateMessage, DispatchMessageW, PM_REMOVE, MSG, WAIT_TIMEOUT, INFINITE;
+
+                    DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
+                    DWORD signal = MsgWaitForMultipleObjectsEx(
+                        cast(DWORD)0,
+                        null,
+                        msTimeout,
+                        QS_ALLEVENTS | QS_SENDMESSAGE,
+                        // MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
+                        // MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
+                        MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
+                        );
+
+                    if (signal == WAIT_TIMEOUT)
+                        return false;
+
+                    MSG msg;
+
+                    if (untilEmpty) {
+                        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE) > 0) {
+                            TranslateMessage(&msg);
+                            DispatchMessageW(&msg);
+                        }
+                    } else {
+                        PeekMessageW(&msg, null, 0, 0, PM_REMOVE);
+                        TranslateMessage(&msg);
+                        DispatchMessageW(&msg);
+                    }
+                }
+            } else version(OSX) {
+                if (enabledEventLoops & EnabledEventLoops.Cocoa) {
+                    assert(0);
+                }
+            }
+
+            if (enabledEventLoops & EnabledEventLoops.X11) {
+                assert(0);
+            }
+            if (enabledEventLoops & EnabledEventLoops.Wayland) {
+                assert(0);
+            }
+
+            return true;
+        }
     }
     
     version(Windows) {
@@ -311,6 +459,28 @@ package(std.experimental) {
             IDI_WARNING     = IDI_EXCLAMATION,
             IDI_ERROR       = IDI_HAND,
             IDI_INFORMATION = IDI_ASTERISK
+        }
+        
+        enum {
+            QS_HOTKEY = 0x0080,
+            QS_KEY = 0x0001,
+            QS_MOUSEBUTTON = 0x0004,
+            QS_MOUSEMOVE = 0x0002,
+            QS_PAINT = 0x0020,
+            QS_POSTMESSAGE = 0x0008,
+            QS_RAWINPUT = 0x0400,
+            QS_TIMER = 0x0010,
+    
+            QS_MOUSE = (QS_MOUSEMOVE | QS_MOUSEBUTTON),
+            QS_INPUT = (QS_MOUSE | QS_KEY | QS_RAWINPUT),
+            QS_ALLEVENTS = (QS_INPUT | QS_POSTMESSAGE | QS_TIMER | QS_PAINT | QS_HOTKEY),
+    
+            QS_SENDMESSAGE = 0x0040
+        }
+    
+        enum {
+            MWMO_ALERTABLE = 0x0002,
+            MWMO_INPUTAVAILABLE = 0x0004,
         }
         
         /**
@@ -465,6 +635,7 @@ package(std.experimental) {
                 bool GetClassInfoExW(HINSTANCE, wchar*, WNDCLASSEXW*);
                 LONG GetWindowLongW(HWND hWnd,int nIndex) nothrow;
                 LONG SetWindowLongW(HWND hWnd,int nIndex,LONG dwNewLong) nothrow;
+                DWORD MsgWaitForMultipleObjectsEx(DWORD nCount, const(HANDLE) *pHandles, DWORD dwMilliseconds, DWORD dwWakeMask, DWORD dwFlags);
                 
                 version(X86_64){
                     LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR) nothrow;
@@ -1621,7 +1792,7 @@ package(std.experimental) {
     
     final class WindowCreatorImpl : IWindowCreator, Have_Icon, Have_Cursor, Have_Style, Have_VRamCtx, Feature_Icon, Feature_Cursor, Feature_Style {
         private {
-            ImplPlatform platform;
+            WindowPlatformImpl platform;
             
             UIPoint size_ = UIPoint(cast(short)800, cast(short)600);
             UIPoint location_;
@@ -1638,7 +1809,7 @@ package(std.experimental) {
             bool useVRAMContext, vramWithAlpha;
         }
         
-        this(ImplPlatform platform, IAllocator alloc) {
+        this(WindowPlatformImpl platform, IAllocator alloc) {
             this.alloc = alloc;
             this.platform = platform;
 

@@ -1,3 +1,9 @@
+/**
+ * Window representation.
+ *
+ * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
+ */
 module std.experimental.ui.window.defs;
 import std.experimental.graphic.image.interfaces : SwappableImage;
 import std.experimental.graphic.color.rgb : RGB8, RGBA8;
@@ -97,17 +103,12 @@ enum WindowStyle {
     Fullscreen
 }
 
-///
 interface Have_Style {
     Feature_Style __getFeatureStyle();
 }
 
-///
 interface Feature_Style {
-    ///
     void setStyle(WindowStyle);
-    
-    ///
     WindowStyle getStyle();
 }
 

@@ -1,4 +1,10 @@
-﻿module std.experimental.ui.window.features.notification;
+/**
+ * Notification support for an application.
+ *
+ * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
+ */
+module std.experimental.ui.notifications;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGBA8;
@@ -20,6 +26,7 @@ interface Feature_Notification {
     void clearNotifications();
 }
 
+///
 void notificationIcon(IPlatform self, ImageStorage!RGBA8 to, IAllocator alloc=theAllocator) {
     if (self is null)
         return;
@@ -30,7 +37,8 @@ void notificationIcon(IPlatform self, ImageStorage!RGBA8 to, IAllocator alloc=th
         }
     }
 }
-    
+
+///
 DummyRefCount!(ImageStorage!RGBA8) notificationIcon(IPlatform self, IAllocator alloc=theAllocator) {
     if (self is null)
         return DummyRefCount!(ImageStorage!RGBA8)(null, null);
@@ -43,6 +51,7 @@ DummyRefCount!(ImageStorage!RGBA8) notificationIcon(IPlatform self, IAllocator a
     return DummyRefCount!(ImageStorage!RGBA8)(null, null);
 }
 
+///
 void notify(IPlatform self, ImageStorage!RGBA8 image=null, dstring title=null, dstring text=null, IAllocator alloc=theAllocator) {
     if (self is null)
         return;
@@ -54,6 +63,7 @@ void notify(IPlatform self, ImageStorage!RGBA8 image=null, dstring title=null, d
     }
 }
 
+///
 void clearNotifications(IPlatform self) {
     if (self is null)
         return;

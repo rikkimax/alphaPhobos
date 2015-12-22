@@ -1,3 +1,9 @@
+/**
+ * Window cursor support.
+ *
+ * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
+ */
 module std.experimental.ui.window.features.cursor;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
@@ -70,25 +76,16 @@ interface Have_Cursor {
 }
 
 interface Feature_Cursor {
-    /**
-     * Do not pass in Custom as cursor style. It is automatically determined when using setCursorIcon.
-     */
     void setCursor(WindowCursorStyle);
     WindowCursorStyle getCursor();
-
-    /**
-     * Automatically set sthe cursor style to Custom.
-     * And updates the cursor to the given one.
-     */
     void setCustomCursor(ImageStorage!RGBA8);
-
-    /**
-     * Gets a copy of the cursor if it is assigned as custom
-     */
     ImageStorage!RGBA8 getCursorIcon();
 }
 
 @property {
+    /**
+     * Do not pass in Custom as cursor style.
+     */
     void cursor(T)(T self, WindowCursorStyle to) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return;
@@ -104,6 +101,7 @@ interface Feature_Cursor {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IWindowCreator.");
     }
 
+    ///
     WindowCursorStyle cursor(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return WindowCursorStyle.Invalid;
@@ -123,6 +121,10 @@ interface Feature_Cursor {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IWindowCreator.");
     }
 
+    /**
+     * Automatically set the cursor style to Custom.
+     * And updates the cursor to the given one.
+     */
     void cursorIcon(T)(T self, ImageStorage!RGBA8 to) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return;
@@ -138,6 +140,9 @@ interface Feature_Cursor {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IWindowCreator.");
     }
     
+    /**
+     * Gets a copy of the cursor if it is assigned as custom.
+     */
     DummyRefCount!(ImageStorage!RGBA8) cursorIcon(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return DummyRefCount!(ImageStorage!RGBA8)(null, null);

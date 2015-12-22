@@ -1,8 +1,14 @@
-﻿module std.experimental.ui.window.features.screenshot;
+/**
+ * Window and display screenshot capabilities.
+ *
+ * Copyright: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
+ */
+module std.experimental.ui.window.features.screenshot;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.allocator : IAllocator;
-import std.experimental.platform : IDisplay, IPlatform;
+import std.experimental.platform : IDisplay;
 import std.experimental.graphic.color : RGB8;
 
 interface Have_ScreenShot {
@@ -14,6 +20,7 @@ interface Feature_ScreenShot {
 }
 
 @property {
+    ///
     ImageStorage!RGB8 screenshot(T)(T self, IAllocator alloc=null) if (is(T : IWindow) || is(T : IDisplay) || is(T : IPlatform)) {
         if (self is null)
             return null;

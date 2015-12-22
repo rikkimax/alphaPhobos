@@ -10,7 +10,7 @@ void main() {
 
 void notifyTest() {
     import std.experimental.platform;
-    import std.experimental.ui.window.features;
+    import std.experimental.ui.notifications;
     import std.experimental.graphic.image.fileformats.png;
     import std.file : read;
 
@@ -129,7 +129,7 @@ void VFSTest() {
 
 void windowTest() {
     import std.experimental.platform;
-    import std.experimental.ui.window;
+    import std.experimental.ui;
     import std.experimental.graphic.image.manipulation.base : fillOn;
 
     IWindow window;
