@@ -549,11 +549,11 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             
             if ((chunkData.length % 3) > 0)
                 throw allocator.make!ImageNotLoadableException("PLTE chunk size must be devisible by 3");
-            else if ((chunkData.length / 3) >= 256)
+            else if ((chunkData.length / 3) > 256)
                 throw allocator.make!ImageNotLoadableException("PLTE chunk must contain at the most 256 entries");
             
             PLTE.colors = allocator.makeArray!(PLTE_Chunk.Color)(chunkData.length / 3);
-            
+
             size_t offset;
             for (size_t i; i < (chunkData.length / 3); i++) {
                 PLTE.colors[i] = PLTE_Chunk.Color(chunkData[offset], chunkData[offset + 1], chunkData[offset + 2]);
@@ -1297,7 +1297,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                 }
 
                 size_t lastYStart = size_t.max;
-                
+
                 // performs the actual parsing of the scanlines
                 if (IHDR.interlaceMethod == PngIHDRInterlaceMethod.Adam7) {
                     pass = 0;
@@ -1362,6 +1362,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         DummyRefCount!(ubyte[]) performExport() @trusted {
             import std.digest.crc : crc32Of;
             ubyte[] buffer = allocator.makeArray!ubyte((1024 * 1024 * 8) + 4); // 8mb
+            
+            import core.memory : GC;
+            GC.disable;
             
             ubyte[] ret = allocator.makeArray!ubyte(8);
             ret[0 .. 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -1438,16 +1441,16 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             ubyte[] towrite;
             
             towrite = buffer[0 .. PLTE.colors.length * 3];
-            
-            ubyte offset;
-            foreach(c; PLTE.colors) {
+
+            size_t offset;
+            foreach(i, c; PLTE.colors) {
                 towrite[offset] = c.r;
                 towrite[offset + 1] = c.g;
                 towrite[offset + 2] = c.b;
-                
+
                 offset += 3;
             }
-            
+
             write(cast(char[4])"PLTE", towrite);
         }
         
