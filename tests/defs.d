@@ -11,7 +11,7 @@ void exitTest(string for_, string mod = __MODULE__, int line = __LINE__) {
 }
 
 void testOutput(string mod = __MODULE__, int line = __LINE__, T...)(T args) {
-    import std.stdio : writeln, write;
+    import std.stdio : writeln, write, stdout;
     import std.traits : isSomeString;
 
     writeln("\\/ \\/ Output: ", mod, ":", line, " text \\/ \\/");
@@ -33,6 +33,7 @@ void testOutput(string mod = __MODULE__, int line = __LINE__, T...)(T args) {
 
     writeln();
     writeln("/\\ /\\ Output: ", mod, ":", line, " text /\\ /\\");
+    stdout.flush;
 }
 
 string tempLocation(string for_) {

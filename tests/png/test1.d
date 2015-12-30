@@ -1,4 +1,4 @@
-module tests.png.basic;
+module tests.png.test1;
 import tests.png.defs;
 import std.experimental.graphic.image;
 import std.file : read, write, remove;
@@ -28,10 +28,9 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
     testOutput("import 2");
     auto image2 = loadPNG!RGBA16(cast(ubyte[])read(baseName(file).tempLocation));
     check(image2);
-    
+
     // compare import1 with import2
     testOutput("compare");
-    
     foreach(x; 0 .. headerImage.IHDR.width) {
         foreach(y; 0 .. headerImage.IHDR.height) {
             RGBA16 p1 = image1[x, y];
@@ -56,12 +55,12 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
     }
     
     // cleanup
-    baseName(file).tempLocation.remove();
+    //baseName(file).tempLocation.remove();
     
     exitTest(file);
 }
 
-// basn0g
+// basn0g**
 unittest {
     png_test1!q{
         assert(image.checkIDHR(32, 32,
@@ -209,7 +208,7 @@ unittest {
     }("tests/png/assets/basn0g16.png", true);
 }
 
-// basi0g
+// basi0g**
 unittest {
     png_test1!q{
         assert(image.checkIDHR(32, 32,
@@ -411,7 +410,6 @@ unittest {
         assert(image.hIST.length == 0);
     }("tests/png/assets/f00n2c08.png", true);
 
-
     png_test1!q{
         assert(image.checkIDHR(32, 32,
                 PngIHDRBitDepth.BitDepth8,
@@ -463,7 +461,6 @@ unittest {
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
     }("tests/png/assets/f01n2c08.png", true);
-
 
     png_test1!q{
         assert(image.checkIDHR(32, 32,
@@ -517,7 +514,6 @@ unittest {
         assert(image.hIST.length == 0);
     }("tests/png/assets/f02n2c08.png", true);
 
-
     png_test1!q{
         assert(image.checkIDHR(32, 32,
                 PngIHDRBitDepth.BitDepth8,
@@ -570,7 +566,6 @@ unittest {
         assert(image.hIST.length == 0);
     }("tests/png/assets/f03n2c08.png", true);
 
-
     png_test1!q{
         assert(image.checkIDHR(32, 32,
                 PngIHDRBitDepth.BitDepth8,
@@ -622,4 +617,478 @@ unittest {
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
     }("tests/png/assets/f04n2c08.png", true);
+}
+
+// s**nP**
+unittest {
+    png_test1!q{
+        assert(image.checkIDHR(1, 1,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s01n3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(2, 2,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s02n3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(3, 3,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s03n3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(4, 4,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s04n3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(5, 5,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s05n3p02.png", true);
+
+    png_test1!q{
+        assert(image.checkIDHR(6, 6,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s06n3p02.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(7, 7,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s07n3p02.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(8, 8,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s08n3p02.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(9, 9,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s09n3p02.png", true);
+}
+
+// s**iP**
+unittest {
+    png_test1!q{
+        assert(image.checkIDHR(1, 1,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s01i3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(2, 2,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s02i3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(3, 3,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s03i3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(4, 4,
+                PngIHDRBitDepth.BitDepth1,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s04i3p01.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(5, 5,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s05i3p02.png", true);
+
+    png_test1!q{
+        assert(image.checkIDHR(6, 6,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s06i3p02.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(7, 7,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s07i3p02.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(8, 8,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s08i3p02.png", true);
+    
+    png_test1!q{
+        assert(image.checkIDHR(9, 9,
+                PngIHDRBitDepth.BitDepth2,
+                PngIHDRColorType.PalletteWithColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.Adam7));
+        
+        assert(image.PLTE !is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA !is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT !is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/s09i3p02.png", true);
 }
