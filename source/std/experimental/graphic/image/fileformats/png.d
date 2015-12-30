@@ -1099,12 +1099,13 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                                 } else if (isGrayScale) {
                                     ushort v = bigEndianToNative!ushort(cast(ubyte[2])samples[0 .. 2]);
                                     
-                                    if (withAlpha)
-                                        assignPixel(RGBA16(v, v, v, v));
-                                    else
+                                    if (withAlpha) {
+                                        assignPixel(RGBA16(v, v, v, bigEndianToNative!ushort(cast(ubyte[2])samples[2 .. 4])));
+                                        samples = samples[4 .. $];
+                                    } else {
                                         assignPixel(RGB16(v, v, v));
-                                    
-                                    samples = samples[2 .. $];
+                                        samples = samples[2 .. $];
+                                    }
                                 }
                             } else {
                                 if (isColor) {
@@ -2239,7 +2240,6 @@ enum PngTextKeywords : string {
 enum PngIHDRColorType : ubyte {
     ///
     Grayscale = 0,                                          // valid (0)
-    ///
     Palette = 1 << 0,                                       // not valid
     ///
     ColorUsed = 1 << 1,                                     // valid (2) rgb
@@ -2248,7 +2248,9 @@ enum PngIHDRColorType : ubyte {
     ///
     PalletteWithColorUsed = Palette | ColorUsed,            // valid (1, 2) index + alpha
     ///
-    ColorUsedWithAlpha = ColorUsed | AlphaChannelUsed       // valid (2, 4) rgba
+    ColorUsedWithAlpha = ColorUsed | AlphaChannelUsed,       // valid (2, 4) rgba
+    ///
+    GrayscaleWithAlpha = Grayscale | AlphaChannelUsed
 }
 
 ///
