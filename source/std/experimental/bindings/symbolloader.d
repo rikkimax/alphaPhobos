@@ -669,6 +669,8 @@ private {
             }
     
             string GetErrorStr() {
+                import std.conv : to;
+
                 auto err = dlerror();
                 if( err is null )
                     return "Unknown Error";

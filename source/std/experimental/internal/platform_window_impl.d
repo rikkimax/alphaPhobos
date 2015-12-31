@@ -1380,10 +1380,11 @@ package(std.experimental) {
         MenuItem addItem() {
             version(Windows) {
                 auto ret = alloc.make!MenuItemImpl(this, hMenu);
+
+                menuItems ~= ret;
+                return ret;
             } else
                 assert(0);
-            menuItems ~= ret;
-            return ret;
         }
         
         @property immutable(MenuItem[]) items() {
@@ -1624,7 +1625,8 @@ package(std.experimental) {
                 
                 ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_POPUP, myChildren, null);
                 return window.alloc.make!MenuItemImpl(window, myChildren, this);
-            }
+            } else
+                assert(0);
         }
         
         override void remove() {
@@ -1675,7 +1677,8 @@ package(std.experimental) {
                     GetObjectA(mmi.hbmpItem, BITMAP.sizeof, &bm);
                     
                     return DummyRefCount!(ImageStorage!RGB8)(bitmapToImage(mmi.hbmpItem, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), window.alloc), window.alloc);
-                }
+                } else
+                    assert(0);
             }
             
             override void image(ImageStorage!RGB8 input) {
@@ -1708,7 +1711,8 @@ package(std.experimental) {
                     buffer2[0 .. length] = cast(dchar[])buffer[0 .. length];
                     
                     return DummyRefCount!(dchar[])(buffer2, window.alloc);
-                }
+                } else
+                    assert(0);
             }
             
             private void setText(T)(T input) {
@@ -1755,7 +1759,8 @@ package(std.experimental) {
             override bool devider() {
                 version(Windows) {
                     return (GetMenuState(parent, menuItemId, MF_BYCOMMAND) & MF_SEPARATOR) == MF_SEPARATOR;
-                }
+                } else
+                    assert(0);
             }
             
             override void devider(bool v) {
@@ -1771,7 +1776,8 @@ package(std.experimental) {
             override bool disabled() {
                 version(Windows) {
                     return (GetMenuState(parent, menuItemId, MF_BYCOMMAND) & MF_DISABLED) == MF_DISABLED;
-                }
+                } else
+                    assert(0);
             }
             
             override void disabled(bool v) {
@@ -2026,27 +2032,30 @@ package(std.experimental) {
         this(bool assignAlpha, size_t width, size_t height, IAllocator alloc) {
             assignedAlpha = assignAlpha;
 
-            if (assignAlpha) {
-                // create the actual storage
-                alphaStorage1 = FlatImageStorage!BGRA8(width, height, alloc);
+            version(Windows) {
+                if (assignAlpha) {
+                    // create the actual storage
+                    alphaStorage1 = FlatImageStorage!BGRA8(width, height, alloc);
 
-                // we need to do a bit of magic to translate the colors
-                storage3 = SwappableImage!RGB8(&alphaStorage1, alloc);
-                storage2 = imageObject(&storage3, alloc);
+                    // we need to do a bit of magic to translate the colors
+                    storage3 = SwappableImage!RGB8(&alphaStorage1, alloc);
+                    storage2 = imageObject(&storage3, alloc);
 
-                alphaStorage3 = SwappableImage!RGBA8(&alphaStorage1, alloc);
-                alphaStorage2 = imageObject(&alphaStorage3, alloc);
-            } else {
-                // create the actual storage
-                storage1 = FlatImageStorage!BGR8(width, height, alloc);
+                    alphaStorage3 = SwappableImage!RGBA8(&alphaStorage1, alloc);
+                    alphaStorage2 = imageObject(&alphaStorage3, alloc);
+                } else {
+                    // create the actual storage
+                    storage1 = FlatImageStorage!BGR8(width, height, alloc);
 
-                // we need to do a bit of magic to translate the colors
-                storage3 = SwappableImage!RGB8(&storage1, alloc);
-                storage2 = imageObject(&storage3, alloc);
-                
-                alphaStorage3 = SwappableImage!RGBA8(&storage1, alloc);
-                alphaStorage2 = imageObject(&alphaStorage3, alloc);
-            }
+                    // we need to do a bit of magic to translate the colors
+                    storage3 = SwappableImage!RGB8(&storage1, alloc);
+                    storage2 = imageObject(&storage3, alloc);
+                    
+                    alphaStorage3 = SwappableImage!RGBA8(&storage1, alloc);
+                    alphaStorage2 = imageObject(&alphaStorage3, alloc);
+                }
+            } else
+                assert(0);
         }
 
         version(Windows) {
