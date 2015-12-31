@@ -2127,4 +2127,81 @@ unittest {
         assert(image.hIST.length == 0);
     }("tests/png/assets/z00n2c08.png", true);
 
+    png_test1!q{
+        assert(image.checkIDHR(32, 32,
+                PngIHDRBitDepth.BitDepth8,
+                PngIHDRColorType.ColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/z03n2c08.png", true);
+
+    png_test1!q{
+        assert(image.checkIDHR(32, 32,
+                PngIHDRBitDepth.BitDepth8,
+                PngIHDRColorType.ColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/z06n2c08.png", true);
+
+    png_test1!q{
+        assert(image.checkIDHR(32, 32,
+                PngIHDRBitDepth.BitDepth8,
+                PngIHDRColorType.ColorUsed,
+                PngIHDRCompresion.DeflateInflate,
+                PngIHDRFilter.Adaptive,
+                PngIHDRInterlaceMethod.NoInterlace));
+        
+        assert(image.PLTE is null);
+        assert(image.tRNS is null);
+        assert(image.gAMA is null);
+        assert(image.cHRM is null);
+        assert(image.sRGB is null);
+        assert(image.iCCP is null);
+        assert(image.bKGD is null);
+        assert(image.pPHs is null);
+        assert(image.sBIT is null);
+        assert(image.tIME is null);
+        
+        assert(image.tEXt.__internalKeys.length == 0);
+        assert(image.zEXt.__internalKeys.length == 0);
+        
+        assert(image.sPLT.length == 0);
+        assert(image.hIST.length == 0);
+    }("tests/png/assets/z09n2c08.png", true);
 }

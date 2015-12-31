@@ -12,7 +12,6 @@ May require serious work before usable.
 
 - Image abituary rotation
 - Image tests
-	- PNG
 	- Rotation
 - Image primitives unittests
 
