@@ -49,6 +49,14 @@ interface IRenderPoint {
          *      The allocator that allocated this.
          */
         IAllocator allocator();
+        
+        /**
+         * Wraps the events that are hookable.
+         *
+         * Returns:
+         *      A class that has event callbacks or null if not available for hooking.
+         */
+        IRenderEvents events();
     }
     
     /**
@@ -95,6 +103,26 @@ interface IRenderPointCreator {
      *      The render point or null if failed.
      */
     IRenderPoint create();
+}
+
+///
+alias EventOnDrawDel = void delegate();
+///
+alias EventOnDrawFunc = void function();
+
+/**
+ * Group of hookable events for rendering upon
+ */
+interface IRenderEvents {
+    import std.functional : toDelegate;
+
+    @property {
+        ///
+        void onDraw(EventOnDrawDel);
+        
+        ///
+        final void onDraw(EventOnDrawFunc func) { onDraw(func.toDelegate); }
+    }
 }
 
 /**

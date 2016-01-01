@@ -5,8 +5,6 @@ import std.experimental.internal.dummyRefCount;
 import std.experimental.allocator : IAllocator, processAllocator, theAllocator;
 import std.datetime : Duration, seconds;
 
-void delegate() onDrawDel;
-
 ///
 interface IPlatform {
     ///

@@ -740,9 +740,7 @@ package(std.experimental) {
                         return 0;
                     case WM_ERASEBKGND:
                     case WM_PAINT:
-                        import std.experimental.platform : onDrawDel;
-
-                        if (onDrawDel is null || window.context_ is null) {
+                        if (window.onDrawDel is null || window.context_ is null) {
                             // This fixes a bug where when a window is fullscreen Windows
                             //  will not auto draw the background of a window.
                             // If the context is not yet assigned or VRAM, it
@@ -754,7 +752,7 @@ package(std.experimental) {
                             EndPaint(hwnd, &ps);
                         } else {
                             try {
-                            onDrawDel();
+                                window.onDrawDel();
                             } catch (Exception e) {}
 
                             ValidateRgn(hwnd, null);
@@ -1084,7 +1082,7 @@ package(std.experimental) {
         }
     }
     
-    final class WindowImpl : IWindow, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {
+    final class WindowImpl : IWindow, IRenderEvents, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {
         private {
             import std.experimental.internal.containers.map;
             import std.traits : isSomeString;
@@ -1109,6 +1107,10 @@ package(std.experimental) {
                 HMENU hMenu;
                 HCURSOR hCursor;
             }
+            
+            // IRenderEvents
+            
+            EventOnDrawDel onDrawDel;
         }
         
         version(Windows) {
@@ -1268,6 +1270,8 @@ package(std.experimental) {
             }
             
             IAllocator allocator() { return alloc; }
+            
+            IRenderEvents events() { return this; }
         }
         
         void hide() {
@@ -1585,6 +1589,12 @@ package(std.experimental) {
         
         WindowStyle getStyle() {
             return windowStyle;
+        }
+        
+        // IRenderEvents
+        
+        @property {
+            void onDraw(EventOnDrawDel del) { onDrawDel = del; }
         }
     }
     

@@ -137,8 +137,6 @@ void windowTest() {
         window.context.vramAlphaBuffer.fillOn(RGBA8(255, 0, 0, 255));
         window.context.swapBuffers();
     }
-    
-    onDrawDel = &onIteration;
 
     auto creator = thePlatform.createWindow();
     //creator.style = WindowStyle.Fullscreen;
@@ -146,7 +144,8 @@ void windowTest() {
     
     window = creator.createWindow();
     window.title = "Title!";
-
+    window.events.onDraw = &onIteration;
+    
     import std.datetime : msecs;
 
     window.show();
