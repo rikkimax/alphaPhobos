@@ -43,6 +43,7 @@ package(std.experimental) {
         }
         version(Windows) {
             pragma(lib, "gdi32");
+            pragma(lib, "dxva2");
             pragma(lib, "user32");
         }
         
@@ -424,6 +425,8 @@ package(std.experimental) {
         enum NIF_REALTIME = 0x00000040;
         enum NIIF_USER  = 0x00000004;
         enum WM_EXITSIZEMOVE = 0x232;
+        enum MC_CAPS_BRIGHTNESS = 0x00000002;
+        enum PHYSICAL_MONITOR_DESCRIPTION_SIZE = 128;
 
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
@@ -597,6 +600,11 @@ package(std.experimental) {
             BYTE[8]  Data4;
         }
         
+        struct PHYSICAL_MONITOR {
+            HANDLE hPhysicalMonitor;
+            WCHAR[PHYSICAL_MONITOR_DESCRIPTION_SIZE]  szPhysicalMonitorDescription;
+        }
+        
         extern(Windows) {
             alias MONITORENUMPROC = bool function(HMONITOR, HDC, LPRECT, LPARAM);
             alias WNDENUMPROC = bool function(HWND, LPARAM);
@@ -650,6 +658,11 @@ package(std.experimental) {
                 HCURSOR CreateCursor(HINSTANCE, int, int, int, int, void*, void*);
                 bool Shell_NotifyIconW(DWORD, NOTIFYICONDATAW*);
                 HWND GetDesktopWindow();
+                
+                // dxva2
+                BOOL GetMonitorCapabilities(HANDLE hMonitor, LPDWORD pdwMonitorCapabilities, LPDWORD pdwSupportedColorTemperatures);
+                BOOL GetMonitorBrightness(HANDLE hMonitor, LPDWORD pdwMinimumBrightness, LPDWORD pdwCurrentBrightness, LPDWORD pdwMaximumBrightness);
+                BOOL GetPhysicalMonitorsFromHMONITOR(HMONITOR hMonitor, DWORD dwPhysicalMonitorArraySize, PHYSICAL_MONITOR* pPhysicalMonitorArray);
             }
             
             struct GetDisplays {
@@ -1033,6 +1046,29 @@ package(std.experimental) {
             string name() { return cast(immutable)name_[0 .. $-1]; }
             vec2!ushort size() { return size_; }
             uint refreshRate() { return refreshRate_; }
+            
+            uint luminosity() {
+                version(Windows) {
+                    DWORD pdwMonitorCapabilities, pdwSupportedColorTemperatures;
+                    DWORD pdwMinimumBrightness, pdwCurrentBrightness, pdwMaxiumumBrightness;
+                    PHYSICAL_MONITOR[1] pPhysicalMonitorArray;
+
+                    bool success = cast(bool)GetPhysicalMonitorsFromHMONITOR(hMonitor, pPhysicalMonitorArray.length, pPhysicalMonitorArray.ptr);
+                    if (!success)
+                        return 10;
+
+                    success = cast(bool)GetMonitorCapabilities(pPhysicalMonitorArray[0].hPhysicalMonitor, &pdwMonitorCapabilities, &pdwSupportedColorTemperatures);
+                    if (!success || (pdwMonitorCapabilities & MC_CAPS_BRIGHTNESS) == 0)
+                        return 10;
+
+                    success = cast(bool)GetMonitorBrightness(pPhysicalMonitorArray[0].hPhysicalMonitor, &pdwMinimumBrightness, &pdwCurrentBrightness, &pdwMaxiumumBrightness);
+                    if (!success)
+                        return 10;
+
+                    return pdwCurrentBrightness;
+                } else
+                    assert(0);
+            }
             
             DummyRefCount!(IWindow[]) windows() {
                 version(Windows) {

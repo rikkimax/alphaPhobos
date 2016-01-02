@@ -172,6 +172,36 @@ interface IDisplay {
         uint refreshRate();
         
         /**
+         * How bright the display is.
+         *
+         * Potentially a very expensive operation.
+         * Perform only when you absolutely need to.
+         *
+         * The default value is 10 and should be considered normal.
+         *
+         * Returns:
+         *      The brightness of the screen in lumens.
+         */
+        uint luminosity();
+        
+        /**
+         * How bright the display is.
+         * For usage with gamma display algorithms.
+         * 
+         * Potentially a very expensive operation.
+         * Perform only when you absolutely need to.
+         *
+         * The default value is 1 and should be considered normal.
+         * It will usually be between 0 and 2.
+         *
+         * Returns:
+         *      The brightness of the display.
+         */
+        final float gamma() {
+            return luminosity() / 10f;
+        }
+        
+        /**
          * All the windows on this display.
          *
          * Not all IDisplay's will support this.

@@ -3,7 +3,7 @@ import std.experimental.allocator;
 
 void main() {
     //VFSTest();
-    windowTest();
+    //windowTest();
     //displaysTest();
     //notifyTest();
 }
@@ -29,7 +29,7 @@ void displaysTest() {
     import std.conv : text;
 
     auto primaryDisplay = defaultPlatform().primaryDisplay;
-    writeln(primaryDisplay.name, " ", primaryDisplay.size, " ", primaryDisplay.refreshRate, "hz");
+    writeln(primaryDisplay.name, " ", primaryDisplay.size, " ", primaryDisplay.refreshRate, "hz ", primaryDisplay.luminosity, " lumens");
 
     foreach(display; defaultPlatform().displays) {
         writeln(display.name, " ", display.size, " ", display.refreshRate, "hz");
