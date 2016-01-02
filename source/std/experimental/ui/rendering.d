@@ -57,6 +57,16 @@ interface IRenderPoint {
          *      A class that has event callbacks or null if not available for hooking.
          */
         IRenderEvents events();
+        
+        /**
+         * Is the current state able to be rendered to.
+         *
+         * This is dependent upon if it has been closed or e.g. the window was visible.
+         *
+         * Returns:
+         *      If the render point can be rendered to right now.
+         */
+        bool renderable();
     }
     
     /**
@@ -106,22 +116,110 @@ interface IRenderPointCreator {
 }
 
 ///
-alias EventOnDrawDel = void delegate();
+alias EventOnForcedDrawDel = void delegate();
 ///
-alias EventOnDrawFunc = void function();
+alias EventOnForcedDrawFunc = void function();
+
+///
+alias EventOnCursorMoveDel = void delegate(short x, short y);
+///
+alias EventOnCursorMoveFunc = void function(short x, short y);
+
+///
+alias EventOnCursorActionDel = void delegate(ushort action);
+///
+alias EventOnCursorActionFunc = void function(ushort action);
+
+///
+alias EventOnScrollDel = void delegate(short amount);
+///
+alias EventOnScrollFunc = void function(short amount);
 
 /**
  * Group of hookable events for rendering upon
  */
 interface IRenderEvents {
+    import std.experimental.math.linearalgebra.vector : vec2;
     import std.functional : toDelegate;
 
     @property {
-        ///
-        void onDraw(EventOnDrawDel);
+        /**
+         * When the OS informs the program that the window must be redrawn
+         *  this callback will be called.
+         *
+         * This could be because of movement, resizing of a window or 
+         *  the computer has come out of hibernation.
+         *
+         * Params:
+         *      del     =   The callback to call
+         */
+        void onForcedDraw(EventOnForcedDrawDel del);
         
         ///
-        final void onDraw(EventOnDrawFunc func) { onDraw(func.toDelegate); }
+        final void onForcedDraw(EventOnForcedDrawFunc func) { onForcedDraw(func.toDelegate); }
+        
+        /**
+         * When the cursor moves within the window the callback is called.
+         *
+         * Commonly this is will be a mouse.
+         * The values passed will be relative to the render point.
+         *
+         * Params:
+         *      del     =   The callback to call
+         */
+        void onCursorMove(EventOnCursorMoveDel del);
+        
+        ///
+        final void onCursorMove(EventOnCursorMoveFunc func) { onCursorMove(func.toDelegate); }
+        
+        /**
+         * When an action associated with a cursor occurs, the callback is called.
+         *
+         * When the cursor is backed by a mouse:
+         *  - The left mouse button will be mapped to 0
+         *  - The right mouse button will be mapped to 1 
+         *  - The middle mouse button will be mapped to 2
+         *
+         * Params:
+         *      del     =   The callback to call
+         */
+        void onCursorAction(EventOnCursorActionDel del);
+        
+        ///
+        final void onCursorAction(EventOnCursorActionFunc func) { onCursorAction(func.toDelegate); }
+        
+        /**
+         * When an action associated with a cursor no longer occurs, the callback is called.
+         *
+         * When the cursor is backed by a mouse:
+         *  - The left mouse button will be mapped to 0
+         *  - The right mouse button will be mapped to 1 
+         *  - The middle mouse button will be mapped to 2
+         *
+         * Params:
+         *      del     =   The callback to call
+         */
+        void onCursorActionEnd(EventOnCursorActionDel del);
+        
+        ///
+        final void onCursorActionEnd(EventOnCursorActionFunc func) { onCursorActionEnd(func.toDelegate); }
+        
+        /**
+         * When a scroll event occurs the callback is called.
+         *
+         * Most of the time this is only implemented for mouses.
+         *
+         * Params:
+         *      del     =   The callback to call
+         */
+        void onScroll(EventOnScrollDel del);
+        
+        ///
+        final void onScroll(EventOnScrollFunc func) { onScroll(func.toDelegate); }
+        
+        // TODO: onClose
+        // TODO: onKeyDown
+        // TODO: onKeyUp
     }
 }
 

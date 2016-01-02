@@ -427,6 +427,7 @@ package(std.experimental) {
         enum WM_EXITSIZEMOVE = 0x232;
         enum MC_CAPS_BRIGHTNESS = 0x00000002;
         enum PHYSICAL_MONITOR_DESCRIPTION_SIZE = 128;
+        enum WM_MOUSEWHEEL = 0x020A;
 
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
@@ -772,6 +773,62 @@ package(std.experimental) {
                         }
 
                         return 0;
+                    case WM_MOUSEMOVE:
+                        if (window.onCursorMoveDel !is null) {
+                            try {
+                                window.onCursorMoveDel(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                    case WM_LBUTTONDOWN:
+                        if (window.onCursorActionDel !is null) {
+                            try {
+                                window.onCursorActionDel(0);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                    case WM_LBUTTONUP:
+                        if (window.onCursorActionEndDel !is null) {
+                            try {
+                                window.onCursorActionEndDel(0);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                    case WM_RBUTTONDOWN:
+                        if (window.onCursorActionDel !is null) {
+                            try {
+                                window.onCursorActionDel(1);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                    case WM_RBUTTONUP:
+                        if (window.onCursorActionEndDel !is null) {
+                            try {
+                                window.onCursorActionEndDel(1);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                    case WM_MBUTTONDOWN:
+                        if (window.onCursorActionDel !is null) {
+                            try {
+                                window.onCursorActionDel(2);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                    case WM_MBUTTONUP:
+                        if (window.onCursorActionEndDel !is null) {
+                            try {
+                                window.onCursorActionEndDel(2);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                    case WM_MOUSEWHEEL:
+                        if (window.onScrollDel !is null) {
+                            try {
+                                window.onScrollDel(GET_WHEEL_DELTA_WPARAM(wParam));
+                            } catch (Exception e) {}
+                        }
+                        return 0;
                     default:
                         return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                 }
@@ -995,6 +1052,10 @@ package(std.experimental) {
             
             return hBitmap1;
         }
+        
+        auto GET_X_LPARAM(DWORD p) { return cast(short)LOWORD(p); }
+        auto GET_Y_LPARAM(DWORD p) { return cast(short)HIWORD(p); }
+        auto GET_WHEEL_DELTA_WPARAM(DWORD p) { return cast(short)HIWORD(p); }
     }
     
     final class DisplayImpl : IDisplay, Feature_ScreenShot, Have_ScreenShot {
@@ -1146,7 +1207,10 @@ package(std.experimental) {
             
             // IRenderEvents
             
-            EventOnDrawDel onDrawDel;
+            EventOnForcedDrawDel onDrawDel;
+            EventOnCursorMoveDel onCursorMoveDel;
+            EventOnCursorActionDel onCursorActionDel, onCursorActionEndDel;
+            EventOnScrollDel onScrollDel;
         }
         
         version(Windows) {
@@ -1308,6 +1372,8 @@ package(std.experimental) {
             IAllocator allocator() { return alloc; }
             
             IRenderEvents events() { return this; }
+            
+            bool renderable() { return visible(); }
         }
         
         void hide() {
@@ -1630,7 +1696,11 @@ package(std.experimental) {
         // IRenderEvents
         
         @property {
-            void onDraw(EventOnDrawDel del) { onDrawDel = del; }
+            void onForcedDraw(EventOnForcedDrawDel del) { onDrawDel = del; }
+            void onCursorMove(EventOnCursorMoveDel del) { onCursorMoveDel = del; }
+            void onCursorAction(EventOnCursorActionDel del) { onCursorActionDel = del; }
+            void onCursorActionEnd(EventOnCursorActionDel del) { onCursorActionEndDel = del; }
+            void onScroll(EventOnScrollDel del) { onScrollDel = del; }
         }
     }
     

@@ -144,7 +144,7 @@ void windowTest() {
     
     window = creator.createWindow();
     window.title = "Title!";
-    window.events.onDraw = &onIteration;
+    window.events.onForcedDraw = &onIteration;
     
     import std.datetime : msecs;
 
