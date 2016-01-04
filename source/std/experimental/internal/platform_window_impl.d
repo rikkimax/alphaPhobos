@@ -54,7 +54,7 @@ package(std.experimental) {
         IWindow createAWindow(IAllocator alloc = theAllocator()) {
             auto creator = createWindow(alloc);
             creator.size = UIPoint(cast(short)800, cast(short)600);
-            // set as VRAM context
+            creator.assignVRamContext;
             return creator.createWindow();
         }
 
