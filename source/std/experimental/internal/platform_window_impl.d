@@ -428,6 +428,17 @@ package(std.experimental) {
         enum MC_CAPS_BRIGHTNESS = 0x00000002;
         enum PHYSICAL_MONITOR_DESCRIPTION_SIZE = 128;
         enum WM_MOUSEWHEEL = 0x020A;
+        enum VK_OEM_1 = 0xBA;
+        enum VK_OEM_2 = 0xBF;
+        enum VK_OEM_3 = 0xC0;
+        enum VK_OEM_4 = 0xDB;
+        enum VK_OEM_5 = 0xDC;
+        enum VK_OEM_6 = 0xDD;
+        enum VK_OEM_7 = 0xDE;
+        enum VK_OEM_PLUS = 0xBB;
+        enum VK_OEM_COMMA = 0xBC;
+        enum VK_OEM_MINUS = 0xBD;
+        enum VK_OEM_PERIOD = 0xBE;
 
         /**
          * Boost licensed, will be removed when it is part of core.sys.windows.winuser
@@ -740,6 +751,11 @@ package(std.experimental) {
 
                 switch(uMsg) {
                     case WM_DESTROY:
+                        if (window.onCloseDel !is null) {
+                            try {
+                                window.onCloseDel();
+                            } catch(Exception e) {}
+                        }
                         return 0;
                     case WM_SETCURSOR:
                         if (LOWORD(lParam) == HTCLIENT && window.cursorStyle != WindowCursorStyle.Underterminate) {
@@ -783,42 +799,42 @@ package(std.experimental) {
                     case WM_LBUTTONDOWN:
                         if (window.onCursorActionDel !is null) {
                             try {
-                                window.onCursorActionDel(0);
+                                window.onCursorActionDel(CursorEventAction.Select);
                             } catch (Exception e) {}
                         }
                         return 0;
                     case WM_LBUTTONUP:
                         if (window.onCursorActionEndDel !is null) {
                             try {
-                                window.onCursorActionEndDel(0);
+                                window.onCursorActionEndDel(CursorEventAction.Select);
                             } catch (Exception e) {}
                         }
                         return 0;
                     case WM_RBUTTONDOWN:
                         if (window.onCursorActionDel !is null) {
                             try {
-                                window.onCursorActionDel(1);
+                                window.onCursorActionDel(CursorEventAction.Alter);
                             } catch (Exception e) {}
                         }
                         return 0;
                     case WM_RBUTTONUP:
                         if (window.onCursorActionEndDel !is null) {
                             try {
-                                window.onCursorActionEndDel(1);
+                                window.onCursorActionEndDel(CursorEventAction.Alter);
                             } catch (Exception e) {}
                         }
                         return 0;
                     case WM_MBUTTONDOWN:
                         if (window.onCursorActionDel !is null) {
                             try {
-                                window.onCursorActionDel(2);
+                                window.onCursorActionDel(CursorEventAction.ViewChange);
                             } catch (Exception e) {}
                         }
                         return 0;
                     case WM_MBUTTONUP:
                         if (window.onCursorActionEndDel !is null) {
                             try {
-                                window.onCursorActionEndDel(2);
+                                window.onCursorActionEndDel(CursorEventAction.ViewChange);
                             } catch (Exception e) {}
                         }
                         return 0;
@@ -829,12 +845,150 @@ package(std.experimental) {
                             } catch (Exception e) {}
                         }
                         return 0;
+                    case WM_KEYDOWN:
+                        if (window.onKeyDownDel !is null) {
+                            try {
+                                translateKeyCall(wParam, window.onKeyDownDel);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
+                   case WM_KEYUP:
+                        if (window.onKeyUpDel !is null) {
+                            try {
+                                translateKeyCall(wParam, window.onKeyUpDel);
+                            } catch (Exception e) {}
+                        }
+                        return 0;
                     default:
                         return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                 }
                 
                 assert(0);
             }
+        }
+        
+        enum CapAZToaz = 'A' - 'a';
+        
+        void translateKeyCall(WPARAM code, /* */ EventOnKeyDel del) {
+            dchar key = 0;
+            SpecialKey specialKey = SpecialKey.None;
+            ushort modifiers;
+            
+            bool isShift, isCapital;
+        
+            if (HIWORD(GetKeyState(VK_LMENU)) != 0)
+                modifiers |= KeyModifiers.LAlt;
+            else if (HIWORD(GetKeyState(VK_RMENU)) != 0)
+                modifiers |= KeyModifiers.RAlt;
+        
+            if (HIWORD(GetKeyState(VK_LCONTROL)) != 0)
+                modifiers |= KeyModifiers.LControl;
+            else if (HIWORD(GetKeyState(VK_RCONTROL)) != 0)
+                modifiers |= KeyModifiers.RControl;
+        
+            if (HIWORD(GetKeyState(VK_LSHIFT)) != 0)
+                modifiers |= KeyModifiers.LShift;
+            else if (HIWORD(GetKeyState(VK_RSHIFT)) != 0)
+                modifiers |= KeyModifiers.RShift;
+        
+            if (HIWORD(GetKeyState(VK_CAPITAL)) != 0)
+                modifiers |= KeyModifiers.Capslock;
+                
+            if (HIWORD(GetKeyState(VK_NUMLOCK)) != 0)
+                modifiers |= KeyModifiers.Numlock;
+                
+            if (HIWORD(GetKeyState(VK_SCROLL)) != 0)
+                modifiers |= KeyModifiers.ScrollLock;
+        
+            if (HIWORD(GetKeyState(VK_LWIN)) != 0)
+                modifiers |= KeyModifiers.LSuper;
+            else if (HIWORD(GetKeyState(VK_RWIN)) != 0)
+                modifiers |= KeyModifiers.RSuper;
+            
+            isShift = (modifiers & KeyModifiers.Shift) == KeyModifiers.Shift;
+            isCapital = isShift || 
+                        (modifiers & KeyModifiers.Capslock) == KeyModifiers.Capslock;
+            
+            switch (code)
+            {
+                case '0': .. case '9':
+                    key = code; break;
+                case 'A': .. case 'Z':
+                    key = isCapital ? code : code - CapAZToaz; break;
+                case VK_NUMPAD0: .. case VK_NUMPAD9:
+                    key = '0' + (code - VK_NUMPAD0); break;
+                case VK_LEFT:
+                    specialKey = SpecialKey.LeftArrow; break;
+                case VK_RIGHT:
+                    specialKey = SpecialKey.RightArrow; break;
+                case VK_UP:
+                    specialKey = SpecialKey.UpArrow; break;
+                case VK_DOWN:
+                    specialKey = SpecialKey.DownArrow; break;
+                case VK_F1: .. case VK_F12:
+                    specialKey =  cast(SpecialKey)(SpecialKey.F1 + (code - VK_F1)); break;
+                    
+                case VK_OEM_1:
+                    key = ';'; break;
+                case VK_OEM_2:
+                    key = '/'; break;
+                case VK_OEM_PLUS:
+                    key = '+'; break;
+                case VK_OEM_MINUS:
+                    key = '-'; break;
+                case VK_OEM_4:
+                    key = isShift ? '{' : '['; break;
+                case VK_OEM_6:
+                    key = isShift ? '}' : ']'; break;
+                case VK_OEM_COMMA:
+                    key = ','; break;
+                case VK_OEM_PERIOD:
+                    key = '.'; break;
+                case VK_OEM_7:
+                    key = isShift ? '"' : '\''; break;
+                case VK_OEM_5:
+                    key = isShift ? '|' : '\\'; break;
+                case VK_OEM_3:
+                    key = isShift ? '~' : '`'; break;
+                case VK_ESCAPE:
+                    specialKey = SpecialKey.Escape; break;
+                case VK_SPACE:
+                    key = ' '; break;
+                case VK_RETURN:
+                    specialKey = SpecialKey.Enter; break;
+                case VK_BACK:
+                    specialKey = SpecialKey.Backspace; break;
+                case VK_TAB:
+                    specialKey = SpecialKey.Tab; break;
+                case VK_PRIOR:
+                    specialKey = SpecialKey.PageUp; break;
+                case VK_NEXT:
+                    specialKey = SpecialKey.PageDown; break;
+                case VK_END:
+                    specialKey = SpecialKey.End; break;
+                case VK_HOME:
+                    specialKey = SpecialKey.Home; break;
+                case VK_INSERT:
+                    specialKey = SpecialKey.Insert; break;
+                case VK_DELETE:
+                    specialKey = SpecialKey.Delete; break;
+                case VK_ADD:
+                    key = '+'; break;
+                case VK_SUBTRACT:
+                    key = '-'; break;
+                case VK_MULTIPLY:
+                    key = '*'; break;
+                case VK_DIVIDE:
+                    key = '/'; break;
+                case VK_PAUSE:
+                    specialKey = SpecialKey.Pause; break;
+
+                default:
+                    // FIXME: use e.g. ToUnicodeEx to get the real key char
+                    break;
+            }
+        
+            del(key, specialKey, modifiers);
         }
         
         ImageStorage!RGB8 screenshotImpl(IAllocator alloc, HDC hFrom, vec2!ushort size_) {
@@ -1211,6 +1365,8 @@ package(std.experimental) {
             EventOnCursorMoveDel onCursorMoveDel;
             EventOnCursorActionDel onCursorActionDel, onCursorActionEndDel;
             EventOnScrollDel onScrollDel;
+            EventOnCloseDel onCloseDel;
+            EventOnKeyDel onKeyDownDel, onKeyUpDel;
         }
         
         version(Windows) {
@@ -1701,6 +1857,9 @@ package(std.experimental) {
             void onCursorAction(EventOnCursorActionDel del) { onCursorActionDel = del; }
             void onCursorActionEnd(EventOnCursorActionDel del) { onCursorActionEndDel = del; }
             void onScroll(EventOnScrollDel del) { onScrollDel = del; }
+            void onClose(EventOnCloseDel del) { onCloseDel = del; }
+            void onKeyDown(EventOnKeyDel del) { onKeyDownDel = del; }
+            void onKeyUp(EventOnKeyDel del) { onKeyUpDel = del; }
         }
     }
     
