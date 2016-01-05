@@ -366,26 +366,17 @@ interface IRenderEvents {
         final void onClose(EventOnCloseFunc func) { onClose(func.toDelegate); }
         
         /**
-         * When the key is pressed down, the callback is called.
+         * When the key is entered into the program, the callback is called.
+         *
+         * If this is backed by a keyboard it will fire on a key push.
          *
          * Params:
          *      del     =   The callback to call
          */
-        void onKeyDown(EventOnKeyDel del);
+        void onKeyEntry(EventOnKeyDel del);
         
         ///
-        final void onKeyDown(EventOnKeyFunc func) { onKeyDown(func.toDelegate); }
-        
-        /**
-         * When the key is no longer pressed down, the callback is called.
-         *
-         * Params:
-         *      del     =   The callback to call
-         */
-        void onKeyUp(EventOnKeyDel del);
-        
-        ///
-        final void onKeyUp(EventOnKeyFunc func) { onKeyUp(func.toDelegate); }
+        final void onKeyEntry(EventOnKeyFunc func) { onKeyEntry(func.toDelegate); }
     }
 }
 

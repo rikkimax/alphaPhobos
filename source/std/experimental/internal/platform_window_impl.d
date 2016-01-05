@@ -881,18 +881,13 @@ package(std.experimental) {
                         }
                         return 0;
                     case WM_KEYDOWN:
-                        if (window.onKeyDownDel !is null) {
+                        if (window.onKeyEntryDel !is null) {
                             try {
-                                translateKeyCall(wParam, lParam, window.onKeyDownDel);
+                                translateKeyCall(wParam, lParam, window.onKeyEntryDel);
                             } catch (Exception e) {}
                         }
                         return 0;
                    case WM_KEYUP:
-                        if (window.onKeyUpDel !is null) {
-                            try {
-                                translateKeyCall(wParam, lParam, window.onKeyUpDel);
-                            } catch (Exception e) {}
-                        }
                         return 0;
                    case WM_CHAR:
                         switch(wParam) {
@@ -909,14 +904,9 @@ package(std.experimental) {
                                 processModifiers(modifiers);
                                 EventOnKeyDel del;
                                 
-                                if ((lParam & (0 << 31)) == 0 << 31)
-                                    del = window.onKeyDownDel;
-                                else
-                                    del = window.onKeyUpDel;
-                                
                                 try {
-                                    if (del !is null)
-                                        del(cast(dchar)wParam, SpecialKey.None, modifiers);
+                                    if (window.onKeyEntryDel !is null)
+                                        window.onKeyEntryDel(cast(dchar)wParam, SpecialKey.None, modifiers);
                                 } catch (Exception e) {}
                                 break;
                         }
@@ -1439,7 +1429,7 @@ package(std.experimental) {
             EventOnCursorActionDel onCursorActionDel, onCursorActionEndDel;
             EventOnScrollDel onScrollDel;
             EventOnCloseDel onCloseDel;
-            EventOnKeyDel onKeyDownDel, onKeyUpDel;
+            EventOnKeyDel onKeyEntryDel;
         }
         
         version(Windows) {
@@ -1931,8 +1921,7 @@ package(std.experimental) {
             void onCursorActionEnd(EventOnCursorActionDel del) { onCursorActionEndDel = del; }
             void onScroll(EventOnScrollDel del) { onScrollDel = del; }
             void onClose(EventOnCloseDel del) { onCloseDel = del; }
-            void onKeyDown(EventOnKeyDel del) { onKeyDownDel = del; }
-            void onKeyUp(EventOnKeyDel del) { onKeyUpDel = del; }
+            void onKeyEntry(EventOnKeyDel del) { onKeyEntryDel = del; }
         }
     }
     

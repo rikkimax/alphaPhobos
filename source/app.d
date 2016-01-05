@@ -142,17 +142,23 @@ void windowTest() {
     window.title = "Title!";
     
     window.events.onForcedDraw = () {
+        writeln("onForcedDraw");
         window.context.vramAlphaBuffer.fillOn(RGBA8(255, 0, 0, 255));
         window.context.swapBuffers();
     };
     
     window.events.onCursorMove = (short x, short y) {
-        writeln("x: ", x, " y: ", y);
+        writeln("onCursorMove: x: ", x, " y: ", y);
         stdout.flush;
     };
     
-    window.events.onKeyDown = (dchar key, SpecialKey specialKey, ushort modifiers) {
-        writeln("key: ", key, " specialKey: ", specialKey, " modifiers: ", modifiers);
+    window.events.onCursorAction = (CursorEventAction action) {
+        writeln("onCursorAction: ", action);
+        stdout.flush;
+    };
+    
+    window.events.onKeyEntry = (dchar key, SpecialKey specialKey, ushort modifiers) {
+        writeln("onKeyEntry: key: ", key, " specialKey: ", specialKey, " modifiers: ", modifiers);
         stdout.flush;
     };
     
