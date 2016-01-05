@@ -143,6 +143,8 @@ void windowTest() {
     
     window.events.onForcedDraw = () {
         writeln("onForcedDraw");
+        stdout.flush;
+        
         window.context.vramAlphaBuffer.fillOn(RGBA8(255, 0, 0, 255));
         window.context.swapBuffers();
     };
@@ -162,10 +164,20 @@ void windowTest() {
         stdout.flush;
     };
     
+    window.events.onScroll = (short amount) {
+        writeln("onScroll: ", amount);
+        stdout.flush;
+    };
+    
+    window.events.onClose = () {
+        writeln("onClose");
+        stdout.flush;
+    };
+    
     import std.datetime : msecs;
 
     window.show();
-    thePlatform().optimizedEventLoop(/+() { onIteration(); return true;}+/);
+    thePlatform().optimizedEventLoop(() { return window.renderable;});
     /+while(window.visible) {
         thePlatform().eventLoopIteration(true);
         //onIteration();
