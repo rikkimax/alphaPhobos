@@ -1797,7 +1797,7 @@ package(std.experimental) {
                 HDC hMemoryDC = CreateCompatibleDC(hFrom);
                 
                 // duplicate image, store
-                //FIXME: customCursor = imageObjectFrom!(ImageStorageHorizontal!RGBA8)(image, alloc);
+                customCursor = imageObjectFrom!(ImageStorageHorizontal!RGBA8)(image, alloc);
                 
                 // customCursor must be a set size, as defined by:
                 vec2!size_t toSize = vec2!size_t(GetSystemMetrics(SM_CXCURSOR), GetSystemMetrics(SM_CYCURSOR));
