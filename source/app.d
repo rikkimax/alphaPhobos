@@ -1,9 +1,9 @@
-import std.stdio : writeln;
+import std.stdio : writeln, stdout;
 import std.experimental.allocator;
 
 void main() {
     //VFSTest();
-    //windowTest();
+    windowTest();
     //displaysTest();
     //notifyTest();
 }
@@ -133,10 +133,6 @@ void windowTest() {
     import std.experimental.graphic.image.manipulation.base : fillOn;
 
     IWindow window;
-    void onIteration() {
-        window.context.vramAlphaBuffer.fillOn(RGBA8(255, 0, 0, 255));
-        window.context.swapBuffers();
-    }
 
     auto creator = thePlatform.createWindow();
     //creator.style = WindowStyle.Fullscreen;
@@ -144,7 +140,21 @@ void windowTest() {
     
     window = creator.createWindow();
     window.title = "Title!";
-    window.events.onForcedDraw = &onIteration;
+    
+    window.events.onForcedDraw = () {
+        window.context.vramAlphaBuffer.fillOn(RGBA8(255, 0, 0, 255));
+        window.context.swapBuffers();
+    };
+    
+    window.events.onCursorMove = (short x, short y) {
+        writeln("x: ", x, " y: ", y);
+        stdout.flush;
+    };
+    
+    window.events.onKeyDown = (dchar key, SpecialKey specialKey, ushort modifiers) {
+        writeln("key: ", key, " specialKey: ", specialKey, " modifiers: ", modifiers);
+        stdout.flush;
+    };
     
     import std.datetime : msecs;
 

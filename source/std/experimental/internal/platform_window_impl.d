@@ -282,13 +282,14 @@ package(std.experimental) {
                         // there are no messages so lets make sure the callback is called then repeat
                         if (signal == WAIT_TIMEOUT) {
                             import core.thread : Thread;
-                            Thread.sleep(50.msecs);
+                            Thread.sleep(35.msecs);
                             continue;
                         }
 
                         // remove all messages from the queue
                         while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE) > 0) {
-                            TranslateMessage(&msg);
+                            if (shouldTranslate(msg))
+                                TranslateMessage(&msg);
                             DispatchMessageW(&msg);
                         }
                     } while(callback is null ? true : callback());
@@ -337,12 +338,16 @@ package(std.experimental) {
 
                     if (untilEmpty) {
                         while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE) > 0) {
-                            TranslateMessage(&msg);
+                            if (shouldTranslate(msg))
+                                TranslateMessage(&msg);
                             DispatchMessageW(&msg);
                         }
                     } else {
                         PeekMessageW(&msg, null, 0, 0, PM_REMOVE);
-                        TranslateMessage(&msg);
+                        
+                        if (shouldTranslate(msg))
+                            TranslateMessage(&msg);
+                        
                         DispatchMessageW(&msg);
                     }
                 }
@@ -366,6 +371,35 @@ package(std.experimental) {
     version(Windows) {
         import core.sys.windows.windows;
         static wstring ClassNameW = __MODULE__ ~ ":Class\0"w;
+        
+        bool shouldTranslate(MSG msg) {
+            auto id = LOWORD(msg.message);
+            
+            switch(id) {
+                case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+                case WM_KEYDOWN: case WM_KEYUP:
+                case WM_CHAR:
+                    break;
+                default:
+                    return false;
+            }
+            
+            switch(msg.wParam) {
+                case VK_NUMPAD0: .. case VK_NUMPAD9:
+                    bool haveAlt = (msg.lParam & (1 << 29)) == 1 << 29;
+                    return haveAlt;
+                
+                case VK_ADD: case VK_SUBTRACT:
+                case VK_MULTIPLY: case VK_DIVIDE:
+                case VK_DECIMAL:
+                case VK_OEM_2:
+                case VK_OEM_PERIOD:
+                case VK_OEM_COMMA:
+                    return false;
+                default:
+                    return true;
+            }
+        }
         
         enum WindowDWStyles : DWORD {
             Dialog = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
@@ -656,6 +690,7 @@ package(std.experimental) {
                 LONG GetWindowLongW(HWND hWnd,int nIndex) nothrow;
                 LONG SetWindowLongW(HWND hWnd,int nIndex,LONG dwNewLong) nothrow;
                 DWORD MsgWaitForMultipleObjectsEx(DWORD nCount, const(HANDLE) *pHandles, DWORD dwMilliseconds, DWORD dwWakeMask, DWORD dwFlags);
+                int ToUnicode(UINT wVirtKey, UINT wScanCode, BYTE *lpKeyState, LPWSTR pwszBuff, int cchBuff, UINT wFlags);
                 
                 version(X86_64){
                     LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR) nothrow;
@@ -848,16 +883,45 @@ package(std.experimental) {
                     case WM_KEYDOWN:
                         if (window.onKeyDownDel !is null) {
                             try {
-                                translateKeyCall(wParam, window.onKeyDownDel);
+                                translateKeyCall(wParam, lParam, window.onKeyDownDel);
                             } catch (Exception e) {}
                         }
                         return 0;
                    case WM_KEYUP:
                         if (window.onKeyUpDel !is null) {
                             try {
-                                translateKeyCall(wParam, window.onKeyUpDel);
+                                translateKeyCall(wParam, lParam, window.onKeyUpDel);
                             } catch (Exception e) {}
                         }
+                        return 0;
+                   case WM_CHAR:
+                        switch(wParam) {
+                            case 0: .. case ' ':
+                            case '\\': case '|':
+                            case '-': case '_':
+                            /+case '=': +/case '+':
+                            case ':': .. case '?':
+                            case '\'': case '"':
+                                break;
+                            
+                            default:
+                                ushort modifiers;
+                                processModifiers(modifiers);
+                                EventOnKeyDel del;
+                                
+                                if ((lParam & (0 << 31)) == 0 << 31)
+                                    del = window.onKeyDownDel;
+                                else
+                                    del = window.onKeyUpDel;
+                                
+                                try {
+                                    if (del !is null)
+                                        del(cast(dchar)wParam, SpecialKey.None, modifiers);
+                                } catch (Exception e) {}
+                                break;
+                        }
+                   
+
                         return 0;
                     default:
                         return DefWindowProcW(hwnd, uMsg, wParam, lParam);
@@ -867,15 +931,10 @@ package(std.experimental) {
             }
         }
         
-        enum CapAZToaz = 'A' - 'a';
+        enum Atoa = 'a' - 'A';
         
-        void translateKeyCall(WPARAM code, /* */ EventOnKeyDel del) {
-            dchar key = 0;
-            SpecialKey specialKey = SpecialKey.None;
-            ushort modifiers;
-            
-            bool isShift, isCapital;
-        
+        pragma(inline, true)
+        void processModifiers(out ushort modifiers) nothrow {
             if (HIWORD(GetKeyState(VK_LMENU)) != 0)
                 modifiers |= KeyModifiers.LAlt;
             else if (HIWORD(GetKeyState(VK_RMENU)) != 0)
@@ -891,32 +950,41 @@ package(std.experimental) {
             else if (HIWORD(GetKeyState(VK_RSHIFT)) != 0)
                 modifiers |= KeyModifiers.RShift;
         
-            if (HIWORD(GetKeyState(VK_CAPITAL)) != 0)
+            if (GetKeyState(VK_CAPITAL) != 0)
                 modifiers |= KeyModifiers.Capslock;
                 
-            if (HIWORD(GetKeyState(VK_NUMLOCK)) != 0)
+            if (GetKeyState(VK_NUMLOCK) != 0)
                 modifiers |= KeyModifiers.Numlock;
-                
-            if (HIWORD(GetKeyState(VK_SCROLL)) != 0)
-                modifiers |= KeyModifiers.ScrollLock;
         
             if (HIWORD(GetKeyState(VK_LWIN)) != 0)
                 modifiers |= KeyModifiers.LSuper;
             else if (HIWORD(GetKeyState(VK_RWIN)) != 0)
                 modifiers |= KeyModifiers.RSuper;
+        }
+        
+        int translateKeyCall(WPARAM code, LPARAM lParam, EventOnKeyDel del) {
+            dchar key = 0;
+            SpecialKey specialKey = SpecialKey.None;
+            ushort modifiers;
+            
+            bool isShift, isCapital, isCtrl;
+        
+            processModifiers(modifiers);
             
             isShift = (modifiers & KeyModifiers.Shift) == KeyModifiers.Shift;
             isCapital = isShift || 
                         (modifiers & KeyModifiers.Capslock) == KeyModifiers.Capslock;
+            isCtrl = (modifiers & KeyModifiers.Control) == KeyModifiers.Control;
             
             switch (code)
             {
-                case '0': .. case '9':
-                    key = code; break;
-                case 'A': .. case 'Z':
-                    key = isCapital ? code : code - CapAZToaz; break;
                 case VK_NUMPAD0: .. case VK_NUMPAD9:
-                    key = '0' + (code - VK_NUMPAD0); break;
+                    key = '0' + (code - VK_NUMPAD0);
+                    modifiers |= KeyModifiers.Numlock; break;
+                case 'A': .. case 'Z':
+                    if (isCtrl)
+                        key = isCapital ? code : (code + Atoa);
+                    break;
                 case VK_LEFT:
                     specialKey = SpecialKey.LeftArrow; break;
                 case VK_RIGHT:
@@ -927,29 +995,25 @@ package(std.experimental) {
                     specialKey = SpecialKey.DownArrow; break;
                 case VK_F1: .. case VK_F12:
                     specialKey =  cast(SpecialKey)(SpecialKey.F1 + (code - VK_F1)); break;
-                    
                 case VK_OEM_1:
-                    key = ';'; break;
+                    key = isShift ? ':' : ';'; break;
                 case VK_OEM_2:
-                    key = '/'; break;
+                    key = isShift ? '?' : '/'; break;
                 case VK_OEM_PLUS:
-                    key = '+'; break;
+                    key = isShift ? '+' : '='; break;
                 case VK_OEM_MINUS:
-                    key = '-'; break;
-                case VK_OEM_4:
-                    key = isShift ? '{' : '['; break;
-                case VK_OEM_6:
-                    key = isShift ? '}' : ']'; break;
+                    key = isShift ? '_' : '-'; break;
                 case VK_OEM_COMMA:
-                    key = ','; break;
+                    key = isShift ? '<' : ','; break;
                 case VK_OEM_PERIOD:
-                    key = '.'; break;
+                    key = isShift ? '>' : '.'; break;
                 case VK_OEM_7:
                     key = isShift ? '"' : '\''; break;
                 case VK_OEM_5:
                     key = isShift ? '|' : '\\'; break;
-                case VK_OEM_3:
-                    key = isShift ? '~' : '`'; break;
+                case VK_DECIMAL:
+                    key = '.';
+                    modifiers |= KeyModifiers.Numlock; break;
                 case VK_ESCAPE:
                     specialKey = SpecialKey.Escape; break;
                 case VK_SPACE:
@@ -973,22 +1037,31 @@ package(std.experimental) {
                 case VK_DELETE:
                     specialKey = SpecialKey.Delete; break;
                 case VK_ADD:
-                    key = '+'; break;
+                    key = '+';
+                    modifiers |= KeyModifiers.Numlock; break;
                 case VK_SUBTRACT:
-                    key = '-'; break;
+                    key = '-';
+                    modifiers |= KeyModifiers.Numlock; break;
                 case VK_MULTIPLY:
-                    key = '*'; break;
+                    key = '*';
+                    modifiers |= KeyModifiers.Numlock; break;
                 case VK_DIVIDE:
-                    key = '/'; break;
+                    key = '/';
+                    modifiers |= KeyModifiers.Numlock; break;
                 case VK_PAUSE:
                     specialKey = SpecialKey.Pause; break;
-
+                case VK_SCROLL:
+                    specialKey = SpecialKey.ScrollLock; break;
+                    
                 default:
-                    // FIXME: use e.g. ToUnicodeEx to get the real key char
                     break;
             }
         
-            del(key, specialKey, modifiers);
+            if (key > 0 || specialKey > 0) {
+                del(key, specialKey, modifiers);
+                return 0;
+            } else
+                return -1;
         }
         
         ImageStorage!RGB8 screenshotImpl(IAllocator alloc, HDC hFrom, vec2!ushort size_) {

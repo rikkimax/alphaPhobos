@@ -200,10 +200,7 @@ enum KeyModifiers : ushort {
     Capslock = 1 << 13,
     
     ///
-    Numlock = 1 << 14,
-    
-    ///
-    ScrollLock = 1 << 15
+    Numlock = 1 << 14
 }
 
 ///
@@ -266,7 +263,10 @@ enum SpecialKey {
     ///
     UpArrow,
     ///
-    DownArrow
+    DownArrow,
+    
+    ///
+    ScrollLock
 }
 
 /**
