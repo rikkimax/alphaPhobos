@@ -1,6 +1,7 @@
 module std.experimental.bindings.x11;
 public import std.experimental.bindings.x11.X;
 import std.experimental.bindings.autoloader;
+import std.experimental.bindings.symbolloader : SELF_SYMBOL_LOOKUP;
 
 ///
-__gshared static X11Loader = new SharedLibAutoLoader!([`std.experimental.bindings.x11.X`])("X11");
+__gshared static X11Loader = new SharedLibAutoLoader!([`std.experimental.bindings.x11.X`])("X11", SELF_SYMBOL_LOOKUP);
