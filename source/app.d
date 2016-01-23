@@ -3,9 +3,10 @@ import std.experimental.allocator;
 
 void main() {
     //VFSTest();
-    windowTest();
+    //windowTest();
     //displaysTest();
     //notifyTest();
+    managedMemoryTest();
 }
 
 void notifyTest() {
@@ -182,4 +183,52 @@ void windowTest() {
         thePlatform().eventLoopIteration(true);
         //onIteration();
     }+/
+}
+
+struct RefCount(MyType) {
+    uint refCount;
+    
+    void opInc() {
+        refCount++;
+    }
+    
+    void opDec() {
+        refCount--;
+    }
+    
+    bool opShouldDeallocate() {
+        return refCount == 0;
+    }
+}
+
+class Foo {
+    void doit() {
+        writeln("Hello from Foo.doit!");
+    }
+    
+    ~this() {
+        writeln("I have been deallocated!");
+    }
+}
+
+void managedMemoryTest() {
+    import std.experimental.allocator : IAllocator, processAllocator;
+    import std.experimental.memory.managed;
+
+    managed!Foo create(IAllocator alloc=processAllocator()) {
+        return managed!Foo(managers!(Foo, RefCount), alloc);
+    }
+
+    void func() {
+        writeln("START2");
+        
+        auto value = create();
+        value.doit();
+        
+        writeln("END2");
+    }
+
+    writeln("START1");
+    func();
+    writeln("END1");
 }
