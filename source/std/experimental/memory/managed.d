@@ -415,32 +415,64 @@ private {
     
     final class MemoryManager(MyType, S) : IMemoryManager {
         S __mgrs, __origMgrs;
-        bool[typeof(S.managers).length] __doDeAllocateMemMgrs;
+
+        static if (__traits(compiles, {size_t v = Type.length;}) && S.managers.length > 0) {
+            enum TLEN = S.managers.length;
+        } else static if (!__traits(compiles, {size_t v = S.managers.length;}) && !is(Type == void)) {
+            enum TLEN = 1;
+        } else {
+            enum TLEN = 0;
+        }
+
+        bool[TLEN] __doDeAllocateMemMgrs;
         
         this(IAllocator alloc, S s) {
             __origMgrs = s;
             __mgrs = s;
-            
-            foreach(i, ref mgr; __mgrs.managers) {
-                static if (is(typeof(mgr) == class)) {
-                    if (mgr is null) {
-                        mgr = __alloc.make!(typeof(mgr));
+
+            static if (TLEN > 1) {
+                foreach(i, ref mgr; __mgrs.managers) {
+                    static if (is(typeof(mgr) == class)) {
+                        if (mgr is null) {
+                            mgr = alloc.make!(typeof(mgr));
+                            __doDeAllocateMemMgrs[i] = true;
+                        }
+                    }
+                    
+                    static if (__traits(compiles, {mgr.init(alloc);})) {
+                        mgr.init(alloc);
+                    }
+                }
+            } else static if (TLEN == 1) {
+                static if (is(typeof(S) == class)) {
+                    if (__mgrs.managers is null) {
+                        __mgrs.managers = alloc.make!(typeof(S));
                         __doDeAllocateMemMgrs[i] = true;
                     }
                 }
                 
-                static if (__traits(compiles, {mgr.init(alloc);})) {
-                    mgr.init(alloc);
+                static if (__traits(compiles, {__mgrs.managers.init(alloc);})) {
+                    __mgrs.managers.init(alloc);
                 }
             }
         }
         
         bool opShouldDeallocate() {
             bool hadOne;
-            
-            foreach(ref mgr; __mgrs.managers) {
-                static if (__traits(compiles, {bool ret = mgr.opShouldDeallocate();})) {
-                    bool ret = mgr.opShouldDeallocate();
+
+            static if (TLEN > 1) {
+                foreach(ref mgr; __mgrs.managers) {
+                    static if (__traits(compiles, {bool ret = mgr.opShouldDeallocate();})) {
+                        bool ret = mgr.opShouldDeallocate();
+                        hadOne = true;
+                        
+                        if (ret)
+                            return ret;
+                    }
+                }
+            } else static if (TLEN == 1) {
+                static if (__traits(compiles, {bool ret = __mgrs.managers.opShouldDeallocate();})) {
+                    bool ret = __mgrs.managers.opShouldDeallocate();
                     hadOne = true;
                     
                     if (ret)
@@ -452,23 +484,43 @@ private {
         }
         
         void opInc() {
-            foreach(ref mgr; __mgrs.managers) {
-                static if (__traits(compiles, {mgr.opInc();})) {
-                    mgr.opInc();
+            static if (TLEN > 1) {
+                foreach(ref mgr; __mgrs.managers) {
+                    static if (__traits(compiles, {mgr.opInc();})) {
+                        mgr.opInc();
+                    }
+                }
+            } else {
+                static if (__traits(compiles, {__mgrs.managers.opInc();})) {
+                    __mgrs.managers.opInc();
                 }
             }
         }
         
         void opDec() {
-            foreach(ref mgr; __mgrs.managers) {
-                static if (__traits(compiles, {mgr.opDec();})) {
-                    mgr.opDec();
+            static if (TLEN > 1) {
+                foreach(ref mgr; __mgrs.managers) {
+                    static if (__traits(compiles, {mgr.opDec();})) {
+                        mgr.opDec();
+                    }
+                }
+            } else {
+                static if (__traits(compiles, {__mgrs.managers.opDec();})) {
+                    __mgrs.managers.opDec();
                 }
             }
         }
         
         ~this() {
-            foreach(i, ref mgr; __mgrs.managers) {
+            static if (TLEN > 1) {
+                foreach(i, ref mgr; __mgrs.managers) {
+                    static if (is(typeof(mgr) == class)) {
+                        if (__doDeAllocateMemMgrs[i]) {
+                            mgr = __alloc.dispose(mgr);
+                        }
+                    }
+                }
+            } else {
                 static if (is(typeof(mgr) == class)) {
                     if (__doDeAllocateMemMgrs[i]) {
                         mgr = __alloc.dispose(mgr);
@@ -485,8 +537,12 @@ private {
     struct MemoryManagerS(Type) {
         Type managers;
         alias managers this;
-        
-        static if (Type.length > 0) {
+
+        static if (__traits(compiles, {size_t v = Type.length;}) && Type.length > 0) {
+            this(Type v) {
+                managers = v;
+            }
+        } else static if (!__traits(compiles, {size_t v = Type.length;}) && !is(Type == void)) {
             this(Type v) {
                 managers = v;
             }
