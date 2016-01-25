@@ -2093,14 +2093,14 @@ package(std.experimental) {
                 }
             }
             
-            override bool devider() {
+            override bool divider() {
                 version(Windows) {
                     return (GetMenuState(parent, menuItemId, MF_BYCOMMAND) & MF_SEPARATOR) == MF_SEPARATOR;
                 } else
                     assert(0);
             }
             
-            override void devider(bool v) {
+            override void divider(bool v) {
                 version(Windows) {
                     if (v)
                         ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_SEPARATOR, null, null);

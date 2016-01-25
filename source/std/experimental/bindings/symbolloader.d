@@ -24,14 +24,14 @@ struct SharedLibVersion {
     
     ///
     int opCmp(ref const SharedLibVersion other) const {
-        int a, b;
+        long a, b;
         
-        a = major * 100_000;
-        a += minor * 100;
+        a = major * 100_000_000_000;
+        a += minor * 100_000;
         a += patch;
         
-        b = other.major * 100_000;
-        b += other.minor * 100;
+        b = other.major * 100_000_000_000;
+        b += other.minor * 100_000;
         b += patch;
         
         if (a < b)

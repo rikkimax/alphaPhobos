@@ -56,10 +56,10 @@ interface MenuItem {
         void text(string);
 
         ///
-        bool devider();
+        bool divider();
         
         ///
-        void devider(bool);
+        void divider(bool);
 
         ///
         bool disabled();
