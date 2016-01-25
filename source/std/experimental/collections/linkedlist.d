@@ -30,8 +30,6 @@ struct LinkedList(T) {
         }
     }
 
-
-
     static managed!(LinkedList!T) opCast(IAllocator alloc=theAllocator()) {
         SelfMemManager mgr = alloc.make!SelfMemManager;
         auto ret = managed!(LinkedList!T)(managers(mgr), alloc);

@@ -6,7 +6,7 @@ void main() {
     //windowTest();
     //displaysTest();
     //notifyTest();
-    //managedMemoryTest();
+    managedMemoryTest();
 }
 
 void notifyTest() {

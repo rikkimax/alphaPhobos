@@ -49,7 +49,8 @@ auto managers(MyType, T...)() if (T.length > 0) {
  * 
  */
 auto managers(U...)(U args) if (U.length > 0) {
-    return MemoryManagerS!U(args);
+    import std.typecons : Tuple;
+    return MemoryManagerS!(Tuple!U)(Tuple!U(args));
 }
 
 /**
@@ -425,10 +426,12 @@ private {
         }
 
         bool[TLEN] __doDeAllocateMemMgrs;
+        IAllocator __alloc;
         
         this(IAllocator alloc, S s) {
             __origMgrs = s;
             __mgrs = s;
+            __alloc = alloc;
 
             static if (TLEN >= 1) {
                 foreach(i, ref mgr; __mgrs.managers) {
@@ -489,7 +492,7 @@ private {
                 foreach(i, ref mgr; __mgrs.managers) {
                     static if (is(typeof(mgr) == class)) {
                         if (__doDeAllocateMemMgrs[i]) {
-                            mgr = __alloc.dispose(mgr);
+                            __alloc.dispose(mgr);
                         }
                     }
                 }
