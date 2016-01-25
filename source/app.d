@@ -6,7 +6,10 @@ void main() {
     //windowTest();
     //displaysTest();
     //notifyTest();
-    managedMemoryTest();
+    //managedMemoryTest();
+
+    import std.experimental.collections.linkedlist;
+    tester();
 }
 
 void notifyTest() {

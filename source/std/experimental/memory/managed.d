@@ -136,7 +136,7 @@ struct managed(MyType) {
         
         __Internal __internal;
     }
-    
+
     this(this) {
         // opInc
         __internal.memmgrs.opInc();
@@ -152,6 +152,10 @@ struct managed(MyType) {
     }
     
     ~this() {
+        // check to make sure we are allocated/initialized
+        if (__internal.self is null)
+            return;
+
         // opDec
         __internal.memmgrs.opDec();
         

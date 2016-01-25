@@ -4,46 +4,54 @@ import std.experimental.memory.managed;
 
 struct LinkedList(T) {
     private {
-        IAllocator allocator;
-        SelfMemManager memManager;
-
-        final class SelfMemManager {
-            uint refCount;
-            managed!(LinkedList!T) self;
-
-            ~this() {
-                import std.stdio;
-                writeln("SelfMemManager has been deallocated");
-            }
-
-            void opInc() {
-                refCount++;
-            }
-            
-            void opDec() {
-                refCount--;
-            }
-            
-            bool opShouldDeallocate() {
-                return refCount == 1;
-            }
-        }
+        IAllocator allocator = null;
+        SelfMemManager!int memmgr;
     }
 
-    static managed!(LinkedList!T) opCast(IAllocator alloc=theAllocator()) {
-        SelfMemManager mgr = alloc.make!SelfMemManager;
+    ~this() {
+        allocator.dispose(memmgr);
+    }
+
+    static managed!(LinkedList!T) opCall(IAllocator alloc=theAllocator()) {
+        SelfMemManager!T mgr = alloc.make!(SelfMemManager!T);
         auto ret = managed!(LinkedList!T)(managers(mgr), alloc);
 
-        mgr.self = ret;
         ret.allocator = alloc;
-        ret.memManager = mgr;
+        ret.memmgr = mgr;
+
+        mgr.alloc = alloc;
+        mgr.self = alloc.makeArray!(managed!(LinkedList!T))(1).ptr;
+        *mgr.self = ret;
 
         return ret;
     }
 }
 
-unittest {
-    managed!(LinkedList!int) value = LinkedList!int(theAllocator());
 
+final class SelfMemManager(T) {
+    uint refCount;
+    managed!(LinkedList!T)* self;
+    IAllocator alloc;
+    
+    ~this() {
 
+    }
+    
+    void opInc() {
+        refCount++;
+    }
+    
+    void opDec() {
+        refCount--;
+    }
+    
+    bool opShouldDeallocate() {
+        return refCount == 1;
+    }
+}
+
+void tester() {
+    import core.memory;
+    GC.disable;
+    managed!(LinkedList!int) value = LinkedList!int();
 }
