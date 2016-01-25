@@ -2,7 +2,7 @@
 import std.experimental.allocator : IAllocator;
 
 /// When std.typecons.RefCounted adds support for allocators this will be replaced by it
-deprecated
+//deprecated
 struct DummyRefCount(T) {
     alias PayLoadType = T;
     PayLoad* payload;

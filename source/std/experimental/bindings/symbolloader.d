@@ -35,9 +35,9 @@ struct SharedLibVersion {
         b += patch;
         
         if (a < b)
-            return -(b - a);
+            return cast(int)-(b - a);
         else if (a > b)
-            return a - b;
+            return cast(int)(a - b);
         else
             return 0;
     }
