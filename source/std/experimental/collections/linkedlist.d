@@ -8,7 +8,25 @@ struct LinkedList(T) {
         SelfMemManager memManager;
 
         final class SelfMemManager {
+            uint refCount;
+            managed!(LinkedList!T) self;
 
+            ~this() {
+                import std.stdio;
+                writeln("SelfMemManager has been deallocated");
+            }
+
+            void opInc() {
+                refCount++;
+            }
+            
+            void opDec() {
+                refCount--;
+            }
+            
+            bool opShouldDeallocate() {
+                return refCount == 1;
+            }
         }
     }
 
@@ -18,6 +36,7 @@ struct LinkedList(T) {
         SelfMemManager mgr = alloc.make!SelfMemManager;
         auto ret = managed!(LinkedList!T)(managers(mgr), alloc);
 
+        mgr.self = ret;
         ret.allocator = alloc;
         ret.memManager = mgr;
 
@@ -27,5 +46,6 @@ struct LinkedList(T) {
 
 unittest {
     managed!(LinkedList!int) value = LinkedList!int(theAllocator());
+
 
 }
