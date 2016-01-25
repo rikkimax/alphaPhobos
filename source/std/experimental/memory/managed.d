@@ -100,8 +100,9 @@ interface IMemoryManager {
  * A managed type is compatible with $(D @safe), $(D @nogc) and $(D nothrow). However only on the type being represented
  *  all of the methods upon $(D managed!T) itself is @trusted because of how allocators work.
  * 
- * You may not cast away $(D managed!T) or get the real instance of the type. If the usage will not escape it may
- *  be freely used as if $(managed!T) was not used.
+ * You may not cast away $(D managed!T) or get the real instance of the type. For classes you may cast to a more generic
+ * interface/class but not to a more specialised one.
+ * If the usage will not escape it may be freely used as the real type without casting.
  * 
  * When the managed type is an array, it will wrap all slice actions into returning a $(D managed!T) value.
  * This means that all slices are always safe to use and will keep the entirety of the array around until dealloation.
@@ -119,7 +120,9 @@ struct managed(MyType) {
         }
         
         struct __Internal {
-            static if (is(MyType == class) || isArray!MyType) {
+            alias TYPE = MyType;
+
+            static if (is(MyType == class) || is(MyType == interface) || isArray!MyType) {
                 MyType self;
             } else {
                 MyType* self;
@@ -171,9 +174,34 @@ struct managed(MyType) {
             // the default behaviour from opShouldDeallocate if it does not on call is true
         }
     }
-    
-    auto opCast(T)() {
-        static assert(0, "Managed memory may not be casted from");
+
+    static if (is(MyType == class) || is(MyType == interface)) {
+        import std.traits : isInstanceOf, moduleName;
+
+        auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
+            alias MyType2 = TMyType2.__internal.TYPE;
+
+            static if (is(MyType : MyType2)) {
+                managed!MyType2 ret;
+
+                ret.__internal.self = cast(MyType2)__internal.self;
+                ret.__internal.memmgrs = __internal.memmgrs;
+                ret.__internal.allocator = __internal.allocator;
+
+                ret.__postblit();
+                return ret;
+            } else {
+                static assert(0, "A managed object may only be casted to a more generic version");
+            }
+        }
+
+        auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
+            static assert(0, "Managed memory may not be casted from");
+        }
+    } else {
+        auto opCast(TMyType2)() {
+            static assert(0, "Managed memory may not be casted from");
+        }
     }
     
     // FIXME: should be scope only
@@ -193,23 +221,25 @@ struct managed(MyType) {
         // TODO: class, struct and union specific things
         //       add method indirection as last, memory managers go first in call chain
     }+/
-    
-    static managed!MyType opCall(IAllocator alloc=theAllocator()) {
-        return opCall(managers(), alloc);
-    }
-    
-    static managed!MyType opCall(MemoryManagerST)(MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
-        managed!MyType ret;
-        ret.__internal.allocator = alloc;
-        static if (is(MemoryManagerST : IMemoryManager)) {
-            ret.__internal.memmgrs = memmgr.dup(alloc);
-        } else {
-            ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-        }
 
-        ret.__internal.self = alloc.make!MyType;
-        ret.__internal.memmgrs.opInc();
-        return ret;
+    static if (!is(MyType == interface)) {
+        static managed!MyType opCall(IAllocator alloc=theAllocator()) {
+            return opCall(managers(), alloc);
+        }
+        
+        static managed!MyType opCall(MemoryManagerST)(MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
+            managed!MyType ret;
+            ret.__internal.allocator = alloc;
+            static if (is(MemoryManagerST : IMemoryManager)) {
+                ret.__internal.memmgrs = memmgr.dup(alloc);
+            } else {
+                ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
+            }
+
+            ret.__internal.self = alloc.make!MyType;
+            ret.__internal.memmgrs.opInc();
+            return ret;
+        }
     }
     
     static if (isArray!MyType) {
@@ -240,7 +270,6 @@ struct managed(MyType) {
         }
     } else static if (is(MyType == class)) {
         version(Windows) {
-            // FIXME: MyType != real type
             static if (is(MyType == class) && is(MyType : IUnknown)) {
                 private enum ___IUKCMT = true;
                 

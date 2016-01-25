@@ -201,7 +201,11 @@ struct RefCount(MyType) {
     }
 }
 
-class Foo {
+interface ManagedIFoo {
+    void doit();
+}
+
+class ManagedFoo : ManagedIFoo {
     void doit() {
         writeln("Hello from Foo.doit!");
     }
@@ -215,8 +219,8 @@ void managedMemoryTest() {
     import std.experimental.allocator : IAllocator, processAllocator;
     import std.experimental.memory.managed;
 
-    managed!Foo create(IAllocator alloc=processAllocator()) {
-        return managed!Foo(managers!(Foo, RefCount), alloc);
+    managed!ManagedFoo create(IAllocator alloc=processAllocator()) {
+        return managed!ManagedFoo(managers!(ManagedFoo, RefCount), alloc);
     }
 
     void func() {
@@ -224,11 +228,28 @@ void managedMemoryTest() {
         
         auto value = create();
         value.doit();
+
+        auto value2 = cast(managed!ManagedIFoo)value;
+        value2.doit();
         
         writeln("END2");
     }
 
+    void func2() {
+        writeln("START3");
+
+        auto func2_1(IAllocator alloc=processAllocator()) {
+            return cast(managed!ManagedIFoo)managed!ManagedFoo(managers!(ManagedFoo, RefCount), alloc);
+        }
+
+        managed!ManagedIFoo value = func2_1();
+        value.doit();
+
+        writeln("END3");
+    }
+
     writeln("START1");
     func();
+    func2();
     writeln("END1");
 }
