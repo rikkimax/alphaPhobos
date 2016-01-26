@@ -10,6 +10,7 @@ import std.experimental.platform;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8;
 import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 
 interface Have_Menu {
     Feature_Menu __getFeatureMenu();
@@ -20,7 +21,7 @@ interface Feature_Menu {
     ///
     MenuItem addItem();
     ///
-    @property immutable(MenuItem[]) items();
+    @property managed!(MenuItem[]) items();
 }
 
 ///
@@ -35,7 +36,7 @@ interface MenuItem {
 
     @property {
         ///
-        immutable(MenuItem[]) childItems();
+        managed!(MenuItem[]) childItems();
         
         ///
         DummyRefCount!(ImageStorage!RGB8) image();

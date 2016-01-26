@@ -11,6 +11,7 @@ import std.range.primitives : isOutputRange, ElementType;
 import std.datetime : SysTime;
 import std.experimental.allocator : IAllocator;
 import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 
 /**
  * The VFS central interface.
@@ -54,7 +55,7 @@ interface IFileSystem {
          * Returns:
          *        An array of all the current mounted locations.
          */
-        immutable(URIAddress[]) mountedPaths();
+        managed!(URIAddress[]) mountedPaths();
     }
 
     /**

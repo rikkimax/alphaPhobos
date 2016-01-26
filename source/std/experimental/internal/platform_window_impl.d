@@ -1,7 +1,7 @@
 module std.experimental.internal.platform_window_impl;
 
 package(std.experimental) {
-    import std.experimental.internal.containers.list;
+    import std.experimental.containers.list;
     import std.experimental.ui.window.defs;
     import std.experimental.ui.context_features;
     import std.experimental.ui.window.features;
@@ -13,6 +13,7 @@ package(std.experimental) {
     import std.experimental.ui.window.features;
     import std.experimental.graphic.color : RGB8, RGBA8;
     import std.experimental.internal.dummyRefCount;
+    import std.experimental.memory.managed;
     import std.datetime : Duration, seconds, msecs;
     import std.experimental.platform;
     
@@ -1398,16 +1399,16 @@ package(std.experimental) {
     
     final class WindowImpl : IWindow, IRenderEvents, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {
         private {
-            import std.experimental.internal.containers.map;
+            import std.experimental.containers.map;
             import std.traits : isSomeString;
             
             IPlatform platform;
             IAllocator alloc;
             IContext context_;
             
-            AllocList!MenuItemImpl menuItems;
+            List!MenuItemImpl menuItems = void;
             uint menuItemsCount;
-            AAMap!(uint, MenuCallback) menuCallbacks;
+            Map!(uint, MenuCallback) menuCallbacks = void;
             
             bool redrawMenu;
             
@@ -1441,8 +1442,9 @@ package(std.experimental) {
                 this.hMenu = hMenu;
                 
                 if (hMenu !is null)
-                    menuItems = AllocList!MenuItemImpl(alloc);
-                
+                    menuItems = List!MenuItemImpl(alloc);
+
+                menuCallbacks = Map!(uint, MenuCallback)(alloc);
                 menuItemsCount = 9000;
                 
                 if (processOwns)
@@ -1712,8 +1714,9 @@ package(std.experimental) {
                 assert(0);
         }
         
-        @property immutable(MenuItem[]) items() {
-            return cast(immutable(MenuItem[]))menuItems.__internalValues;
+        @property managed!(MenuItem[]) items() {
+            auto ret = menuItems.opSlice();
+            return cast(managed!(MenuItem[]))ret;
         }
         
         Feature_Cursor __getFeatureCursor() {
@@ -1928,7 +1931,7 @@ package(std.experimental) {
     final class MenuItemImpl : MenuItem {
         private {
             WindowImpl window;
-            AllocList!MenuItemImpl menuItems;
+            List!MenuItemImpl menuItems = void;
             
             uint menuItemId;
             MenuItemImpl parentMenuItem;
@@ -1945,7 +1948,9 @@ package(std.experimental) {
                 this.window = window;
                 this.parent = parent;
                 this.parentMenuItem = parentMenuItem;
-                
+
+                menuItems = List!MenuItemImpl(window.alloc);
+
                 menuItemId = window.menuItemsCount;
                 window.menuItemsCount++;
                 
@@ -1992,8 +1997,8 @@ package(std.experimental) {
         }
         
         @property {
-            override immutable(MenuItem[]) childItems() {
-                return cast(immutable(MenuItem[]))menuItems.__internalValues;
+            override managed!(MenuItem[]) childItems() {
+                return cast(managed!(MenuItem[]))menuItems[];
             }
             
             override DummyRefCount!(ImageStorage!RGB8) image() {

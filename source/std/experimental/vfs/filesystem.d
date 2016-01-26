@@ -8,6 +8,7 @@ module std.experimental.vfs.filesystem;
 import std.experimental.vfs.defs;
 import std.experimental.uri;
 import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray, dispose;
+import std.experimental.memory.managed;
 
 alias FileSystem = final FileSystemImpl;
 
@@ -16,19 +17,19 @@ alias FileSystem = final FileSystemImpl;
  */
 class FileSystemImpl : IFileSystem {
     private {
-        import std.experimental.internal.containers.map;
+        import std.experimental.containers.map;
         import std.experimental.vfs.providers.os;
 
         IAllocator alloc;
         IFileSystemProvider[] providers_;
-        AAMap!(URIAddress, IFileSystemEntry) mounted_;
+        Map!(URIAddress, IFileSystemEntry) mounted_ = void;
     }
 
     ///
     this(IAllocator alloc = theAllocator()) {
         this.alloc = alloc;
         providers_ = alloc.makeArray!IFileSystemProvider(0);
-        mounted_ = AAMap!(URIAddress, IFileSystemEntry)(alloc);
+        mounted_ = Map!(URIAddress, IFileSystemEntry)(alloc);
     }
 
     ///
@@ -63,8 +64,8 @@ class FileSystemImpl : IFileSystem {
         }
 
         ///
-        immutable(URIAddress[]) mountedPaths() {
-            return mounted_.__internalKeys();
+        managed!(URIAddress[]) mountedPaths() {
+            return mounted_.keys();
         }
     }
 
@@ -191,7 +192,8 @@ class FileSystemImpl : IFileSystem {
                         del(mount);
 
                         // if directory call find with the sub glob
-                        if (IDirectoryEntry dir = cast(IDirectoryEntry)mount) {
+                        IFileSystemEntry mdir = mount;
+                        if (IDirectoryEntry dir = cast(IDirectoryEntry)mdir) {
                             if (addrpath.length + 1 < baseDirPath.length && baseDirPath[0 .. addrpath.length] == addrpath && baseDirPath[addrpath.length] == '/') {
                                 string subP = baseDirPath[addrpath.length + 1 .. $];
                                 dir.find(URIAddress(subP, alloc), subG, del, caseSensitive);
@@ -227,7 +229,7 @@ class FileSystemImpl : IFileSystem {
         import std.experimental.vfs.internal;
         import std.path : globMatch, CaseSensitive;
 
-        URIAddress[] allRemoveBuffer = alloc.makeArray!URIAddress(mounted_.__internalKeys.length);
+        URIAddress[] allRemoveBuffer = alloc.makeArray!URIAddress(mounted_.keys.length);
         URIAddress[] removeBuffer;
 
         URIAddress dircon = baseDir.connectionInfo;
@@ -253,7 +255,8 @@ class FileSystemImpl : IFileSystem {
                     // if they match, del(mnt)
                     if (!globMatcher(addrpath, glo)) {
                         // if directory call find with the sub glob
-                        if (IDirectoryEntry dir = cast(IDirectoryEntry)mount) {
+                        IFileSystemEntry mdir = mount;
+                        if (IDirectoryEntry dir = cast(IDirectoryEntry)mdir) {
                             if (addrpath.length + 1 < baseDirPath.length && baseDirPath[0 .. addrpath.length] == addrpath && baseDirPath[addrpath.length] == '/') {
                                 string subP = baseDirPath[addrpath.length + 1 .. $];
                                 dir.remove(URIAddress(subP, alloc), subG, caseSensitive);

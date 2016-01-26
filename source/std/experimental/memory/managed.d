@@ -11,6 +11,7 @@
 module std.experimental.memory.managed;
 import std.experimental.allocator : IAllocator, theAllocator, make, dispose, makeArray;
 import std.traits : isArray;
+import std.range : ElementType;
 
 /**
  * Do you own this memory?
@@ -116,6 +117,11 @@ interface IMemoryManager {
 struct managed(MyType) {
 @trusted:
     private {
+        class SPointer {
+            MyType __self;
+            alias __self this;
+        }
+
         version(Windows) {
             import core.sys.windows.com : IUnknown;
         }
@@ -126,7 +132,7 @@ struct managed(MyType) {
             static if (is(MyType == class) || is(MyType == interface) || isArray!MyType) {
                 MyType self;
             } else {
-                MyType* self;
+                SPointer self;
             }
             
             
@@ -173,7 +179,7 @@ struct managed(MyType) {
         if (beenReleased) {
         } else if (__internal.memmgrs.opShouldDeallocate) {
             __internal.allocator.dispose(__internal.memmgrs);
-            __internal.allocator.dispose(__internal.self);
+            __internal.allocator.dispose(*cast(void**)&__internal.self);
         } else {
             // do nothing
             // the default behaviour from opShouldDeallocate if it does not on call is true
@@ -203,6 +209,29 @@ struct managed(MyType) {
         auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
             static assert(0, "Managed memory may not be casted from");
         }
+    } else static if (isArray!MyType && (is(ElementType!MyType == class) || is(ElementType!MyType == interface))) {
+        import std.traits : isInstanceOf, moduleName;
+        
+        auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
+            alias MyType2 = TMyType2.__internal.TYPE;
+            
+            static if (is(ElementType!MyType : ElementType!MyType2)) {
+                managed!MyType2 ret;
+                
+                ret.__internal.self = cast(MyType2)__internal.self;
+                ret.__internal.memmgrs = __internal.memmgrs;
+                ret.__internal.allocator = __internal.allocator;
+                
+                ret.__postblit();
+                return ret;
+            } else {
+                static assert(0, "A managed object may only be casted to a more generic version");
+            }
+        }
+        
+        auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
+            static assert(0, "Managed memory may not be casted from");
+        }
     } else {
         auto opCast(TMyType2)() {
             static assert(0, "Managed memory may not be casted from");
@@ -227,7 +256,7 @@ struct managed(MyType) {
         //       add method indirection as last, memory managers go first in call chain
     }+/
 
-    static if (!is(MyType == interface)) {
+    static if (!isArray!MyType && __traits(compiles, {MyType v = new MyType;})) {
         static managed!MyType opCall(IAllocator alloc=theAllocator()) {
             return opCall(managers(), alloc);
         }
@@ -241,7 +270,9 @@ struct managed(MyType) {
                 ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
             }
 
-            ret.__internal.self = alloc.make!MyType;
+            static if (!isArray!MyType) {
+                ret.__internal.self = alloc.make!(typeof(ret.__internal.self));
+            }
             ret.__internal.memmgrs.opInc();
             return ret;
         }
@@ -253,7 +284,7 @@ struct managed(MyType) {
         }
         
         static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-            import std.traits : ForeachType;
+            import std.traits : ForeachType, Unqual;
             
             managed!MyType ret;
             ret.__internal.allocator = alloc;
@@ -265,7 +296,8 @@ struct managed(MyType) {
             
             // duplicates if needed
             if (ownership) {
-                ret.__internal.self = alloc.makeArray!(ForeachType!MyType)(from.length, from);
+                ret.__internal.self = cast(MyType)alloc.makeArray!(Unqual!(ForeachType!MyType))(from.length);
+                cast(Unqual!(ForeachType!MyType)[])ret.__internal.self[] = from[];
             } else {
                 ret.__internal.self = from;
             }
@@ -273,7 +305,7 @@ struct managed(MyType) {
             ret.__internal.memmgrs.opInc();
             return ret;
         }
-    } else static if (is(MyType == class)) {
+    } else static if (is(MyType == class) || is(MyType == interface)) {
         version(Windows) {
             static if (is(MyType == class) && is(MyType : IUnknown)) {
                 private enum ___IUKCMT = true;
@@ -346,24 +378,25 @@ struct managed(MyType) {
                     return ret;
                 }
             } else {
-                static managed!MyType opCall(T...)(MyType from, T t) {
-                    static assert(0, MyType.stringof ~ " does not support .dup(IAllocator)"); }
+                static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, Ownership ownership = Ownership.Secondary, IAllocator alloc=theAllocator()) {
+                    assert(ownership == Ownership.Secondary);
+
+                    managed!MyType ret;
+                    ret.__internal.allocator = alloc;
+                    static if (is(MemoryManagerST : IMemoryManager)) {
+                        ret.__internal.memmgrs = memmgr.dup(alloc);
+                    } else {
+                        ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
+                    }
+
+                    ret.__internal.self = from;
+                    ret.__internal.memmgrs.opInc();
+                    return ret;
+                }
             }
         }
     } else static if (is(MyType == struct) || is(MyType == union)) {
-        static managed!MyType opCall(MemoryManagerST)(MyType* from, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-            return opCall(*from, managers(), ownership, alloc);
-        }
-        
-        static managed!MyType opCall(MemoryManagerST)(MyType* from, MemoryManagerST memmgr, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-            return opCall(from, memmgr, ownership, alloc);
-        }
-        
-        static managed!MyType opCall(MemoryManagerST)(MyType from, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-            return opCall(from, managers(), ownership, alloc);
-        }
-        
-        static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
+        static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
             import std.traits : ForeachType;
             
             managed!MyType ret;
@@ -374,13 +407,8 @@ struct managed(MyType) {
                 ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
             }
             
-            // duplicates if needed
-            if (ownership) {
-                ret.__internal.self = alloc.make!MyType;
-                *ret.__internal.self = from;
-            } else {
-                ret.__internal.self = from;
-            }
+            ret.__internal.self = alloc.make!SPointer;
+            ret.__internal.self.__self = from;
             
             ret.__internal.memmgrs.opInc();
             return ret;
