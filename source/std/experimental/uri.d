@@ -807,7 +807,13 @@ struct URIAddress
                 retbuf = charBuffer[0 .. retbuf.length + replaceTo.length + 1];
                 retbuf[$ - (replaceTo.length + 1)] = '/';
             }
+
             retbuf[$ - replaceTo.length .. $] = replaceTo[];
+
+            if (replaceTo[$-1] != '/' && replaceTo[$-1] != '\\') {
+                retbuf = charBuffer[0 .. retbuf.length + 1];
+                retbuf[$ - 1] = '/';
+            }
 
             temp = temp[1 .. $];
         }
@@ -951,6 +957,9 @@ struct URIAddress
             
         assert(URIAddress("file://~foo/bar").expand(URIAddress("file:///home/dhasenan"),
             URIAddress("file:///tmp")) == "file:///~foo/bar");
+
+        assert(URIAddress("file://./mytestfile.txt").expand(URIAddress("file://E:\\cygwin/home/rikki"),
+            URIAddress("file://P:\\alphaPhobos")) == "file://P:\\alphaPhobos/mytestfile.txt");
     }
 
     /**
