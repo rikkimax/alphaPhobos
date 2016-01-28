@@ -588,3 +588,10 @@ struct ManagedRefCount {
         return refCount == 0;
     }
 }
+
+/// Provides a basic prevention mechanism for deallocation
+struct ManagedNoDeallocation {
+    bool opShouldDeallocate() {
+        return false;
+    }
+}

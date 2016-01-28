@@ -141,17 +141,27 @@ final class OSFileSystemProvider : IFileSystemProvider {
 ///
 final class OSFileEntry : IFileEntry {
     private {
+        import std.mmfile;
+
         URIAddress path;
         OSFileSystemProvider provider_;
 
         string[] namepathSegments;
+        IAllocator alloc;
+        MmFile mmfile;
     }
 
     // emplace requires access to constructor, so package not private grrr
     package(std) this(OSFileSystemProvider provider, URIAddress path) {
         this.provider_ = provider;
         this.path = path;
+        this.alloc = provider.alloc;
         namepathSegments = cast(string[])path.pathSegments;
+    }
+
+    ~this() {
+        if (mmfile !is null)
+            alloc.dispose(mmfile);
     }
 
     @property {
@@ -171,6 +181,8 @@ final class OSFileEntry : IFileEntry {
             namepathSegments = cast(string[])to.pathSegments;
             path.__dtor;
             path = to;
+
+            createMemoryMapped();
         }
 
         ///
@@ -225,6 +237,9 @@ final class OSFileEntry : IFileEntry {
             import std.file : remove;
             string pathS = path.rawPathSegments;
 
+            if (mmfile !is null)
+                alloc.dispose(mmfile);
+
             try {
                 remove(pathS);
                 return true;
@@ -235,6 +250,9 @@ final class OSFileEntry : IFileEntry {
 
         ///
         managed!(ubyte[]) bytes() {
+            if (mmfile !is null)
+                return opSlice();
+
             import std.file : getSize;
             import std.stdio : File;
 
@@ -253,6 +271,9 @@ final class OSFileEntry : IFileEntry {
 
         ///
         size_t size() {
+            if (mmfile !is null)
+                return cast(size_t)mmfile.length;
+
             import std.file : getSize;
             string pathS = path.rawPathSegments;
 
@@ -263,18 +284,59 @@ final class OSFileEntry : IFileEntry {
         }
     }
 
-    ///
     void write(ubyte[] buff) {
         import std.file : write;
         string pathS = path.rawPathSegments;
+
+        if (mmfile !is null)
+            alloc.dispose(mmfile);
+
         write(pathS, buff);
     }
 
-    ///
     void append(ubyte[] buff) {
         import std.file : append;
         string pathS = path.rawPathSegments;
+
+        if (mmfile !is null)
+            alloc.dispose(mmfile);
+
         append(pathS, buff);
+    }
+
+    // memory mapping
+
+    managed!(ubyte[]) opSlice() {
+        if (mmfile is null)
+            createMemoryMapped();
+        return managed!(ubyte[])(cast(ubyte[])mmfile.opSlice(), managers!(ubyte[], ManagedNoDeallocation), Ownership.Secondary, alloc);
+    }
+    
+    managed!(ubyte[]) opSlice(size_t i1, size_t i2) {
+        if (mmfile is null)
+            createMemoryMapped();
+        return managed!(ubyte[])(cast(ubyte[])mmfile.opSlice(i1, i2), managers!(ubyte[], ManagedNoDeallocation), Ownership.Secondary, alloc);
+    }
+    
+    ubyte opIndex(size_t i) {
+        if (mmfile is null)
+            createMemoryMapped();
+        return mmfile.opIndex(i);
+    }
+    
+    ubyte opIndexAssign(ubyte value, size_t i) {
+        if (mmfile is null)
+            createMemoryMapped();
+        return mmfile.opIndexAssign(value, i);
+    }
+
+    private {
+        void createMemoryMapped() {
+            if (mmfile !is null)
+                alloc.dispose(mmfile);
+            string pathS = path.rawPathSegments;
+                mmfile = alloc.make!MmFile(pathS, MmFile.Mode.readWrite, 0, null);
+        }
     }
 }
 

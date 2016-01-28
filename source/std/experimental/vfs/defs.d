@@ -353,8 +353,27 @@ interface IFileSystemEntry {
     }
 }
 
+/**
+ * Memory mapped files are a little special of a thing.
+ * Since they may be fully read into memory, it only really makes sense for OS files.
+ * But that is ok. Atleast for OS files there will be a performance boost.
+ */
+interface IMemoryMappedMemory {
+    ///
+    managed!(ubyte[]) opSlice();
+    
+    ///
+    managed!(ubyte[]) opSlice(size_t i1, size_t i2);
+    
+    ///
+    ubyte opIndex(size_t i);
+    
+    ///
+    ubyte opIndexAssign(ubyte value, size_t i);
+}
+
 ///
-interface IFileEntry : IFileSystemEntry {
+interface IFileEntry : IFileSystemEntry, IMemoryMappedMemory {
     @property {
         ///
         managed!(ubyte[]) bytes();
@@ -368,8 +387,6 @@ interface IFileEntry : IFileSystemEntry {
 
     ///
     void append(ubyte[]);
-
-    // TODO: memory mapped writing
 }
 
 ///
