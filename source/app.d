@@ -204,7 +204,7 @@ void managedMemoryTest() {
     import std.experimental.allocator : IAllocator, processAllocator;
 
     managed!ManagedFoo create(IAllocator alloc=processAllocator()) {
-        return managed!ManagedFoo(managers!(ManagedFoo, RefCount), alloc);
+        return managed!ManagedFoo(managers(), alloc);
     }
 
     void func() {
@@ -223,7 +223,7 @@ void managedMemoryTest() {
         writeln("START3");
 
         auto func2_1(IAllocator alloc=processAllocator()) {
-            return cast(managed!ManagedIFoo)managed!ManagedFoo(managers!(ManagedFoo, RefCount), alloc);
+            return cast(managed!ManagedIFoo)managed!ManagedFoo(managers!(ManagedFoo, ManagedRefCount), alloc);
         }
 
         managed!ManagedIFoo value = func2_1();

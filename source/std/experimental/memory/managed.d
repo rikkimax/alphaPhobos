@@ -26,12 +26,15 @@ enum Ownership : bool {
 }
 
 /**
+ * Defaults to using ManagedRefCount as memory manager
  * 
+ * See_Also:
+ *      ManagedRefCount
  */
 auto managers() {
     import std.typecons : Tuple;
     
-    MemoryManagerS!(Tuple!()) ret;
+    MemoryManagerS!(Tuple!(ManagedRefCount)) ret;
     return ret;
 }
 
@@ -569,7 +572,8 @@ private {
     }
 }
 
-struct RefCount {
+/// Provides a basic but resonable ref counted manager
+struct ManagedRefCount {
     uint refCount;
     
     void opInc() {

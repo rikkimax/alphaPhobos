@@ -248,7 +248,7 @@ final class OSFileEntry : IFileEntry {
             buff = f.rawRead(buff);
 
             f.close;
-            return managed!(ubyte[])(buff, managers!(ubyte[], RefCount), Ownership.Primary, provider.allocator);
+            return managed!(ubyte[])(buff, managers(), Ownership.Primary, provider.allocator);
         }
 
         ///
