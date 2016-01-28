@@ -3,7 +3,7 @@ import std.experimental.allocator;
 import std.experimental.memory.managed;
 
 void main() {
-    //VFSTest();
+    VFSTest();
     //windowTest();
     //displaysTest();
     //notifyTest();

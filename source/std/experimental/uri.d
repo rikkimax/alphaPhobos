@@ -387,6 +387,9 @@ struct URIAddress
                     numDir++;
             }
 
+            if (numDir == 0)
+                return null;
+
             if (arrbuffDirectories.length < numDir)
                 alloc.expandArray(arrbuffDirectories, numDir - arrbuffDirectories.length);
 
