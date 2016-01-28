@@ -10,7 +10,6 @@ import std.range.interfaces : InputRange;
 import std.range.primitives : isOutputRange, ElementType;
 import std.datetime : SysTime;
 import std.experimental.allocator : IAllocator;
-import std.experimental.internal.dummyRefCount;
 import std.experimental.memory.managed;
 
 /**
@@ -358,7 +357,7 @@ interface IFileSystemEntry {
 interface IFileEntry : IFileSystemEntry {
     @property {
         ///
-        DummyRefCount!(ubyte[]) bytes();
+        managed!(ubyte[]) bytes();
 
         ///
         size_t size();

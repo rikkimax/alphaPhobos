@@ -10,8 +10,8 @@
  */
 module std.experimental.memory.managed;
 import std.experimental.allocator : IAllocator, theAllocator, make, dispose, makeArray;
-import std.traits : isArray;
-import std.range : ElementType;
+import std.traits : isArray, isBasicType;
+import std.range : ForeachType;
 
 /**
  * Do you own this memory?
@@ -103,7 +103,7 @@ interface IMemoryManager {
  *  all of the methods upon $(D managed!T) itself is @trusted because of how allocators work.
  * 
  * You may not cast away $(D managed!T) or get the real instance of the type. For classes you may cast to a more generic
- * interface/class but not to a more specialised one.
+ * interface/class but not to a more specialised one. For basic types it may be done to another if its size is the same.
  * If the usage will not escape it may be freely used as the real type without casting.
  * 
  * When the managed type is an array, it will wrap all slice actions into returning a $(D managed!T) value.
@@ -209,13 +209,13 @@ struct managed(MyType) {
         auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
             static assert(0, "Managed memory may not be casted from");
         }
-    } else static if (isArray!MyType && (is(ElementType!MyType == class) || is(ElementType!MyType == interface))) {
-        import std.traits : isInstanceOf, moduleName;
+    } else static if (isArray!MyType && (is(ForeachType!MyType == class) || is(ForeachType!MyType == interface))) {
+        import std.traits : moduleName;
         
         auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
             alias MyType2 = TMyType2.__internal.TYPE;
             
-            static if (is(ElementType!MyType : ElementType!MyType2)) {
+            static if (is(ForeachType!MyType : ForeachType!MyType2)) {
                 managed!MyType2 ret;
                 
                 ret.__internal.self = cast(MyType2)__internal.self;
@@ -229,6 +229,29 @@ struct managed(MyType) {
             }
         }
         
+        auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
+            static assert(0, "Managed memory may not be casted from");
+        }
+    } else static if (isArray!MyType && isBasicType!(ForeachType!MyType)) {
+        import std.traits : moduleName, Unqual;
+
+        auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
+            alias MyType2 = Unqual!(TMyType2.__internal.TYPE);
+
+            static if ((ForeachType!MyType2).sizeof == (ForeachType!MyType).sizeof) {
+                managed!MyType2 ret;
+                
+                ret.__internal.self = cast(MyType2)__internal.self;
+                ret.__internal.memmgrs = __internal.memmgrs;
+                ret.__internal.allocator = __internal.allocator;
+                
+                ret.__postblit();
+                return ret;
+            } else {
+                static assert(0, "Managed memory may only be cast from if resulting size is identical to original");
+            }
+        }
+
         auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
             static assert(0, "Managed memory may not be casted from");
         }
@@ -543,5 +566,21 @@ private {
         this(Type v) {
             managers = v;
         }
+    }
+}
+
+struct RefCount {
+    uint refCount;
+    
+    void opInc() {
+        refCount++;
+    }
+    
+    void opDec() {
+        refCount--;
+    }
+    
+    bool opShouldDeallocate() {
+        return refCount == 0;
     }
 }

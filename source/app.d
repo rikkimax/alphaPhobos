@@ -1,5 +1,6 @@
 import std.stdio : writeln, stdout;
 import std.experimental.allocator;
+import std.experimental.memory.managed;
 
 void main() {
     //VFSTest();
@@ -120,7 +121,7 @@ void VFSTest() {
 
         theFile.append(cast(ubyte[])("\nHi from process " ~ thisProcessID.text ~ " @" ~ Clock.currTime.toSimpleString));
 
-        writeln(cast(string)theFile.bytes);
+        writeln(cast(managed!string)theFile.bytes);
 
         if (theFile.size > 150) {
             theFile.remove();
@@ -185,22 +186,6 @@ void windowTest() {
     }+/
 }
 
-struct RefCount(MyType) {
-    uint refCount;
-    
-    void opInc() {
-        refCount++;
-    }
-    
-    void opDec() {
-        refCount--;
-    }
-    
-    bool opShouldDeallocate() {
-        return refCount == 0;
-    }
-}
-
 interface ManagedIFoo {
     void doit();
 }
@@ -217,7 +202,6 @@ class ManagedFoo : ManagedIFoo {
 
 void managedMemoryTest() {
     import std.experimental.allocator : IAllocator, processAllocator;
-    import std.experimental.memory.managed;
 
     managed!ManagedFoo create(IAllocator alloc=processAllocator()) {
         return managed!ManagedFoo(managers!(ManagedFoo, RefCount), alloc);

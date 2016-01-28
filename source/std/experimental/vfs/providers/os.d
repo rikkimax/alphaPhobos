@@ -9,7 +9,7 @@ import std.experimental.vfs.defs;
 import std.experimental.uri;
 import std.datetime : SysTime;
 import std.experimental.allocator : theAllocator, IAllocator, makeArray, expandArray, shrinkArray, make, dispose;
-import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 
 ///
 final class OSFileSystemProvider : IFileSystemProvider {
@@ -234,7 +234,7 @@ final class OSFileEntry : IFileEntry {
         }
 
         ///
-        DummyRefCount!(ubyte[]) bytes() {
+        managed!(ubyte[]) bytes() {
             import std.file : getSize;
             import std.stdio : File;
 
@@ -248,7 +248,7 @@ final class OSFileEntry : IFileEntry {
             buff = f.rawRead(buff);
 
             f.close;
-            return DummyRefCount!(ubyte[])(buff, provider.allocator);
+            return managed!(ubyte[])(buff, managers!(ubyte[], RefCount), Ownership.Primary, provider.allocator);
         }
 
         ///
