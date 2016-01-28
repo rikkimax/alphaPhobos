@@ -120,7 +120,7 @@ interface IMemoryManager {
 struct managed(MyType) {
 @trusted:
     private {
-        class SPointer {
+        final class SPointer {
             MyType __self;
             alias __self this;
         }
