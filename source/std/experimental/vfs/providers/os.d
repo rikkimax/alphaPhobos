@@ -335,7 +335,7 @@ final class OSFileEntry : IFileEntry {
             if (mmfile !is null)
                 alloc.dispose(mmfile);
             string pathS = path.rawPathSegments;
-                mmfile = alloc.make!MmFile(pathS, MmFile.Mode.readWrite, 0, null);
+            mmfile = alloc.make!MmFile(pathS, MmFile.Mode.readWrite, 0, null);
         }
     }
 }

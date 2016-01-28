@@ -120,7 +120,7 @@ void VFSTest() {
         import std.datetime;
 
         theFile.append(cast(ubyte[])("\nHi from process " ~ thisProcessID.text ~ " @" ~ Clock.currTime.toSimpleString));
-        //theFile[theFile.size+1] = cast(ubyte)'Z';
+        theFile[theFile.size-1] = cast(ubyte)'Z';
 
         writeln(cast(managed!string)theFile.bytes);
 

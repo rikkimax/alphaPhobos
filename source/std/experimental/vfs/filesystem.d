@@ -83,10 +83,10 @@ class FileSystemImpl : IFileSystem {
                     return entry;
             }
         } else {
-            if (*childPath == "/") {
+            if (childPath.rawPathSegments == "/") {
                 return parent;
             } else if (parent !is null) {
-                return parent[(*childPath).pathSegments[0]];
+                return parent[childPath.pathSegments[0]];
             }
         }
 
