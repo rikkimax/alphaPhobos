@@ -12,7 +12,6 @@ package(std.experimental) {
     import std.experimental.graphic.image : ImageStorage;
     import std.experimental.ui.window.features;
     import std.experimental.graphic.color : RGB8, RGBA8;
-    import std.experimental.internal.dummyRefCount;
     import std.experimental.memory.managed;
     import std.datetime : Duration, seconds, msecs;
     import std.experimental.platform;
@@ -47,9 +46,10 @@ package(std.experimental) {
             pragma(lib, "dxva2");
             pragma(lib, "user32");
         }
-        
-        DummyRefCount!IWindowCreator createWindow(IAllocator alloc = theAllocator()) {
-            return DummyRefCount!IWindowCreator(alloc.make!WindowCreatorImpl(this, alloc), alloc);
+
+        managed!IWindowCreator createWindow(IAllocator alloc = theAllocator()) {
+            import std.typecons : tuple;
+            return cast(managed!IWindowCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
         }
         
         IWindow createAWindow(IAllocator alloc = theAllocator()) {
@@ -59,8 +59,9 @@ package(std.experimental) {
             return creator.createWindow();
         }
 
-        DummyRefCount!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator()) {
-            return DummyRefCount!IRenderPointCreator(alloc.make!WindowCreatorImpl(this, alloc), alloc);
+        managed!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator()) {
+            import std.typecons : tuple;
+            return cast(managed!IRenderPointCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
         }
 
         IRenderPoint createARenderPoint(IAllocator alloc = theAllocator()) {
@@ -68,30 +69,30 @@ package(std.experimental) {
         }
 
         @property {
-            DummyRefCount!IDisplay primaryDisplay(IAllocator alloc = processAllocator()) {
+            managed!IDisplay primaryDisplay(IAllocator alloc = processAllocator()) {
                 foreach(display; displays) {
                     if ((cast(DisplayImpl)display).primary) {
-                        return DummyRefCount!IDisplay((cast(DisplayImpl)display).dup(alloc), alloc);
+                        return managed!IDisplay(cast(DisplayImpl)display, managers(), Ownership.Primary, alloc);
                     }
                 }
                 
-                return DummyRefCount!IDisplay(null, null);
+                return (managed!IDisplay).init;
             }
             
-            DummyRefCount!(IDisplay[]) displays(IAllocator alloc = processAllocator()) {
+            managed!(IDisplay[]) displays(IAllocator alloc = processAllocator()) {
                 version(Windows) {
                     GetDisplays ctx = GetDisplays(alloc, this);
                     ctx.call;
-                    return DummyRefCount!(IDisplay[])(ctx.displays, alloc);
+                    return managed!(IDisplay[])(ctx.displays, managers(), Ownership.Secondary, alloc);
                 } else
                     assert(0);
             }
             
-            DummyRefCount!(IWindow[]) windows(IAllocator alloc = processAllocator()) {
+            managed!(IWindow[]) windows(IAllocator alloc = processAllocator()) {
                 version(Windows) {
                     GetWindows ctx = GetWindows(alloc, this, null);
                     ctx.call;
-                    return DummyRefCount!(IWindow[])(ctx.windows, alloc);
+                    return managed!(IWindow[])(ctx.windows, managers(), Ownership.Secondary, alloc);
                 } else
                     assert(0);
             }
@@ -417,300 +418,318 @@ package(std.experimental) {
         } 
         
         //
-        
-        alias HMONITOR = HANDLE;
-        
-        enum MONITORINFOF_PRIMARY = 1;
-        enum CCHDEVICENAME = 32;
-        enum VREFRESH = 116;
-        enum DWORD ENUM_CURRENT_SETTINGS = cast(DWORD)-1;
-        enum DIB_RGB_COLORS = 0x0;
-        enum BI_RGB = 0;
-        enum MONITOR_DEFAULTTONULL = 0;
-        enum GWL_STYLE = -16;
-        enum GWL_EXSTYLE = -20;
-        enum GCL_HICON = -14;
-        enum ICON_SMALL = 0;
-        enum ICON_BIG = 1;
-        enum MF_SEPARATOR = 0x00000800;
-        enum MF_DISABLED = 0x00000002;
-        enum MF_ENABLED = 0;
-        enum MF_BITMAP = 0x00000004;
-        enum MF_BYCOMMAND = 0;
-        enum MF_STRING = 0;
-        enum MF_POPUP = 0x00000010;
-        enum GWLP_USERDATA = -21;
-        enum HTCLIENT = 1;
-        enum IMAGE_CURSOR = 2;
-        enum LR_DEFAULTSIZE = 0x00000040;
-        enum LR_SHARED = 0x00008000;
-        enum NOTIFYICON_VERSION_4 = 4;
-        enum NIF_ICON = 2;
-        enum NIF_MESSAGE = 1;
-        enum NIM_ADD = 0;
-        enum NIM_MODIFY = 1;
-        enum NIM_DELETE = 2;
-        enum NIM_SETVERSION = 4;
-        enum NIF_SHOWTIP = 0x00000080;
-        enum NIS_SHAREDICON = 0x00000002;
-        enum NIF_TIP  = 0x00000004;
-        enum NIF_INFO = 0x00000010;
-        enum NIF_STATE = 0x00000008;
-        enum NIS_HIDDEN = 0x00000001;
-        enum NIF_REALTIME = 0x00000040;
-        enum NIIF_USER  = 0x00000004;
-        enum WM_EXITSIZEMOVE = 0x232;
-        enum MC_CAPS_BRIGHTNESS = 0x00000002;
-        enum PHYSICAL_MONITOR_DESCRIPTION_SIZE = 128;
-        enum WM_MOUSEWHEEL = 0x020A;
-        enum VK_OEM_1 = 0xBA;
-        enum VK_OEM_2 = 0xBF;
-        enum VK_OEM_3 = 0xC0;
-        enum VK_OEM_4 = 0xDB;
-        enum VK_OEM_5 = 0xDC;
-        enum VK_OEM_6 = 0xDD;
-        enum VK_OEM_7 = 0xDE;
-        enum VK_OEM_PLUS = 0xBB;
-        enum VK_OEM_COMMA = 0xBC;
-        enum VK_OEM_MINUS = 0xBD;
-        enum VK_OEM_PERIOD = 0xBE;
 
-        /**
-         * Boost licensed, will be removed when it is part of core.sys.windows.winuser
-         */
+        static if (__VERSION__ < 2.070) {
+            alias HMONITOR = HANDLE;
+            
+            enum MONITORINFOF_PRIMARY = 1;
+            enum CCHDEVICENAME = 32;
+            enum VREFRESH = 116;
+            enum DWORD ENUM_CURRENT_SETTINGS = cast(DWORD)-1;
+            enum DIB_RGB_COLORS = 0x0;
+            enum BI_RGB = 0;
+            enum MONITOR_DEFAULTTONULL = 0;
+            enum GWL_STYLE = -16;
+            enum GWL_EXSTYLE = -20;
+            enum GCL_HICON = -14;
+            enum ICON_SMALL = 0;
+            enum ICON_BIG = 1;
+            enum MF_SEPARATOR = 0x00000800;
+            enum MF_DISABLED = 0x00000002;
+            enum MF_ENABLED = 0;
+            enum MF_BITMAP = 0x00000004;
+            enum MF_BYCOMMAND = 0;
+            enum MF_STRING = 0;
+            enum MF_POPUP = 0x00000010;
+            enum GWLP_USERDATA = -21;
+            enum HTCLIENT = 1;
+            enum IMAGE_CURSOR = 2;
+            enum LR_DEFAULTSIZE = 0x00000040;
+            enum LR_SHARED = 0x00008000;
+            enum NOTIFYICON_VERSION_4 = 4;
+            enum NIF_ICON = 2;
+            enum NIF_MESSAGE = 1;
+            enum NIM_ADD = 0;
+            enum NIM_MODIFY = 1;
+            enum NIM_DELETE = 2;
+            enum NIM_SETVERSION = 4;
+            enum NIF_SHOWTIP = 0x00000080;
+            enum NIS_SHAREDICON = 0x00000002;
+            enum NIF_TIP  = 0x00000004;
+            enum NIF_INFO = 0x00000010;
+            enum NIF_STATE = 0x00000008;
+            enum NIS_HIDDEN = 0x00000001;
+            enum NIF_REALTIME = 0x00000040;
+            enum NIIF_USER  = 0x00000004;
+            enum WM_EXITSIZEMOVE = 0x232;
+            enum MC_CAPS_BRIGHTNESS = 0x00000002;
+            enum PHYSICAL_MONITOR_DESCRIPTION_SIZE = 128;
+            enum WM_MOUSEWHEEL = 0x020A;
+            enum VK_OEM_1 = 0xBA;
+            enum VK_OEM_2 = 0xBF;
+            enum VK_OEM_3 = 0xC0;
+            enum VK_OEM_4 = 0xDB;
+            enum VK_OEM_5 = 0xDC;
+            enum VK_OEM_6 = 0xDD;
+            enum VK_OEM_7 = 0xDE;
+            enum VK_OEM_PLUS = 0xBB;
+            enum VK_OEM_COMMA = 0xBC;
+            enum VK_OEM_MINUS = 0xBD;
+            enum VK_OEM_PERIOD = 0xBE;
+
+            /**
+             * Boost licensed, will be removed when it is part of core.sys.windows.winuser
+             */
+            
+            template MAKEINTRESOURCE_T(WORD i) {
+                enum LPTSTR MAKEINTRESOURCE_T = cast(LPTSTR)(i);
+            }
+            
+            enum {
+                IDC_ARROW       = MAKEINTRESOURCE_T!(32512),
+                IDC_IBEAM       = MAKEINTRESOURCE_T!(32513),
+                IDC_WAIT        = MAKEINTRESOURCE_T!(32514),
+                IDC_CROSS       = MAKEINTRESOURCE_T!(32515),
+                IDC_UPARROW     = MAKEINTRESOURCE_T!(32516),
+                IDC_SIZE        = MAKEINTRESOURCE_T!(32640),
+                IDC_ICON        = MAKEINTRESOURCE_T!(32641),
+                IDC_SIZENWSE    = MAKEINTRESOURCE_T!(32642),
+                IDC_SIZENESW    = MAKEINTRESOURCE_T!(32643),
+                IDC_SIZEWE      = MAKEINTRESOURCE_T!(32644),
+                IDC_SIZENS      = MAKEINTRESOURCE_T!(32645),
+                IDC_SIZEALL     = MAKEINTRESOURCE_T!(32646),
+                IDC_NO          = MAKEINTRESOURCE_T!(32648),
+                IDC_HAND        = MAKEINTRESOURCE_T!(32649),
+                IDC_APPSTARTING = MAKEINTRESOURCE_T!(32650),
+                IDC_HELP        = MAKEINTRESOURCE_T!(32651),
+                IDI_APPLICATION = MAKEINTRESOURCE_T!(32512),
+                IDI_HAND        = MAKEINTRESOURCE_T!(32513),
+                IDI_QUESTION    = MAKEINTRESOURCE_T!(32514),
+                IDI_EXCLAMATION = MAKEINTRESOURCE_T!(32515),
+                IDI_ASTERISK    = MAKEINTRESOURCE_T!(32516),
+                IDI_WINLOGO     = MAKEINTRESOURCE_T!(32517),
+                IDI_WARNING     = IDI_EXCLAMATION,
+                IDI_ERROR       = IDI_HAND,
+                IDI_INFORMATION = IDI_ASTERISK
+            }
+            
+            enum {
+                QS_HOTKEY = 0x0080,
+                QS_KEY = 0x0001,
+                QS_MOUSEBUTTON = 0x0004,
+                QS_MOUSEMOVE = 0x0002,
+                QS_PAINT = 0x0020,
+                QS_POSTMESSAGE = 0x0008,
+                QS_RAWINPUT = 0x0400,
+                QS_TIMER = 0x0010,
         
-        template MAKEINTRESOURCE_T(WORD i) {
-            enum LPTSTR MAKEINTRESOURCE_T = cast(LPTSTR)(i);
-        }
+                QS_MOUSE = (QS_MOUSEMOVE | QS_MOUSEBUTTON),
+                QS_INPUT = (QS_MOUSE | QS_KEY | QS_RAWINPUT),
+                QS_ALLEVENTS = (QS_INPUT | QS_POSTMESSAGE | QS_TIMER | QS_PAINT | QS_HOTKEY),
         
-        enum {
-            IDC_ARROW       = MAKEINTRESOURCE_T!(32512),
-            IDC_IBEAM       = MAKEINTRESOURCE_T!(32513),
-            IDC_WAIT        = MAKEINTRESOURCE_T!(32514),
-            IDC_CROSS       = MAKEINTRESOURCE_T!(32515),
-            IDC_UPARROW     = MAKEINTRESOURCE_T!(32516),
-            IDC_SIZE        = MAKEINTRESOURCE_T!(32640),
-            IDC_ICON        = MAKEINTRESOURCE_T!(32641),
-            IDC_SIZENWSE    = MAKEINTRESOURCE_T!(32642),
-            IDC_SIZENESW    = MAKEINTRESOURCE_T!(32643),
-            IDC_SIZEWE      = MAKEINTRESOURCE_T!(32644),
-            IDC_SIZENS      = MAKEINTRESOURCE_T!(32645),
-            IDC_SIZEALL     = MAKEINTRESOURCE_T!(32646),
-            IDC_NO          = MAKEINTRESOURCE_T!(32648),
-            IDC_HAND        = MAKEINTRESOURCE_T!(32649),
-            IDC_APPSTARTING = MAKEINTRESOURCE_T!(32650),
-            IDC_HELP        = MAKEINTRESOURCE_T!(32651),
-            IDI_APPLICATION = MAKEINTRESOURCE_T!(32512),
-            IDI_HAND        = MAKEINTRESOURCE_T!(32513),
-            IDI_QUESTION    = MAKEINTRESOURCE_T!(32514),
-            IDI_EXCLAMATION = MAKEINTRESOURCE_T!(32515),
-            IDI_ASTERISK    = MAKEINTRESOURCE_T!(32516),
-            IDI_WINLOGO     = MAKEINTRESOURCE_T!(32517),
-            IDI_WARNING     = IDI_EXCLAMATION,
-            IDI_ERROR       = IDI_HAND,
-            IDI_INFORMATION = IDI_ASTERISK
-        }
+                QS_SENDMESSAGE = 0x0040
+            }
         
-        enum {
-            QS_HOTKEY = 0x0080,
-            QS_KEY = 0x0001,
-            QS_MOUSEBUTTON = 0x0004,
-            QS_MOUSEMOVE = 0x0002,
-            QS_PAINT = 0x0020,
-            QS_POSTMESSAGE = 0x0008,
-            QS_RAWINPUT = 0x0400,
-            QS_TIMER = 0x0010,
-    
-            QS_MOUSE = (QS_MOUSEMOVE | QS_MOUSEBUTTON),
-            QS_INPUT = (QS_MOUSE | QS_KEY | QS_RAWINPUT),
-            QS_ALLEVENTS = (QS_INPUT | QS_POSTMESSAGE | QS_TIMER | QS_PAINT | QS_HOTKEY),
-    
-            QS_SENDMESSAGE = 0x0040
-        }
-    
-        enum {
-            MWMO_ALERTABLE = 0x0002,
-            MWMO_INPUTAVAILABLE = 0x0004,
-        }
-        
-        /**
-         * Boost licensed, will be removed when it is part of core.sys.windows.winuser
-         */
-        
-        alias TCHAR = char;
-        
-        struct MONITORINFOEX {
-            DWORD cbSize;
-            RECT rcMonitor;
-            RECT rcWork;
-            DWORD dwFlags;
-            TCHAR[32] szDevice;
-        }
-        
-        alias POINTL = POINT;
-        
-        struct DEVMODE {
-            BYTE[32] dmDeviceName;
-            WORD   dmSpecVersion;
-            WORD   dmDriverVersion;
-            WORD   dmSize;
-            WORD   dmDriverExtra;
-            DWORD  dmFields;
-            union {
-                struct {
-                    short dmOrientation;
-                    short dmPaperSize;
-                    short dmPaperLength;
-                    short dmPaperWidth;
-                    short dmScale;
-                    short dmCopies;
-                    short dmDefaultSource;
-                    short dmPrintQuality;
+            enum {
+                MWMO_ALERTABLE = 0x0002,
+                MWMO_INPUTAVAILABLE = 0x0004,
+            }
+            
+            /**
+             * Boost licensed, will be removed when it is part of core.sys.windows.winuser
+             */
+            
+            alias TCHAR = char;
+            
+            struct MONITORINFOEX {
+                DWORD cbSize;
+                RECT rcMonitor;
+                RECT rcWork;
+                DWORD dwFlags;
+                TCHAR[32] szDevice;
+            }
+            
+            alias POINTL = POINT;
+            
+            struct DEVMODE {
+                BYTE[32] dmDeviceName;
+                WORD   dmSpecVersion;
+                WORD   dmDriverVersion;
+                WORD   dmSize;
+                WORD   dmDriverExtra;
+                DWORD  dmFields;
+                union {
+                    struct {
+                        short dmOrientation;
+                        short dmPaperSize;
+                        short dmPaperLength;
+                        short dmPaperWidth;
+                        short dmScale;
+                        short dmCopies;
+                        short dmDefaultSource;
+                        short dmPrintQuality;
+                    }
+                    POINTL dmPosition;
+                    DWORD  dmDisplayOrientation;
+                    DWORD  dmDisplayFixedOutput;
                 }
-                POINTL dmPosition;
-                DWORD  dmDisplayOrientation;
-                DWORD  dmDisplayFixedOutput;
+                short  dmColor;
+                short  dmDuplex;
+                short  dmYResolution;
+                short  dmTTOption;
+                short  dmCollate;
+                BYTE[32]   dmFormName;
+                WORD   dmLogPixels;
+                DWORD  dmBitsPerPel;
+                DWORD  dmPelsWidth;
+                DWORD  dmPelsHeight;
+                union {
+                    DWORD  dmDisplayFlags;
+                    DWORD  dmNup;
+                }
+                DWORD  dmDisplayFrequency;
+                DWORD  dmICMMethod;
+                DWORD  dmICMIntent;
+                DWORD  dmMediaType;
+                DWORD  dmDitherType;
+                DWORD  dmReserved1;
+                DWORD  dmReserved2;
+                DWORD  dmPanningWidth;
+                DWORD  dmPanningHeight;
             }
-            short  dmColor;
-            short  dmDuplex;
-            short  dmYResolution;
-            short  dmTTOption;
-            short  dmCollate;
-            BYTE[32]   dmFormName;
-            WORD   dmLogPixels;
-            DWORD  dmBitsPerPel;
-            DWORD  dmPelsWidth;
-            DWORD  dmPelsHeight;
-            union {
-                DWORD  dmDisplayFlags;
-                DWORD  dmNup;
+            
+            struct ICONINFO {
+                bool fIcon;
+                DWORD xHotspot;
+                DWORD yHotspot;
+                HBITMAP hbmMask;
+                HBITMAP hbmColor;
             }
-            DWORD  dmDisplayFrequency;
-            DWORD  dmICMMethod;
-            DWORD  dmICMIntent;
-            DWORD  dmMediaType;
-            DWORD  dmDitherType;
-            DWORD  dmReserved1;
-            DWORD  dmReserved2;
-            DWORD  dmPanningWidth;
-            DWORD  dmPanningHeight;
-        }
-        
-        struct ICONINFO {
-            bool fIcon;
-            DWORD xHotspot;
-            DWORD yHotspot;
-            HBITMAP hbmMask;
-            HBITMAP hbmColor;
-        }
-        
-        struct MENUITEMINFO {
-            UINT      cbSize;
-            UINT      fMask;
-            UINT      fType;
-            UINT      fState;
-            UINT      wID;
-            HMENU     hSubMenu;
-            HBITMAP   hbmpChecked;
-            HBITMAP   hbmpUnchecked;
-            ULONG_PTR dwItemData;
-            LPTSTR    dwTypeData;
-            UINT      cch;
-            HBITMAP   hbmpItem;
+            
+            struct MENUITEMINFO {
+                UINT      cbSize;
+                UINT      fMask;
+                UINT      fType;
+                UINT      fState;
+                UINT      wID;
+                HMENU     hSubMenu;
+                HBITMAP   hbmpChecked;
+                HBITMAP   hbmpUnchecked;
+                ULONG_PTR dwItemData;
+                LPTSTR    dwTypeData;
+                UINT      cch;
+                HBITMAP   hbmpItem;
+            }
+
+            struct NOTIFYICONDATAW {
+                DWORD cbSize;
+                HWND  hWnd;
+                UINT  uID;
+                UINT  uFlags;
+                UINT  uCallbackMessage;
+                HICON hIcon;
+                WCHAR[128] szTip;
+                DWORD dwState;
+                DWORD dwStateMask;
+                WCHAR[256] szInfo;
+                union {
+                    UINT uTimeout;
+                    UINT uVersion;
+                }
+                WCHAR[64] szInfoTitle;
+                DWORD dwInfoFlags;
+                GUID  guidItem;
+                HICON hBalloonIcon;
+            }
+
+            struct GUID {
+                DWORD Data1;
+                WORD  Data2;
+                WORD  Data3;
+                BYTE[8]  Data4;
+                }
+        } else {
+            enum NIF_SHOWTIP = 0x00000080;
+            enum NIF_REALTIME = 0x00000040;
+            enum NOTIFYICON_VERSION_4 = 4;
+            enum MC_CAPS_BRIGHTNESS = 0x00000002;
+            enum PHYSICAL_MONITOR_DESCRIPTION_SIZE = 128;
         }
 
-        struct NOTIFYICONDATAW {
-            DWORD cbSize;
-            HWND  hWnd;
-            UINT  uID;
-            UINT  uFlags;
-            UINT  uCallbackMessage;
-            HICON hIcon;
-            WCHAR[128] szTip;
-            DWORD dwState;
-            DWORD dwStateMask;
-            WCHAR[256] szInfo;
-            union {
-                UINT uTimeout;
-                UINT uVersion;
-            }
-            WCHAR[64] szInfoTitle;
-            DWORD dwInfoFlags;
-            GUID  guidItem;
-            HICON hBalloonIcon;
-        }
-
-        struct GUID {
-            DWORD Data1;
-            WORD  Data2;
-            WORD  Data3;
-            BYTE[8]  Data4;
-        }
-        
         struct PHYSICAL_MONITOR {
             HANDLE hPhysicalMonitor;
             WCHAR[PHYSICAL_MONITOR_DESCRIPTION_SIZE]  szPhysicalMonitorDescription;
         }
         
         extern(Windows) {
-            alias MONITORENUMPROC = bool function(HMONITOR, HDC, LPRECT, LPARAM);
-            alias WNDENUMPROC = bool function(HWND, LPARAM);
-            
-            extern {
-                bool GetMonitorInfoW(HMONITOR, MONITORINFOEX*);
-                bool EnumDisplayMonitors(HDC, LPRECT, MONITORENUMPROC, LPARAM);
-                bool GetMonitorInfoA(HMONITOR, MONITORINFOEX*);
-                bool EnumDisplaySettingsA(char*, DWORD, DEVMODE*);
-                HDC CreateDCA(char*, char*, char*, DEVMODE*);
-                HBITMAP CreateCompatibleBitmap(HDC, int, int);
-                bool BitBlt(HDC, int, int, int, int, HDC, int, int, DWORD);
-                int GetDIBits(HDC, HBITMAP, uint, uint, void*, BITMAPINFO*, uint);
-                bool EnumWindows(WNDENUMPROC, LPARAM);
-                HMONITOR MonitorFromWindow(HWND, DWORD);
-                HMENU GetMenu(HWND);
-                LONG GetWindowLongA(HWND, int);
-                int GetWindowTextLengthW(HWND);
-                int GetWindowTextW(HWND, wchar*, int);
-                BOOL SetWindowTextW(HWND, wchar*);
-                bool CloseWindow(HWND);
-                bool IsWindowVisible(HWND);
-                DWORD GetClassLongA(HWND, int);
-                bool GetIconInfo(HICON, ICONINFO*);
-                HICON CreateIconIndirect(ICONINFO*);
-                HBITMAP CreateBitmap(int, int, uint, uint, void*);
-                bool DestroyIcon(HICON);
-                bool ModifyMenuA(HMENU, uint, uint, void*, void*);
-                int GetMenuStringW(HMENU, uint, void*, int, uint);
-                uint GetMenuState(HMENU, uint, uint);
-                bool GetMenuItemInfoA(HMENU, uint, bool, MENUITEMINFO*);
-                bool DeleteMenu(HMENU, uint, uint);
-                bool RemoveMenu(HMENU, uint, uint);
-                bool AppendMenuA(HMENU, uint, UINT_PTR, void*);
-                HMENU CreatePopupMenu();
-                bool GetClassInfoExW(HINSTANCE, wchar*, WNDCLASSEXW*);
-                LONG GetWindowLongW(HWND hWnd,int nIndex) nothrow;
-                LONG SetWindowLongW(HWND hWnd,int nIndex,LONG dwNewLong) nothrow;
-                DWORD MsgWaitForMultipleObjectsEx(DWORD nCount, const(HANDLE) *pHandles, DWORD dwMilliseconds, DWORD dwWakeMask, DWORD dwFlags);
-                int ToUnicode(UINT wVirtKey, UINT wScanCode, BYTE *lpKeyState, LPWSTR pwszBuff, int cchBuff, UINT wFlags);
+            static if (__VERSION__ < 2.070) {
+                alias MONITORENUMPROC = int function(HMONITOR, HDC, LPRECT, LPARAM) nothrow;
+                alias WNDENUMPROC = int function(HWND, LPARAM) nothrow;
                 
-                version(X86_64){
-                    LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR) nothrow;
-                    LONG_PTR GetWindowLongPtrW(HWND, int) nothrow;
-                } else {
-                    alias GetWindowLongPtrW = GetWindowLongW;
-                    alias SetWindowLongPtrW = SetWindowLongW;
+                extern {
+                    bool GetMonitorInfoW(HMONITOR, MONITORINFOEX*);
+                    bool EnumDisplayMonitors(HDC, LPRECT, MONITORENUMPROC, LPARAM);
+                    bool GetMonitorInfoA(HMONITOR, MONITORINFOEXA*);
+                    bool EnumDisplaySettingsA(char*, DWORD, DEVMODE*);
+                    HDC CreateDCA(char*, char*, char*, DEVMODE*);
+                    HBITMAP CreateCompatibleBitmap(HDC, int, int);
+                    bool BitBlt(HDC, int, int, int, int, HDC, int, int, DWORD);
+                    int GetDIBits(HDC, HBITMAP, uint, uint, void*, BITMAPINFO*, uint);
+                    bool EnumWindows(WNDENUMPROC, LPARAM);
+                    HMONITOR MonitorFromWindow(HWND, DWORD);
+                    HMENU GetMenu(HWND);
+                    LONG GetWindowLongA(HWND, int);
+                    int GetWindowTextLengthW(HWND);
+                    int GetWindowTextW(HWND, wchar*, int);
+                    BOOL SetWindowTextW(HWND, wchar*);
+                    bool CloseWindow(HWND);
+                    bool IsWindowVisible(HWND);
+                    DWORD GetClassLongA(HWND, int);
+                    bool GetIconInfo(HICON, ICONINFO*);
+                    HICON CreateIconIndirect(ICONINFO*);
+                    HBITMAP CreateBitmap(int, int, uint, uint, void*);
+                    bool DestroyIcon(HICON);
+                    bool ModifyMenuA(HMENU, uint, uint, UINT_PTR, const(char)*);
+                    bool ModifyMenuW(HMENU, uint, uint, UINT_PTR, const(wchar)*);
+                    int GetMenuStringW(HMENU, uint, void*, int, uint);
+                    uint GetMenuState(HMENU, uint, uint);
+                    bool GetMenuItemInfoA(HMENU, uint, bool, MENUITEMINFO*);
+                    bool DeleteMenu(HMENU, uint, uint);
+                    bool RemoveMenu(HMENU, uint, uint);
+                    bool AppendMenuA(HMENU, uint, UINT_PTR, void*);
+                    HMENU CreatePopupMenu();
+                    bool GetClassInfoExW(HINSTANCE, wchar*, WNDCLASSEXW*);
+                    LONG GetWindowLongW(HWND hWnd,int nIndex) nothrow;
+                    LONG SetWindowLongW(HWND hWnd,int nIndex,LONG dwNewLong) nothrow;
+                    DWORD MsgWaitForMultipleObjectsEx(DWORD nCount, const(HANDLE) *pHandles, DWORD dwMilliseconds, DWORD dwWakeMask, DWORD dwFlags);
+                    int ToUnicode(UINT wVirtKey, UINT wScanCode, BYTE *lpKeyState, LPWSTR pwszBuff, int cchBuff, UINT wFlags);
+                    
+                    version(X86_64){
+                        LONG_PTR SetWindowLongPtrW(HWND, int, LONG_PTR) nothrow;
+                        LONG_PTR GetWindowLongPtrW(HWND, int) nothrow;
+                    } else {
+                        alias GetWindowLongPtrW = GetWindowLongW;
+                        alias SetWindowLongPtrW = SetWindowLongW;
+                    }
+                    
+                    bool DestroyCursor(HCURSOR);
+                    HANDLE LoadImageW(HINSTANCE, wchar*, uint, int, int, uint);
+                    HCURSOR CreateCursor(HINSTANCE, int, int, int, int, void*, void*);
+                    bool Shell_NotifyIconW(DWORD, NOTIFYICONDATAW*);
+                    HWND GetDesktopWindow();
+                    
+                    // dxva2
+                    BOOL GetMonitorCapabilities(HANDLE hMonitor, LPDWORD pdwMonitorCapabilities, LPDWORD pdwSupportedColorTemperatures);
+                    BOOL GetMonitorBrightness(HANDLE hMonitor, LPDWORD pdwMinimumBrightness, LPDWORD pdwCurrentBrightness, LPDWORD pdwMaximumBrightness);
+                    BOOL GetPhysicalMonitorsFromHMONITOR(HMONITOR hMonitor, DWORD dwPhysicalMonitorArraySize, PHYSICAL_MONITOR* pPhysicalMonitorArray);
                 }
-                
-                bool DestroyCursor(HCURSOR);
-                HANDLE LoadImageW(HINSTANCE, wchar*, uint, int, int, uint);
-                HCURSOR CreateCursor(HINSTANCE, int, int, int, int, void*, void*);
-                bool Shell_NotifyIconW(DWORD, NOTIFYICONDATAW*);
-                HWND GetDesktopWindow();
-                
-                // dxva2
-                BOOL GetMonitorCapabilities(HANDLE hMonitor, LPDWORD pdwMonitorCapabilities, LPDWORD pdwSupportedColorTemperatures);
-                BOOL GetMonitorBrightness(HANDLE hMonitor, LPDWORD pdwMinimumBrightness, LPDWORD pdwCurrentBrightness, LPDWORD pdwMaximumBrightness);
-                BOOL GetPhysicalMonitorsFromHMONITOR(HMONITOR hMonitor, DWORD dwPhysicalMonitorArraySize, PHYSICAL_MONITOR* pPhysicalMonitorArray);
+            } else {
+                extern {
+                    // dxva2
+                    BOOL GetMonitorCapabilities(HANDLE hMonitor, LPDWORD pdwMonitorCapabilities, LPDWORD pdwSupportedColorTemperatures);
+                    BOOL GetMonitorBrightness(HANDLE hMonitor, LPDWORD pdwMinimumBrightness, LPDWORD pdwCurrentBrightness, LPDWORD pdwMaximumBrightness);
+                    BOOL GetPhysicalMonitorsFromHMONITOR(HMONITOR hMonitor, DWORD dwPhysicalMonitorArraySize, PHYSICAL_MONITOR* pPhysicalMonitorArray);
+                }
             }
             
             struct GetDisplays {
@@ -724,13 +743,14 @@ package(std.experimental) {
                 }
             }
             
-            bool callbackGetDisplays(HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam) {
+            int callbackGetDisplays(HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam) nothrow {
                 GetDisplays* ctx = cast(GetDisplays*)lParam;
-                
-                IDisplay display = ctx.alloc.make!DisplayImpl(hMonitor, ctx.alloc, ctx.platform);
-                
-                ctx.alloc.expandArray(ctx.displays, 1);
-                ctx.displays[$-1] = display;
+
+                try {
+                    IDisplay display = ctx.alloc.make!DisplayImpl(hMonitor, ctx.alloc, ctx.platform);
+                    ctx.alloc.expandArray(ctx.displays, 1);
+                    ctx.displays[$-1] = display;
+                } catch (Exception e) {}
                 
                 return true;
             }
@@ -747,8 +767,8 @@ package(std.experimental) {
                     EnumWindows(&callbackGetWindows, cast(LPARAM)&this);
                 }
             }
-            
-            bool callbackGetWindows(HWND hwnd, LPARAM lParam) {
+
+            int callbackGetWindows(HWND hwnd, LPARAM lParam) nothrow {
                 GetWindows* ctx = cast(GetWindows*)lParam;
                 
                 if (!IsWindowVisible(hwnd))
@@ -759,25 +779,27 @@ package(std.experimental) {
                 
                 if (rect.right - rect.left == 0 || rect.bottom - rect.top == 0)
                     return true;
-                
-                WindowImpl window = ctx.alloc.make!WindowImpl(hwnd, cast(IContext)null, ctx.alloc, ctx.platform);
-                
-                if (ctx.display is null) {
-                    ctx.alloc.expandArray(ctx.windows, 1);
-                    ctx.windows[$-1] = window;
-                } else {
-                    IDisplay display2 = (cast(IWindow)window).display;
-                    if (display2 is null) {
-                        ctx.alloc.dispose(window);
-                        return true;
-                    }
+
+                try {
+                    WindowImpl window = ctx.alloc.make!WindowImpl(hwnd, cast(IContext)null, ctx.alloc, ctx.platform);
                     
-                    if (display2.name == ctx.display.name) {
+                    if (ctx.display is null) {
                         ctx.alloc.expandArray(ctx.windows, 1);
                         ctx.windows[$-1] = window;
-                    } else
-                        ctx.alloc.dispose(window);
-                }
+                    } else {
+                        IDisplay display2 = (cast(IWindow)window).display;
+                        if (display2 is null) {
+                            ctx.alloc.dispose(window);
+                            return true;
+                        }
+                        
+                        if (display2.name == ctx.display.name) {
+                            ctx.alloc.expandArray(ctx.windows, 1);
+                            ctx.windows[$-1] = window;
+                        } else
+                            ctx.alloc.dispose(window);
+                    }
+                } catch(Exception e) {}
                 
                 return true;
             }
@@ -1300,8 +1322,8 @@ package(std.experimental) {
                 
                 this.hMonitor = hMonitor;
 
-                MONITORINFOEX info;
-                info.cbSize = MONITORINFOEX.sizeof;
+                MONITORINFOEXA info;
+                info.cbSize = MONITORINFOEXA.sizeof;
                 GetMonitorInfoA(hMonitor, &info);
 
                 char[] temp = info.szDevice.ptr.fromStringz;
@@ -1314,7 +1336,7 @@ package(std.experimental) {
                 
                 primaryDisplay_ = (info.dwFlags & MONITORINFOF_PRIMARY) == MONITORINFOF_PRIMARY;
 
-                DEVMODE devMode;
+                DEVMODEA devMode;
                 devMode.dmSize = DEVMODE.sizeof;
                 EnumDisplaySettingsA(name_.ptr, ENUM_CURRENT_SETTINGS, &devMode);
                 refreshRate_ = devMode.dmDisplayFrequency;
@@ -1349,11 +1371,11 @@ package(std.experimental) {
                     assert(0);
             }
             
-            DummyRefCount!(IWindow[]) windows() {
+            managed!(IWindow[]) windows() {
                 version(Windows) {
                     GetWindows ctx = GetWindows(alloc, cast()platform, cast()this);
                     ctx.call;
-                    return DummyRefCount!(IWindow[])(ctx.windows, alloc);
+                    return managed!(IWindow[])(ctx.windows, managers(), Ownership.Secondary, alloc);
                 } else
                     assert(0);
             }
@@ -1461,9 +1483,9 @@ package(std.experimental) {
                 }
             }
         }
-        
+
         @property {
-            DummyRefCount!(dchar[]) title() {
+            managed!dstring title() {
                 import std.utf : byDchar;
                 
                 version(Windows) {
@@ -1490,7 +1512,7 @@ package(std.experimental) {
                     }
                     
                     alloc.dispose(buffer);
-                    return DummyRefCount!(dchar[])(buffer2, alloc);
+                    return managed!dstring(cast(dstring)buffer2, managers(), Ownership.Secondary, alloc);
                 } else
                     assert(0);
             }
@@ -1564,19 +1586,21 @@ package(std.experimental) {
             
             bool visible() {
                 version(Windows)
-                    return IsWindowVisible(hwnd);
+                    return cast(bool)IsWindowVisible(hwnd);
                 else
                     assert(0);
             }
             
             // display can and will most likely change during runtime
-            DummyRefCount!IDisplay display() {
+            managed!IDisplay display() {
+                import std.typecons : tuple;
+
                 version(Windows) {
                     HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
                     if (monitor is null)
-                        return DummyRefCount!IDisplay(null, null);
+                        return (managed!IDisplay).init;
                     else
-                        return DummyRefCount!IDisplay(alloc.make!DisplayImpl(monitor, alloc, platform),  alloc);
+                        return cast(managed!IDisplay)managed!DisplayImpl(managers(), tuple(monitor, alloc, platform), alloc);
                 } else
                     assert(0);
             }
@@ -1878,8 +1902,8 @@ package(std.experimental) {
                 // multiple monitors support
                 
                 UIPoint setpos = location();
-                MONITORINFOEX mi;
-                mi.cbSize = MONITORINFOEX.sizeof;
+                MONITORINFOEXA mi;
+                mi.cbSize = MONITORINFOEXA.sizeof;
                 
                 HMONITOR hMonitor = *cast(HMONITOR*)display().__handle;
                 GetMonitorInfoA(hMonitor, &mi);
@@ -1965,7 +1989,7 @@ package(std.experimental) {
                     myChildren = CreatePopupMenu();
                 }
                 
-                ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_POPUP, myChildren, null);
+                ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_POPUP, cast(UINT_PTR) myChildren, null);
                 return window.alloc.make!MenuItemImpl(window, myChildren, this);
             } else
                 assert(0);
@@ -2001,10 +2025,10 @@ package(std.experimental) {
                 return cast(managed!(MenuItem[]))menuItems[];
             }
             
-            override DummyRefCount!(ImageStorage!RGB8) image() {
+            override managed!(ImageStorage!RGB8) image() {
                 version(Windows) {
-                    MENUITEMINFO mmi;
-                    mmi.cbSize = MENUITEMINFO.sizeof;
+                    MENUITEMINFOA mmi;
+                    mmi.cbSize = MENUITEMINFOA.sizeof;
                     GetMenuItemInfoA(parent, menuItemId, false, &mmi);
                     
                     HDC hFrom = GetDC(null);
@@ -2018,7 +2042,7 @@ package(std.experimental) {
                     BITMAP bm;
                     GetObjectA(mmi.hbmpItem, BITMAP.sizeof, &bm);
                     
-                    return DummyRefCount!(ImageStorage!RGB8)(bitmapToImage(mmi.hbmpItem, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), window.alloc), window.alloc);
+                    return managed!(ImageStorage!RGB8)(bitmapToImage(mmi.hbmpItem, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), window.alloc), managers(), Ownership.Secondary, window.alloc);
                 } else
                     assert(0);
             }
@@ -2034,7 +2058,7 @@ package(std.experimental) {
                     }
                     
                     HBITMAP bitmap = imageToBitmap(input, hMemoryDC, window.alloc);
-                    ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_BITMAP, null, bitmap);
+                    ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_BITMAP, 0, cast(const(char)*)bitmap);
                     
                     if (lastBitmap !is null)
                         DeleteObject(lastBitmap);
@@ -2043,7 +2067,7 @@ package(std.experimental) {
                 window.redrawMenu = true;
             }
             
-            override DummyRefCount!(dchar[]) text() {
+            override managed!dstring text() {
                 version(Windows) {
                     wchar[32] buffer;
                     int length = GetMenuStringW(parent, menuItemId, buffer.ptr, buffer.length, MF_BYCOMMAND);
@@ -2052,7 +2076,7 @@ package(std.experimental) {
                     dchar[] buffer2 = window.alloc.makeArray!dchar(length);
                     buffer2[0 .. length] = cast(dchar[])buffer[0 .. length];
                     
-                    return DummyRefCount!(dchar[])(buffer2, window.alloc);
+                    return managed!dstring(cast(dstring)buffer2, managers(), Ownership.Secondary, window.alloc);
                 } else
                     assert(0);
             }
@@ -2075,7 +2099,7 @@ package(std.experimental) {
                     window.alloc.expandArray(buffer, 1); // \0 last byte
                     buffer[$-1] = '\0';
                     
-                    ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_STRING, null, buffer.ptr);
+                    ModifyMenuW(parent, menuItemId, MF_BYCOMMAND | MF_STRING, 0, cast(const(wchar)*)buffer.ptr);
                     window.alloc.dispose(buffer);
                 }
                 window.redrawMenu = true;
@@ -2108,9 +2132,9 @@ package(std.experimental) {
             override void divider(bool v) {
                 version(Windows) {
                     if (v)
-                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_SEPARATOR, null, null);
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_SEPARATOR, 0, null);
                     else
-                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND & ~MF_SEPARATOR, null, null);
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND & ~MF_SEPARATOR, 0, null);
                 }
                 window.redrawMenu = true;
             }
@@ -2125,9 +2149,9 @@ package(std.experimental) {
             override void disabled(bool v) {
                 version(Windows) {
                     if (v)
-                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_DISABLED, null, null);
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_DISABLED, 0, null);
                     else
-                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_ENABLED, null, null);
+                        ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_ENABLED, 0, null);
                 }
                 window.redrawMenu = true;
             }
@@ -2232,8 +2256,8 @@ package(std.experimental) {
                 // multiple monitor support
                 
                 UIPoint setpos = location_;
-                MONITORINFOEX mi;
-                mi.cbSize = MONITORINFOEX.sizeof;
+                MONITORINFOEXA mi;
+                mi.cbSize = MONITORINFOEXA.sizeof;
 
                 HMONITOR hMonitor;
                 if (display_ is null)

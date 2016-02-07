@@ -8,7 +8,7 @@ module std.experimental.ui.window.features.icon;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGBA8;
-import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 
 interface Have_Icon {
     Feature_Icon __getFeatureIcon();
@@ -39,22 +39,22 @@ interface Feature_Icon {
     }
 
     ///
-    DummyRefCount!(ImageStorage!RGBA8) icon(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
+    managed!(ImageStorage!RGBA8) icon(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
-            return DummyRefCount!(ImageStorage!RGBA8)(null, null);
+            return (managed!(ImageStorage!RGBA8)).init;
 
         if (Have_Icon ss = cast(Have_Icon)self) {
             auto fss = ss.__getFeatureIcon();
             if (fss !is null) {
                 auto ret = fss.getIcon();
-                return DummyRefCount!(ImageStorage!RGBA8)(ret, self.allocator);
+                return managed!(ImageStorage!RGBA8)(ret, managers(), Ownership.Secondary, self.allocator);
             }
         }
 
-        return DummyRefCount!(ImageStorage!RGBA8)(null, null);
+        return (managed!(ImageStorage!RGBA8)).init;
     }
 
-    DummyRefCount!(ImageStorage!RGBA8) icon(T)(T self) if (!(is(T : IWindow) || is(T : IWindowCreator))) {
+    managed!(ImageStorage!RGBA8) icon(T)(T self) if (!(is(T : IWindow) || is(T : IWindowCreator))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IWindowCreator.");
     }
 }

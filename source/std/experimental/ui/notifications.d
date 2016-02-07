@@ -9,7 +9,7 @@ import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGBA8;
 import std.experimental.platform : IPlatform;
-import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 import std.experimental.allocator : IAllocator, theAllocator;
 
 interface Have_Notification {
@@ -39,16 +39,16 @@ void notificationIcon(IPlatform self, ImageStorage!RGBA8 to, IAllocator alloc=th
 }
 
 ///
-DummyRefCount!(ImageStorage!RGBA8) notificationIcon(IPlatform self, IAllocator alloc=theAllocator) {
+managed!(ImageStorage!RGBA8) notificationIcon(IPlatform self, IAllocator alloc=theAllocator) {
     if (self is null)
-        return DummyRefCount!(ImageStorage!RGBA8)(null, null);
+        return (managed!(ImageStorage!RGBA8)).init;
     if (Have_Notification ss = cast(Have_Notification)self) {
         auto fss = ss.__getFeatureNotification();
         if (fss !is null) {
-            return DummyRefCount!(ImageStorage!RGBA8)(fss.getNotificationIcon(alloc), alloc);
+            return managed!(ImageStorage!RGBA8)(fss.getNotificationIcon(alloc), managers(), Ownership.Secondary, alloc);
         }
     }
-    return DummyRefCount!(ImageStorage!RGBA8)(null, null);
+    return (managed!(ImageStorage!RGBA8)).init;
 }
 
 ///

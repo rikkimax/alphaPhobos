@@ -114,10 +114,16 @@ interface IMemoryManager {
  * Otherwise in normal operations it will act as if it was a normal D array
  *  only using allocators for expanding and shrinking.
  * 
+ * To retrieve a null version, just use $(D (managed!T).init). It will directly compare to $(D null) as true.
+ *  Since internally it will be comparing to a pointer while using $(D is).
+ * 
  * See_Also:
  *      IMemoryManager, managers, Ownership
  */
 struct managed(MyType) {
+    // this exists for support for e.g. std.experimental.image
+    alias PayLoadType = MyType;
+
 @trusted:
     private {
         final class SPointer {
@@ -130,8 +136,6 @@ struct managed(MyType) {
         }
         
         struct __Internal {
-            alias TYPE = MyType;
-
             static if (is(MyType == class) || is(MyType == interface) || isArray!MyType) {
                 MyType self;
             } else {
@@ -193,7 +197,7 @@ struct managed(MyType) {
         import std.traits : isInstanceOf, moduleName;
 
         auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
-            alias MyType2 = TMyType2.__internal.TYPE;
+            alias MyType2 = TMyType2.PayLoadType;
 
             static if (is(MyType : MyType2)) {
                 managed!MyType2 ret;
@@ -216,7 +220,7 @@ struct managed(MyType) {
         import std.traits : moduleName;
         
         auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
-            alias MyType2 = TMyType2.__internal.TYPE;
+            alias MyType2 = TMyType2.PayLoadType;
             
             static if (is(ForeachType!MyType : ForeachType!MyType2)) {
                 managed!MyType2 ret;
@@ -239,7 +243,7 @@ struct managed(MyType) {
         import std.traits : moduleName, Unqual;
 
         auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
-            alias MyType2 = Unqual!(TMyType2.__internal.TYPE);
+            alias MyType2 = Unqual!(TMyType2.PayLoadType);
 
             static if ((ForeachType!MyType2).sizeof == (ForeachType!MyType).sizeof) {
                 managed!MyType2 ret;
@@ -366,7 +370,7 @@ struct managed(MyType) {
                 return opCall(from, managers(), ownership, alloc);
             }
             
-            static managed!MyType opCall(MemoryManagerST, ArgsT)(MemoryManagerST memmgr, Tuple!ArgsT args, IAllocator alloc=theAllocator()) {
+            static managed!MyType opCall(MemoryManagerST, ArgsT...)(MemoryManagerST memmgr, Tuple!ArgsT args, IAllocator alloc=theAllocator()) {
                 managed!MyType ret;
                 ret.__internal.allocator = alloc;
                 static if (is(MemoryManagerST : IMemoryManager)) {
@@ -374,7 +378,7 @@ struct managed(MyType) {
                 } else {
                     ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
                 }
-                
+
                 ret.__internal.self = alloc.make!MyType(args.expand);
                 
                 ret.__internal.memmgrs.opInc();

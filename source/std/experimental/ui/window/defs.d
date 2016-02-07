@@ -11,7 +11,7 @@ import std.experimental.platform : IPlatform;
 import std.experimental.ui.rendering;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.experimental.allocator : IAllocator;
-import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 
 ///
 alias UIPoint = vec2!short;
@@ -20,7 +20,7 @@ alias UIPoint = vec2!short;
 interface IWindow : IRenderPoint {
     @property {
         ///
-        DummyRefCount!(dchar[]) title();
+        managed!(dstring) title();
         
         ///
         void title(string);

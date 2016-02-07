@@ -8,7 +8,7 @@ module std.experimental.ui.window.features.cursor;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGBA8;
-import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 
 /**
  * What the cursor will be displayed to the user
@@ -135,7 +135,7 @@ interface Feature_Cursor {
             }
         }
     }
-    
+
     void cursorIcon(T)(T self, ImageStorage!RGBA8 to)  if (!(is(T : IWindow) || is(T : IWindowCreator))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IWindowCreator.");
     }
@@ -143,22 +143,22 @@ interface Feature_Cursor {
     /**
      * Gets a copy of the cursor if it is assigned as custom.
      */
-    DummyRefCount!(ImageStorage!RGBA8) cursorIcon(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
+    managed!(ImageStorage!RGBA8) cursorIcon(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
-            return DummyRefCount!(ImageStorage!RGBA8)(null, null);
+            return (managed!(ImageStorage!RGBA8)).init;
         
         if (Have_Cursor ss = cast(Have_Cursor)self) {
             auto fss = ss.__getFeatureCursor();
             if (fss !is null) {
                 auto ret = fss.getCursorIcon();
-                return DummyRefCount!(ImageStorage!RGBA8)(ret, self.allocator);
+                return managed!(ImageStorage!RGBA8)(ret, managers(), Ownership.Secondary, self.allocator);
             }
         }
         
-        return DummyRefCount!(ImageStorage!RGBA8)(null, null);
+        return (managed!(ImageStorage!RGBA8)).init;
     }
     
-    DummyRefCount!(ImageStorage!RGBA8) cursorIcon(T)(T self) if (!(is(T : IWindow) || is(T : IWindowCreator))) {
+    managed!(ImageStorage!RGBA8) cursorIcon(T)(T self) if (!(is(T : IWindow) || is(T : IWindowCreator))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IWindowCreator.");
     }
 }

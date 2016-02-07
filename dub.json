@@ -3,6 +3,9 @@
 	"description": "A minimal D application.",
 	"copyright": "Copyright © 2015, rikki",
 	"authors": ["rikki"],
+	
+    "versions-windows": ["WindowsVista", "IE7"],
+
     "subPackages": [
         {
             "name": "tests",
@@ -10,8 +13,7 @@
             "targetType": "executable",
             "dependencies": {
                 "alphaphobos": "*"
-            },
-            
+            }
         }
     ]
 }

@@ -9,7 +9,6 @@ import std.experimental.ui.window.defs;
 import std.experimental.platform;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8;
-import std.experimental.internal.dummyRefCount;
 import std.experimental.memory.managed;
 
 interface Have_Menu {
@@ -39,13 +38,13 @@ interface MenuItem {
         managed!(MenuItem[]) childItems();
         
         ///
-        DummyRefCount!(ImageStorage!RGB8) image();
+        managed!(ImageStorage!RGB8) image();
         
         ///
         void image(ImageStorage!RGB8);
         
         ///
-        DummyRefCount!(dchar[]) text();
+        managed!dstring text();
         
         ///
         void text(dstring);

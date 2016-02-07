@@ -6,7 +6,7 @@
  * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  */
 module std.experimental.ui.rendering;
-import std.experimental.internal.dummyRefCount;
+import std.experimental.memory.managed;
 import std.experimental.allocator : IAllocator;
 
 /**
@@ -24,7 +24,7 @@ interface IRenderPoint {
          * Returns:
          *      The display that the render point is on.
          */
-        DummyRefCount!IDisplay display();
+        managed!IDisplay display();
         
         /**
          * The context applied to be rendered to.
@@ -465,7 +465,7 @@ interface IDisplay {
          * Returns:
          *      All the windows on this display or null if none.
          */
-        DummyRefCount!(IWindow[]) windows();
+        managed!(IWindow[]) windows();
         
         /**
          * Handle to the underlying representation of this display.

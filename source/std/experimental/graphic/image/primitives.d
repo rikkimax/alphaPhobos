@@ -13,6 +13,7 @@ import std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.color;
 import std.traits : isPointer, PointerTarget;
 import std.experimental.allocator : IAllocator, theAllocator;
+import std.experimental.memory.managed : managed;
 
 /**
  * Determine if a type is an image.

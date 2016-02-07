@@ -88,16 +88,19 @@ struct URIAddress
      *      value   =   The path value, defaults to current working directory.
      *      alloc   =   The allocator to allocate return values as necssary.
      */
-    this(string value = ".", IAllocator alloc = theAllocator())
+    static URIAddress opCall(string value = ".", IAllocator alloc = theAllocator())
     {
-        this.alloc = alloc;
+        URIAddress self;
+        self.alloc = alloc;
 
         // duplicate the value
-        this.value = cast(immutable) alloc.makeArray!char(value.length);
-        (cast(char[]) this.value[]) = cast(char[]) value[];
+        self.value = cast(immutable) alloc.makeArray!char(value.length);
+        (cast(char[]) self.value[]) = cast(char[]) value[];
 
         // sanitise the value
-        sanitise();
+        self.sanitise();
+
+        return self;
     }
 
     @property
