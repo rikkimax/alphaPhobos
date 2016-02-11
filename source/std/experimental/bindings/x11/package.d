@@ -1,5 +1,9 @@
 module std.experimental.bindings.x11;
 public import std.experimental.bindings.x11.X;
+public import std.experimental.bindings.x11.Xmd;
+public import std.experimental.bindings.x11.Xproto;
+public import std.experimental.bindings.x11.Xprotostr;
+
 import std.experimental.bindings.autoloader;
 import std.experimental.bindings.symbolloader : SELF_SYMBOL_LOOKUP;
 
