@@ -1,0 +1,17 @@
+name "alphaphobos"
+description "alphaPhobos"
+authors "Richard(Rikki) Andrew Cattermole"
+homepage "https://github.com/rikkimax/alphaPhobos"
+license "Boost"
+
+versions "WindowsVista" "IE7" platform="windows"
+libs "dxva2_OMF" platform="windows-x86"
+libs "dxva2" platform="windows-x86_64"
+
+subPackage {
+    name "tests"
+    targetType "executable"
+    sourcePaths "tests"
+
+    dependency "alphaphobos" version="*"
+}

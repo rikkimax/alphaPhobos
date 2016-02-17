@@ -43,7 +43,6 @@ package(std.experimental) {
         }
         version(Windows) {
             pragma(lib, "gdi32");
-            pragma(lib, "dxva2");
             pragma(lib, "user32");
         }
 
@@ -850,7 +849,7 @@ package(std.experimental) {
                     case WM_MOUSEMOVE:
                         if (window.onCursorMoveDel !is null) {
                             try {
-                                window.onCursorMoveDel(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+								window.onCursorMoveDel(cast(short)GET_X_LPARAM(lParam), cast(short)GET_Y_LPARAM(lParam));
                             } catch (Exception e) {}
                         }
                         return 0;
@@ -899,7 +898,7 @@ package(std.experimental) {
                     case WM_MOUSEWHEEL:
                         if (window.onScrollDel !is null) {
                             try {
-                                window.onScrollDel(GET_WHEEL_DELTA_WPARAM(wParam));
+								window.onScrollDel(GET_WHEEL_DELTA_WPARAM(wParam));
                             } catch (Exception e) {}
                         }
                         return 0;
@@ -992,11 +991,11 @@ package(std.experimental) {
             switch (code)
             {
                 case VK_NUMPAD0: .. case VK_NUMPAD9:
-                    key = '0' + (code - VK_NUMPAD0);
+                    key = cast(dchar)('0' + (code - VK_NUMPAD0));
                     modifiers |= KeyModifiers.Numlock; break;
                 case 'A': .. case 'Z':
                     if (isCtrl)
-                        key = isCapital ? code : (code + Atoa);
+						key = cast(dchar)(isCapital ? code : (code + Atoa));
                     break;
                 case VK_LEFT:
                     specialKey = SpecialKey.LeftArrow; break;
@@ -1293,9 +1292,9 @@ package(std.experimental) {
             return hBitmap1;
         }
         
-        auto GET_X_LPARAM(DWORD p) { return cast(short)LOWORD(p); }
-        auto GET_Y_LPARAM(DWORD p) { return cast(short)HIWORD(p); }
-        auto GET_WHEEL_DELTA_WPARAM(DWORD p) { return cast(short)HIWORD(p); }
+		int GET_X_LPARAM(LPARAM p) { return cast(int)LOWORD(p); }
+		int GET_Y_LPARAM(LPARAM p) { return cast(int)HIWORD(p); }
+		short GET_WHEEL_DELTA_WPARAM(WPARAM p) { return cast(short)HIWORD(p); }
     }
     
     final class DisplayImpl : IDisplay, Feature_ScreenShot, Have_ScreenShot {
