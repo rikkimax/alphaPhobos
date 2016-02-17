@@ -175,16 +175,16 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         }
     }
     
+	this(IAllocator allocator) @safe {
+		this.alloc = allocator;
+		tEXt = Map!(PngTextKeywords, string)(allocator);
+		zEXt = Map!(PngTextKeywords, string)(allocator);
+		sPLT = List!sPLT_Chunk(allocator);
+		hIST = List!ushort(allocator);
+	}
+
     private {
         IAllocator alloc;
-        
-        this(IAllocator allocator) @safe {
-            this.alloc = allocator;
-            tEXt = Map!(PngTextKeywords, string)(allocator);
-            zEXt = Map!(PngTextKeywords, string)(allocator);
-            sPLT = List!sPLT_Chunk(allocator);
-            hIST = List!ushort(allocator);
-        }
         
         void delegate(size_t width, size_t height) @trusted theImageAllocator;
         
@@ -2138,9 +2138,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
  * Returns:
  *      A PNG files headers without the image data
  */
-PNGFileFormat!HeadersOnly loadPNGHeaders(IR)(IR input, IAllocator allocator = theAllocator()) @trusted if (isInputRange!IR && is(ElementType!IR == ubyte)) {
-    PNGFileFormat!HeadersOnly ret = PNGFileFormat!HeadersOnly(allocator);
-    ret.performInput(input);
+managed!(PNGFileFormat!HeadersOnly) loadPNGHeaders(IR)(IR input, IAllocator allocator = theAllocator()) @trusted if (isInputRange!IR && is(ElementType!IR == ubyte)) {
+	managed!(PNGFileFormat!HeadersOnly) ret = managed!(PNGFileFormat!HeadersOnly)(managers(), tuple(allocator), allocator);
+	ret.performInput(input);
     
     return ret;
 }
@@ -2155,9 +2155,9 @@ PNGFileFormat!HeadersOnly loadPNGHeaders(IR)(IR input, IAllocator allocator = th
  * Returns:
  *      A PNG file, loaded as an image along with its headers. Using specified image storage type.
  */
-PNGFileFormat!Color loadPNG(Color, ImageImpl=ImageStorageHorizontal!Color, IR)(IR input, IAllocator allocator = theAllocator()) @trusted if (isInputRange!IR && is(ElementType!IR == ubyte) && isImage!ImageImpl) {
-    PNGFileFormat!Color ret = PNGFileFormat!Color(allocator);
-    
+managed!(PNGFileFormat!Color) loadPNG(Color, ImageImpl=ImageStorageHorizontal!Color, IR)(IR input, IAllocator allocator = theAllocator()) @trusted if (isInputRange!IR && is(ElementType!IR == ubyte) && isImage!ImageImpl) {
+	managed!(PNGFileFormat!Color) ret = managed!(PNGFileFormat!Color)(managers(), tuple(allocator), allocator);
+
     ret.theImageAllocator = &ret.allocateTheImage!ImageImpl;
     ret.performInput(input);
     
@@ -2183,10 +2183,10 @@ unittest {
  * Returns:
  *      A compatible PNG image
  */
-PNGFileFormat!Color asPNG(From, Color = ImageColor!From, ImageImpl=ImageStorageHorizontal!Color)(From from, IAllocator allocator = theAllocator()) @safe if (isImage!From) {
+managed!(PNGFileFormat!Color) asPNG(From, Color = ImageColor!From, ImageImpl=ImageStorageHorizontal!Color)(From from, IAllocator allocator = theAllocator()) @safe if (isImage!From) {
     import std.experimental.graphic.image.primitives : copyTo;
     
-    PNGFileFormat!Color ret = PNGFileFormat!Color(allocator);
+    managed!(PNGFileFormat!Color) ret = managed!(PNGFileFormat!Color)(managers(), tuple(allocator), allocator);
     ret.allocateTheImage!ImageImpl(from.width, from.height);
     
     from.copyTo(ret.value);
