@@ -9,7 +9,9 @@
  * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  */
 module std.experimental.memory.managed;
+public import std.typecons : tuple;
 import std.experimental.allocator : IAllocator, theAllocator, make, dispose, makeArray;
+import std.typecons : Tuple;
 import std.traits : isArray, isBasicType;
 import std.range : ForeachType;
 
@@ -359,9 +361,7 @@ struct managed(MyType) {
             }
         }
         
-        static if (!is(___IUKCMT)) {
-            import std.typecons : Tuple;
-            
+        static if (!is(___IUKCMT)) {            
             static managed!MyType opCall(MemoryManagerST)(Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
                 return opCall(null, managers(), ownership, alloc);
             }
@@ -443,6 +443,24 @@ struct managed(MyType) {
             ret.__internal.memmgrs.opInc();
             return ret;
         }
+
+		static managed!MyType opCall(MemoryManagerST, ArgsT...)(MemoryManagerST memmgr, Tuple!ArgsT args, IAllocator alloc=theAllocator()) {
+			import std.traits : ForeachType;
+			
+			managed!MyType ret;
+			ret.__internal.allocator = alloc;
+			static if (is(MemoryManagerST : IMemoryManager)) {
+				ret.__internal.memmgrs = memmgr.dup(alloc);
+			} else {
+				ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
+			}
+			
+			ret.__internal.self = alloc.make!SPointer;
+			ret.__internal.self.__self = MyType(args.expand);
+			
+			ret.__internal.memmgrs.opInc();
+			return ret;
+		}
     }
     
     // lazy but perhaps that auto can change to scope?
