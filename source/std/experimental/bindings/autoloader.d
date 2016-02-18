@@ -98,14 +98,15 @@ string bindFuncsCodeGeneration(string getMinVersion, string[] modules)() pure {
             if (modules[i].length == 0)
                 continue;
             string moduleName = "theModule" ~ i.text;
-            ret2 ~= "static import theModule = " ~ modules[i] ~ ";\n"; 
-            ret2 ~= "ret ~= bindFuncsHandleContainer!(theModule, \"" ~ moduleName ~ "\",  getMinVersion is null ? \"SharedLibVersion.init\" : getMinVersion);\n";
+			ret2 ~= "static import " ~ moduleName ~ " = " ~ modules[i] ~ ";\n";
+			ret2 ~= "ret ~= bindFuncsHandleContainer!("  ~ moduleName ~ ", \"" ~ moduleName ~ "\",  getMinVersion is null ? \"SharedLibVersion.init\" : getMinVersion);\n";
         }
         
         return ret2;
     }
     
-    foreach(i; 0 .. modules.length){
+	ret ~= "import std.traits : getUDAs;\n";
+	foreach(i; 0 .. modules.length){
         if (modules[i].length == 0)
             continue;
         string moduleName = "theModule" ~ i.text;
@@ -133,7 +134,8 @@ string bindFuncsCodeGeneration(string variableWithStructs, StructWrappers...)() 
     import std.traits : hasUDA;
     string ret;
     
-    foreach(i, ST; StructWrappers){
+	ret ~= "import std.traits : getUDAs;\n";
+	foreach(i, ST; StructWrappers){
         static if (hasUDA!(ST, SharedLibVersion))
             enum getminVersion = "getUDAs!(Container, SharedLibVersion)[0]";
         else
@@ -163,7 +165,8 @@ string bindFuncsCodeGeneration(string variableWithStructs, string getMinVersion,
     import std.traits : hasUDA;
     string ret;
     
-    foreach(i, ST; StructWrappers){
+	ret ~= "import std.traits : getUDAs;\n";
+	foreach(i, ST; StructWrappers){
          ret ~= bindFuncsHandleContainer!(ST, variableWithStructs ~ "[i]", getMinVersion is null ? "SharedLibVersion.init" : getMinVersion);
     }
     
@@ -195,7 +198,7 @@ private {
     string handleContainer(string gettype, string getvar) pure {
         return """
 foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
-    static if (mixin(\"__traits(compiles, { bool b = isFunctionPointer!(" ~ gettype ~ ".\" ~ sym ~ \"); })\") &&
+    static if (mixin(\"__traits(compiles, { auto t = " ~ gettype ~ ".\" ~ sym ~ \"; bool b = isFunctionPointer!(" ~ gettype ~ ".\" ~ sym ~ \"); })\") &&
                mixin(\"isFunctionPointer!(" ~ gettype ~ ".\" ~ sym ~ \")\")){
                
         string symbolName;
@@ -221,14 +224,12 @@ foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
         string ret, symbolName;
         bool haveIntroducedVersion;
         
-        ret ~= "import std.traits : getUDAs;\n";
-
         string handle() pure {
             string ret2;
         
             foreach(sym; __traits(allMembers, Container)) {
                 ret2 ~= """
-static if (__traits(compiles, { bool b = isFunctionPointer!(Container." ~ sym ~ "); }) &&
+static if (__traits(compiles, { auto t = Container." ~ sym ~ "; bool b = isFunctionPointer!(Container." ~ sym ~ "); }) &&
     isFunctionPointer!(Container." ~ sym ~ ")) {
     static if (hasUDA!(Container." ~ sym ~ ", SymbolName))
         symbolName = getUDAs!(Container." ~ sym ~ ", SymbolName)[0].name;
