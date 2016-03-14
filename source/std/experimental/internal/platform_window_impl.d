@@ -2,11 +2,14 @@ module std.experimental.internal.platform_window_impl;
 
 package(std.experimental) {
     import std.experimental.containers.list;
-    import std.experimental.ui.window.defs;
+	import std.experimental.ui.window.defs;
+	import std.experimental.ui.window.styles;
     import std.experimental.ui.context_features;
     import std.experimental.ui.window.features;
     import std.experimental.ui.notifications;
-    import std.experimental.ui.rendering;
+	import std.experimental.ui.rendering;
+	import std.experimental.ui.events;
+	import std.experimental.ui.window.events;
     import std.experimental.allocator : IAllocator, processAllocator, theAllocator, make, makeArray, dispose;
     import std.experimental.math.linearalgebra.vector : vec2;
     import std.experimental.graphic.image : ImageStorage;
@@ -53,7 +56,7 @@ package(std.experimental) {
         
         IWindow createAWindow(IAllocator alloc = theAllocator()) {
             auto creator = createWindow(alloc);
-            creator.size = UIPoint(cast(short)800, cast(short)600);
+			creator.size = vec2!ushort(cast(short)800, cast(short)600);
             creator.assignVRamContext;
             return creator.createWindow();
         }
@@ -821,9 +824,26 @@ package(std.experimental) {
                         } else
                             return DefWindowProcW(hwnd, uMsg, wParam, lParam);
                     case WM_SIZE:
+						InvalidateRgn(hwnd, null, true);
+						
+						if (window.onSizeChangeDel !is null) {
+							try {
+								window.onSizeChangeDel(LOWORD(lParam), HIWORD(lParam));
+							} catch(Exception e) {}
+						}
+
+						return 0;
                     case WM_EXITSIZEMOVE:
                         InvalidateRgn(hwnd, null, true);
-                        // TODO: event
+                        
+						if (window.onSizeChangeDel !is null) {
+							try {
+								// the size is not passed by WinAPI :( so have to get it custom
+								auto size = window.size;
+								window.onSizeChangeDel(size.x, size.y);
+							} catch(Exception e) {}
+						}
+
                         return 0;
                     case WM_ERASEBKGND:
                     case WM_PAINT:
@@ -1418,7 +1438,7 @@ package(std.experimental) {
         }
     }
     
-    final class WindowImpl : IWindow, IRenderEvents, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {
+	final class WindowImpl : IWindow, IWindowEvents, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {
         private {
             import std.experimental.containers.map;
             import std.traits : isSomeString;
@@ -1452,6 +1472,8 @@ package(std.experimental) {
             EventOnScrollDel onScrollDel;
             EventOnCloseDel onCloseDel;
             EventOnKeyDel onKeyEntryDel;
+			EventOnSizeChangeDel onSizeChangeDel;
+			EventOnMoveDel onMoveDel;
         }
         
         version(Windows) {
@@ -1546,32 +1568,32 @@ package(std.experimental) {
                     assert(0);
             }
             
-            UIPoint size() {
+            vec2!ushort size() {
                 version(Windows) {
                     RECT rect;
                     GetClientRect(hwnd, &rect);
-                    return UIPoint(cast(short)rect.right, cast(short)rect.bottom);
+                    return vec2!ushort(cast(ushort)rect.right, cast(ushort)rect.bottom);
                 } else
                     assert(0);
             }
             
-            void location(UIPoint point) {
+			void location(vec2!short point) {
                 version(Windows) {
                     SetWindowPos(hwnd, null, point.x, point.y, 0, 0, SWP_NOSIZE);
                 } else
                     assert(0);
             }
             
-            UIPoint location() {
+			vec2!short location() {
                 version(Windows) {
                     RECT rect;
                     GetWindowRect(hwnd, &rect);
-                    return UIPoint(cast(short)rect.left, cast(short)rect.top);
+					return vec2!short(cast(short)rect.left, cast(short)rect.top);
                 } else
                     assert(0);
             }
             
-            void size(UIPoint point) {
+			void size(vec2!ushort point) {
                 version(Windows) {
                     RECT rect;
                     rect.top = point.x;
@@ -1615,7 +1637,8 @@ package(std.experimental) {
             
             IAllocator allocator() { return alloc; }
             
-            IRenderEvents events() { return this; }
+			IRenderEvents events() { return this; }
+			IWindowEvents windowEvents() { return this; }
             
             bool renderable() { return visible(); }
         }
@@ -1900,7 +1923,7 @@ package(std.experimental) {
                 
                 // multiple monitors support
                 
-                UIPoint setpos = location();
+				vec2!short setpos = location();
                 MONITORINFOEXA mi;
                 mi.cbSize = MONITORINFOEXA.sizeof;
                 
@@ -1938,7 +1961,7 @@ package(std.experimental) {
             return windowStyle;
         }
         
-        // IRenderEvents
+        // IRenderEvents + IWindowEvents
         
         @property {
             void onForcedDraw(EventOnForcedDrawDel del) { onDrawDel = del; }
@@ -1948,6 +1971,9 @@ package(std.experimental) {
             void onScroll(EventOnScrollDel del) { onScrollDel = del; }
             void onClose(EventOnCloseDel del) { onCloseDel = del; }
             void onKeyEntry(EventOnKeyDel del) { onKeyEntryDel = del; }
+			void onSizeChange(EventOnSizeChangeDel del) { onSizeChangeDel = del; }
+
+			void onMove(EventOnMoveDel del) { onMoveDel = del; }
         }
     }
     
@@ -2165,8 +2191,8 @@ package(std.experimental) {
         private {
             WindowPlatformImpl platform;
             
-            UIPoint size_ = UIPoint(cast(short)800, cast(short)600);
-            UIPoint location_;
+			vec2!ushort size_ = vec2!ushort(cast(short)800, cast(short)600);
+			vec2!short location_;
             IDisplay display_;
             IAllocator alloc;
             
@@ -2188,8 +2214,8 @@ package(std.experimental) {
         }
         
         @property {
-            void size(UIPoint v) { size_ = v; }
-            void location(UIPoint v) { location_ = v; }
+			void size(vec2!ushort v) { size_ = v; }
+			void location(vec2!short v) { location_ = v; }
             void display(IDisplay v) { display_ = v; }
             void allocator(IAllocator v) { alloc = v; }
         }
@@ -2254,7 +2280,7 @@ package(std.experimental) {
 
                 // multiple monitor support
                 
-                UIPoint setpos = location_;
+				vec2!short setpos = location_;
                 MONITORINFOEXA mi;
                 mi.cbSize = MONITORINFOEXA.sizeof;
 

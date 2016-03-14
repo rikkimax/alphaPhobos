@@ -11,3 +11,4 @@ public import std.experimental.ui.rendering;
 public import std.experimental.ui.window;
 public import std.experimental.ui.context_features;
 public import std.experimental.ui.notifications;
+public import std.experimental.ui.events;
