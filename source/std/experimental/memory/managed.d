@@ -189,7 +189,9 @@ struct managed(MyType) {
         if (beenReleased) {
         } else if (__internal.memmgrs.opShouldDeallocate) {
             __internal.allocator.dispose(__internal.memmgrs);
-            __internal.allocator.dispose(*cast(void**)&__internal.self);
+			if (__internal.selfReUpdate is null) {
+				__internal.allocator.dispose(*cast(void**)&__internal.self);
+			}
         } else {
             // do nothing
             // the default behaviour from opShouldDeallocate if it does not on call is true
