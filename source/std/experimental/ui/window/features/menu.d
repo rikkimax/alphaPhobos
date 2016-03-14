@@ -73,18 +73,38 @@ interface MenuItem {
 }
 
 @property {
-    ///
+    /// Retrives the menu instance or null if non existant
     Feature_Menu menu(T)(T self) if (is(T : IWindow) || is(T : IPlatform)) {
-        if (self is null)
-            return null;
-        if (Have_Menu ss = cast(Have_Menu)self) {
-            return ss.__getFeatureMenu();
-        }
-        
-        return null;
+		if (!self.capableOfMenu)
+			return null;
+		else {
+			return (cast(Have_Menu)self).__getFeatureMenu().screenshot;
+		}
     }
 
     Feature_Menu menu(T)(T self) if (!(is(T : IWindow) || is(T : IPlatform))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IPlatform.");
     }
+
+	/**
+	 * Does the given window/platform have a menu?
+	 * 
+	 * Params:
+	 * 		self	=	The window/platform instance
+	 * 
+	 * Returns:
+	 * 		If the window/platform supports having an icon
+	 */
+	bool capableOfMenu(T)(T self) if (is(T : IWindow) || is(T : IPlatform)) {
+		if (self is null)
+			return false;
+		else if (Have_Menu ss = cast(Have_Menu)self)
+			return ss.__getFeatureMenu() !is null;
+		else
+			return false;
+	}
+
+	bool capableOfMenu(T)(T self) if (!(is(T : IWindow) || is(T : IPlatform))) {
+		static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow or IPlatform types.");
+	}
 }

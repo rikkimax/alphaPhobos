@@ -13,41 +13,40 @@ import std.experimental.math.linearalgebra.vector : vec2;
 import std.experimental.allocator : IAllocator;
 import std.experimental.memory.managed;
 
-///
+/**
+ * Declares a point within display space for usage with windows
+ */
 alias UIPoint = vec2!short;
 
 ///
 interface IWindow : IRenderPoint {
     @property {
-        ///
+        /// The title of the window
         managed!(dstring) title();
         
-        ///
+        /// Sets the title of the window (if possible)
         void title(string);
 
-        ///
+        /// Ditto
         void title(wstring);
         
-        ///
+        /// Ditto
         void title(dstring);
         
-        ///
+        /// Size of the window (user area)
         UIPoint size();
         
-        ///
+        /// Moves the window on its display
         void location(UIPoint);
 
-        ///
+        /// Gets the window location relative to its display
         UIPoint location();
         
-        ///
+        /// Sets the size of the window (user area)
         void size(UIPoint);
 
-        ///
+        /// Is the window currently being displayed?
         bool visible();
-
-        ///
-        void* __handle();
     }
 
     ///
@@ -60,13 +59,14 @@ interface IWindow : IRenderPoint {
 ///
 interface IWindowCreator : IRenderPointCreator {
     @property {
-        ///
+        /// Sets a size for a window to be created in (user area)
         void size(UIPoint);
         
-        ///
+        /// The location for a window to try and spawn in
         void location(UIPoint);
     }
     
+	/// Creates the window
     IWindow createWindow();
 }
 
@@ -113,7 +113,15 @@ interface Feature_Style {
 }
 
 @property {
-    ///
+	/**
+     * Gets the style of the window
+     *
+     * Params:
+	 * 		self	=	The window[creator] instance
+     *
+     * Returns:
+     *      The window style or unknown
+     */
     WindowStyle style(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return WindowStyle.Unknown;
@@ -127,7 +135,13 @@ interface Feature_Style {
         return WindowStyle.Unknown;
     }
     
-    ///
+	/**
+     * Sets the window[creator] style
+     * 
+     * Params:
+	 * 		self	=	The window[creator] instance
+	 * 		to		=	The style to set to
+     */
     void style(T)(T self, WindowStyle to) if (is(T : IWindow) || is(T : IWindowCreator)) {
         if (self is null)
             return;
@@ -138,4 +152,22 @@ interface Feature_Style {
             }
         }
     }
+
+	/**
+	 * Does the given window[creator] support styles?
+	 * 
+	 * Params:
+	 * 		self	=	The window[creator] instance
+	 * 
+	 * Returns:
+	 * 		If the window[creator] supports having a style
+	 */
+	bool capableOfWindowStyles(T)(T self) if (is(T : IWindow) || is(T : IWindowCreator)) {
+		if (self is null)
+			return false;
+		else if (Have_Style ss = cast(Have_Style)self)
+			return ss.__getFeatureStyle() !is null;
+		else
+			return false;
+	}
 }

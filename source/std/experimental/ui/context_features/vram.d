@@ -72,7 +72,7 @@ interface Feature_VRam {
      * Returns:
      *      The VRAM buffer or null on failure.
      */
-    ImageStorage!RGBA8 vramAlphaBuffer(T)(T self) if (is(T : IContext)) {
+	ImageStorage!RGBA8 vramAlphaBuffer(IContext self) {
         if (self is null)
             return null;
         if (Have_VRam ss = cast(Have_VRam)self) {
@@ -81,4 +81,22 @@ interface Feature_VRam {
         
         return null;
     }
+
+	/**
+	 * Does the given context support VRAM buffer for drawing?
+	 * 
+	 * Params:
+	 * 		self	=	The platform instance
+	 * 
+	 * Returns:
+	 * 		If the context supports drawing via a VRAM buffer
+	 */
+	bool capableOfVRAM(IContext self) {
+		if (self is null)
+			return false;
+		else if (Have_VRam ss = cast(Have_VRam)self)
+			return ss.__getFeatureVRam() !is null;
+		else
+			return false;
+	}
 }

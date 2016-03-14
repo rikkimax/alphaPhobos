@@ -67,6 +67,10 @@ interface IRenderPoint {
          *      If the render point can be rendered to right now.
          */
         bool renderable();
+
+
+		/// No touchy, very dangerous!
+		void* __handle();
     }
     
     /**
@@ -467,14 +471,7 @@ interface IDisplay {
          */
         managed!(IWindow[]) windows();
         
-        /**
-         * Handle to the underlying representation of this display.
-         *
-         * $(B You should $(I not) use this unless you know what you are doing.)
-         *
-         * Returns:
-         *      A pointer to the underlying representation of this display.
-         */
+        /// No touchy, very dangerous!
         void* __handle();
     }
 }
