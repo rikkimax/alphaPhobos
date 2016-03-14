@@ -3,12 +3,12 @@ import std.experimental.allocator : IAllocator, theAllocator, make, dispose, shr
 import std.experimental.memory.managed;
 import std.traits : isArray, isPointer;
 
-struct Map(K, V) {
+final class Map(K, V) {
     private {
         IAllocator allocator;
 
-        K[] keys_;
-        V[] values_;
+        K[] keys_, keys_real;
+        V[] values_, values_real;
 
         SelfMemManager memmgr;
         managed!(K[]) mankslice = void;
@@ -91,6 +91,9 @@ struct Map(K, V) {
                 allocator.shrinkArray(keys_, keys_.length - newlen);
                 allocator.shrinkArray(values_, values_.length - newlen);
             }
+
+			keys_real = keys_[0 .. newlen];
+			values_real = values_[0 .. newlen];
         }
     }
     
@@ -160,17 +163,17 @@ struct Map(K, V) {
     static managed!(Map!(K, V)) opCall(IAllocator alloc=theAllocator()) @trusted {
         SelfMemManager mgr = alloc.make!(SelfMemManager);
         
-        Map!(K, V) ret2;
+        Map!(K, V) ret2 = alloc.make!(Map!(K, V));
         ret2.allocator = alloc;
         ret2.memmgr = mgr;
 
         ret2.offsetAlloc = 1;
         ret2.keys_ = alloc.makeArray!K(1);
         ret2.values_ = alloc.makeArray!V(1);
-        ret2.mankslice = managed!(K[])(ret2.keys_, managers(mgr), Ownership.Secondary, alloc);
-        ret2.manvslice = managed!(V[])(ret2.values_, managers(mgr), Ownership.Secondary, alloc);
+        ret2.mankslice = managed!(K[])(&ret2.keys_real, managers(mgr), alloc);
+        ret2.manvslice = managed!(V[])(&ret2.values_real, managers(mgr), alloc);
         
-        auto ret = managed!(Map!(K, V))(ret2, managers(mgr), alloc);
+		auto ret = managed!(Map!(K, V))(ret2, managers(mgr), Ownership.Secondary, alloc);
 
         return ret;
     }

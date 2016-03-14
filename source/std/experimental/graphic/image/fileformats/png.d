@@ -60,9 +60,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     iCCP_Chunk* iCCP;
     
     /// tEXt values are really latin-1 but treated as UTF-8 in D code, may originate from iEXt
-    Map!(PngTextKeywords, string) tEXt = void;
+    managed!(Map!(PngTextKeywords, string)) tEXt = void;
     /// zEXt values are really latin-1 but treated as UTF-8 in D code, may originate from iEXt
-    Map!(PngTextKeywords, string) zEXt = void;
+    managed!(Map!(PngTextKeywords, string)) zEXt = void;
     
     ///
     bKGD_Chunk* bKGD;
@@ -74,10 +74,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     sBIT_Chunk* sBIT;
     
     ///
-    List!sPLT_Chunk sPLT = void;
+    managed!(List!sPLT_Chunk) sPLT = void;
     
     ///
-    List!ushort hIST = void;
+    managed!(List!ushort) hIST = void;
     
     ///
     DateTime* tIME;
@@ -183,6 +183,37 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 		hIST = List!ushort(allocator);
 	}
 
+	~this() @trusted {
+		if (PLTE !is null)
+			allocator.dispose(PLTE);
+		if (tRNS !is null)
+			allocator.dispose(tRNS);
+		if (gAMA !is null)
+			allocator.dispose(gAMA);
+		if (cHRM !is null)
+			allocator.dispose(cHRM);
+		if (sRGB !is null)
+			allocator.dispose(sRGB);
+		if (iCCP !is null)
+			allocator.dispose(iCCP);
+		if (bKGD !is null)
+			allocator.dispose(bKGD);
+		if (pPHs !is null)
+			allocator.dispose(pPHs);
+		if (sBIT !is null)
+			allocator.dispose(sBIT);
+		if (tIME !is null)
+			allocator.dispose(tIME);
+		
+		static if (!is(Color == HeadersOnly)) {
+			if (IDAT !is null) {
+				allocator.dispose(IDAT.data);
+				allocator.dispose(IDAT);
+				allocator.dispose(value);
+			}
+		}
+	}
+
     private {
         IAllocator alloc;
         
@@ -203,37 +234,6 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             // instead declare it as an untyped pointer to emulate 'is null'.
             // it should _never_ be assigned to!
             void* IDAT = null;
-        }
-        
-        ~this() @trusted {
-            if (PLTE !is null)
-                allocator.dispose(PLTE);
-            if (tRNS !is null)
-                allocator.dispose(tRNS);
-            if (gAMA !is null)
-                allocator.dispose(gAMA);
-            if (cHRM !is null)
-                allocator.dispose(cHRM);
-            if (sRGB !is null)
-                allocator.dispose(sRGB);
-            if (iCCP !is null)
-                allocator.dispose(iCCP);
-            if (bKGD !is null)
-                allocator.dispose(bKGD);
-            if (pPHs !is null)
-                allocator.dispose(pPHs);
-            if (sBIT !is null)
-                allocator.dispose(sBIT);
-            if (tIME !is null)
-                allocator.dispose(tIME);
-            
-            static if (!is(Color == HeadersOnly)) {
-                if (IDAT !is null) {
-                    allocator.dispose(IDAT.data);
-                    allocator.dispose(IDAT);
-                    allocator.dispose(value);
-                }
-            }
         }
         
         /*

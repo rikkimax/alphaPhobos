@@ -138,12 +138,13 @@ struct managed(MyType) {
         }
         
         struct __Internal {
-            static if (is(MyType == class) || is(MyType == interface) || isArray!MyType) {
-                MyType self;
+			MyType* selfReUpdate;
+
+			static if (is(MyType == class) || is(MyType == interface) || isArray!MyType) {
+            	MyType self;
             } else {
                 SPointer self;
             }
-            
             
             IAllocator allocator;
             IMemoryManager memmgrs;
@@ -337,6 +338,26 @@ struct managed(MyType) {
             ret.__internal.memmgrs.opInc();
             return ret;
         }
+
+		static managed!MyType opCall(MemoryManagerST)(MyType* from, IAllocator alloc=theAllocator()) {
+			return opCall(from, managers(), ownership, alloc);
+		}
+		
+		static managed!MyType opCall(MemoryManagerST)(MyType* from, MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
+			import std.traits : ForeachType, Unqual;
+			
+			managed!MyType ret;
+			ret.__internal.allocator = alloc;
+			static if (is(MemoryManagerST : IMemoryManager)) {
+				ret.__internal.memmgrs = memmgr.dup(alloc);
+			} else {
+				ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
+			}
+			
+			ret.__internal.selfReUpdate = from;
+			ret.__internal.memmgrs.opInc();
+			return ret;
+		}
     } else static if (is(MyType == class) || is(MyType == interface)) {
         version(Windows) {
             static if (is(MyType == class) && is(MyType : IUnknown)) {
@@ -467,6 +488,8 @@ struct managed(MyType) {
     // would work still since opScopeAssign would be nullified
     
     @property auto __self() {
+		if (__internal.selfReUpdate !is null)
+			__internal.self = *__internal.selfReUpdate;
         return __internal.self;
     }
     

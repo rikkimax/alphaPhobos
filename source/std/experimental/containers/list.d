@@ -3,10 +3,10 @@ import std.experimental.allocator : IAllocator, theAllocator, make, dispose, shr
 import std.experimental.memory.managed;
 import std.traits : isArray, isPointer;
 
-struct List(T) {
+final class List(T) {
     private {
         IAllocator allocator;
-        T[] values;
+        T[] values_raw, values_real;
         SelfMemManager memmgr;
         managed!(T[]) manslice = void;
 
@@ -32,19 +32,19 @@ struct List(T) {
     ~this() @trusted {
         if (memmgr !is null && memmgr.refCount == 0) {
             allocator.dispose(memmgr);
-            allocator.dispose(values);
+            allocator.dispose(values_raw);
         }
     }
     
     T opIndex(size_t i) @trusted
     in {
-        assert(i < values.length);
+        assert(i < values_raw.length);
     } body {
-        return values[i];
+        return values_raw[i];
     }
     
     size_t length() @trusted {
-        return values.length-offsetAlloc;
+        return values_raw.length-offsetAlloc;
     }
     
     void length(size_t newlen) @trusted {
@@ -56,37 +56,39 @@ struct List(T) {
         } else if (newlen == 0) {
             offsetAlloc = 1;
 
-            if (values.length > 1) {
-                allocator.shrinkArray(values, values.length-1);
+            if (values_raw.length > 1) {
+                allocator.shrinkArray(values_raw, values_raw.length-1);
             }
 
             static if (isPointer!T) {
-                allocator.dispose(values[0]);
-                values[0] = null;
+                allocator.dispose(values_raw[0]);
+                values_raw[0] = null;
             }
 
             return;
         }
 
-        if (newlen > values.length) {
-            allocator.expandArray(values, newlen - values.length);
-        } else if (newlen < values.length) {
-            allocator.shrinkArray(values, values.length - newlen);
+        if (newlen > values_raw.length) {
+            allocator.expandArray(values_raw, newlen - values_raw.length);
+        } else if (newlen < values_raw.length) {
+            allocator.shrinkArray(values_raw, values_raw.length - newlen);
         }
+
+		values_real = values_raw[0 .. newlen];
     }
     
     void opIndexAssign(T value, size_t i) @trusted
     in {
-        assert(i < values.length);
+        assert(i < values_raw.length);
     } body {
-        values[i] = value;
+        values_raw[i] = value;
     }
 
     static if (is(T == class) || is(T == interface) || isArray!T) {
         int opApply(int delegate(ref managed!T) dg) @trusted {
             int result = 0;
 
-            foreach(i, v; values[0 .. $-offsetAlloc]) {
+            foreach(i, v; values_raw[0 .. $-offsetAlloc]) {
                 auto ret = managed!T(v, managers(memmgr), Ownership.Secondary, allocator);
                 result = dg(ret);
                 if (result)
@@ -98,7 +100,7 @@ struct List(T) {
         int opApply(int delegate(size_t i, ref managed!T) dg) @trusted {
             int result = 0;
             
-            foreach(i, v; values[0 .. $-offsetAlloc]) {
+            foreach(i, v; values_raw[0 .. $-offsetAlloc]) {
                 auto ret = managed!T(v, managers(memmgr), Ownership.Secondary, allocator);
                 result = dg(i, ret);
                 if (result)
@@ -110,7 +112,7 @@ struct List(T) {
         int opApply(int delegate(ref T) dg) @trusted {
             int result = 0;
             
-            foreach(i, v; values[0 .. $-offsetAlloc]) {
+            foreach(i, v; values_raw[0 .. $-offsetAlloc]) {
                 result = dg(v);
                 if (result)
                     break;
@@ -121,7 +123,7 @@ struct List(T) {
         int opApply(int delegate(size_t i, ref T) dg) @trusted {
             int result = 0;
             
-            foreach(i, v; values[0 .. $-offsetAlloc]) {
+            foreach(i, v; values_raw[0 .. $-offsetAlloc]) {
                 result = dg(i, v);
                 if (result)
                     break;
@@ -132,45 +134,45 @@ struct List(T) {
     
     void opOpAssign(string OP)(T value) @trusted if (OP == "~") {
         if (offsetAlloc == 0)
-            allocator.expandArray(values, 1);
+            allocator.expandArray(values_raw, 1);
         else
             offsetAlloc--;
 
-        values[$-(offsetAlloc+1)] = value;
+        values_raw[$-(offsetAlloc+1)] = value;
     }
 
     static managed!(List!T) opCall(IAllocator alloc=theAllocator()) @trusted {
         SelfMemManager mgr = alloc.make!(SelfMemManager);
 
-        List!T ret2;
+		List!T ret2 = alloc.make!(List!T);
         ret2.allocator = alloc;
         ret2.memmgr = mgr;
 
         ret2.offsetAlloc = 1;
-        ret2.values = alloc.makeArray!T(1);
-        ret2.manslice = managed!(T[])(ret2.values, managers(mgr), Ownership.Secondary, alloc);
+        ret2.values_raw = alloc.makeArray!T(1);
+		ret2.manslice = managed!(T[])(&ret2.values_real, managers(mgr), alloc);
 
-        auto ret = managed!(List!T)(ret2, managers(mgr), alloc);
+		auto ret = managed!(List!T)(ret2, managers(mgr), Ownership.Secondary, alloc);
 
         return ret;
     }
 
     void remove(T value) {
         size_t i, toShrink;
-        for(size_t j = 0; j < values.length; j++) {
-            if (values[j] == value) {
+        for(size_t j = 0; j < values_raw.length; j++) {
+            if (values_raw[j] == value) {
                 // deallocate
                 static if (is(T == class) || is(T == interface) || isArray!T) {
-                    allocator.dispose(values[j]);
+                    allocator.dispose(values_raw[j]);
                 }
 
-                values[j] = T.init;
+                values_raw[j] = T.init;
                 toShrink++;
             } else
-                values[i++] = values[j];
+                values_raw[i++] = values_raw[j];
         }
 
-        this.length = values.length - toShrink;
+        this.length = values_raw.length - toShrink;
     }
 
     managed!(T[]) opSlice() @safe {
@@ -180,7 +182,7 @@ struct List(T) {
 
 unittest {
     auto list = List!int(theAllocator());
-    assert((cast(size_t)list.values.ptr) > 0);
+    assert((cast(size_t)list.values_raw.ptr) > 0);
 
     list ~= 8;
     list ~= 9;
@@ -206,6 +208,6 @@ unittest {
     assert(list[0] == 9);
 
     list.length = 0;
-    assert((cast(size_t)list.values.ptr) > 0);
+    assert((cast(size_t)list.values_raw.ptr) > 0);
     assert(list.offsetAlloc == 1);
 }
