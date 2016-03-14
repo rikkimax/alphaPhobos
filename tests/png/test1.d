@@ -12,6 +12,7 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
     entryTest(file);
     testOutput(baseName(file).tempLocation);
     
+    testOutput("header check");
     HeadersOnlyPNGFileFormat headerImage = loadPNGHeaders(cast(ubyte[])read(file));
     check(headerImage);
     
@@ -83,9 +84,8 @@ unittest {
         assert(image.pPHs is null);
         assert(image.sBIT is null);
         assert(image.tIME is null);
-        
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -113,8 +113,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -142,8 +142,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -171,8 +171,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -200,8 +200,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -232,8 +232,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -261,8 +261,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -290,8 +290,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -319,8 +319,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -348,8 +348,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -377,8 +377,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -403,8 +403,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -429,8 +429,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -455,8 +455,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -481,8 +481,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -507,8 +507,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -533,8 +533,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -559,8 +559,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -585,8 +585,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -611,8 +611,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -640,8 +640,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -666,8 +666,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -692,8 +692,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -718,8 +718,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -744,8 +744,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -770,8 +770,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -796,8 +796,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -822,8 +822,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -848,8 +848,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -877,8 +877,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -903,8 +903,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -929,8 +929,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -955,8 +955,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -981,8 +981,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1007,8 +1007,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1033,8 +1033,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1059,8 +1059,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1085,8 +1085,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1114,8 +1114,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1140,8 +1140,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1166,8 +1166,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1192,8 +1192,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1218,8 +1218,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1244,8 +1244,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1270,8 +1270,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1296,8 +1296,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1322,8 +1322,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1351,8 +1351,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1377,8 +1377,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1403,8 +1403,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1429,8 +1429,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1455,8 +1455,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1481,8 +1481,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1507,8 +1507,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1533,8 +1533,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1559,8 +1559,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1588,8 +1588,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1614,8 +1614,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1640,8 +1640,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1666,8 +1666,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1692,8 +1692,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1718,8 +1718,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1747,8 +1747,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1773,8 +1773,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1799,8 +1799,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1825,8 +1825,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1851,8 +1851,8 @@ unittest {
         assert(image.sBIT !is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1877,8 +1877,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1906,8 +1906,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1932,8 +1932,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1958,8 +1958,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -1984,8 +1984,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2013,8 +2013,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2039,8 +2039,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2065,8 +2065,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2091,8 +2091,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2120,8 +2120,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2146,8 +2146,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2172,8 +2172,8 @@ unittest {
         assert(image.sBIT is null);
         assert(image.tIME is null);
         
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
@@ -2197,9 +2197,9 @@ unittest {
         assert(image.pPHs is null);
         assert(image.sBIT is null);
         assert(image.tIME is null);
-        
-        assert(image.tEXt.__internalKeys.length == 0);
-        assert(image.zEXt.__internalKeys.length == 0);
+
+        assert(image.tEXt.keys.length == 0);
+        assert(image.zEXt.keys.length == 0);
         
         assert(image.sPLT.length == 0);
         assert(image.hIST.length == 0);
