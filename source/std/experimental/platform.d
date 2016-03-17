@@ -58,14 +58,13 @@ IPlatform defaultPlatform() {
     return defaultPlatform_;
 }
 
-// FIXME: private is bugged, package is not
-package __gshared {
+private __gshared {
     IPlatform defaultPlatform_;
     IPlatform thePlatform_;
     
     shared static this() {
-        import std.experimental.internal.platform_window_impl;
-        defaultPlatform_ = new WindowPlatformImpl();
+		import std.experimental.ui.internal.platform;
+        defaultPlatform_ = new PlatformImpl();
         thePlatform_ = defaultPlatform_;
     }
 }

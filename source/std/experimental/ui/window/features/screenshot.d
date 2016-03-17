@@ -7,7 +7,7 @@
 module std.experimental.ui.window.features.screenshot;
 import std.experimental.ui.window.defs;
 import std.experimental.graphic.image : ImageStorage;
-import std.experimental.allocator : IAllocator;
+import std.experimental.allocator : IAllocator, theAllocator;
 import std.experimental.platform : IDisplay, IPlatform;
 import std.experimental.graphic.color : RGB8;
 import std.experimental.memory.managed;
@@ -17,21 +17,21 @@ interface Have_ScreenShot {
 }
 
 interface Feature_ScreenShot {
-    ImageStorage!RGB8 screenshot(IAllocator alloc=null);
+	ImageStorage!RGB8 screenshot(IAllocator alloc=theAllocator());
 }
 
 @property {
     /// Takes a screenshot or null if not possible
-    managed!(ImageStorage!RGB8) screenshot(T)(T self, IAllocator alloc=null) if (is(T : IWindow) || is(T : IDisplay) || is(T : IPlatform)) {
+    managed!(ImageStorage!RGB8) screenshot(T)(T self, IAllocator alloc=theAllocator()) if (is(T : IWindow) || is(T : IDisplay) || is(T : IPlatform)) {
 		if (!self.capableOfScreenShot)
 			return (managed!(ImageStorage!RGB8)).init;
 		else {
 			auto ret = (cast(Have_ScreenShot)self).__getFeatureScreenShot().screenshot;
-			return managed!(ImageStorage!RGB8)(ret, managers(), Ownership.Secondary, self.allocator);
+			return managed!(ImageStorage!RGB8)(ret, managers(), Ownership.Secondary, alloc);
 		}
     }
 
-    ImageStorage!RGB8 screenshot(T)(T self, IAllocator alloc=null) if (!(is(T : IWindow) || is(T : IDisplay) || is(T : IPlatform))) {
+	ImageStorage!RGB8 screenshot(T)(T self, IAllocator alloc=theAllocator()) if (!(is(T : IWindow) || is(T : IDisplay) || is(T : IPlatform))) {
         static assert(0, "I do not know how to handle " ~ T.stringof ~ " I can only use IWindow, IDisplay or IPlatform types.");
     }
 

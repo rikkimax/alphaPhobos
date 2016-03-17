@@ -93,7 +93,7 @@ void notify(S1, S2)(IPlatform self, ImageStorage!RGBA8 image=null, S1 title=null
 		dchar[] titleUse, textUse;
 
 		static if (is(S1 == dstring)) {
-			titleUse = cast()title;
+			titleUse = cast(dchar[])title;
 		} else {
 			titleUse = alloc.makeArray!dchar(codeLength!dstring(title));
 
@@ -103,7 +103,7 @@ void notify(S1, S2)(IPlatform self, ImageStorage!RGBA8 image=null, S1 title=null
 		}
 
 		static if (is(S2 == dstring)) {
-			textUse = cast()text;
+			textUse = cast(dchar[])text;
 		} else {
 			textUse = alloc.makeArray!dchar(codeLength!dstring(text));
 			
