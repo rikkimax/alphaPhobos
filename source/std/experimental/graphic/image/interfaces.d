@@ -476,7 +476,7 @@ struct SwappableImage(Color) if (isColor!Color) {
             }
         }
 
-        COLOR pixelAtOffsetCompatFunc(FROM)(size_t offset) @nogc @trusted {
+        Color pixelAtOffsetCompatFunc(FROM)(size_t offset) @nogc @trusted {
             auto del = cast(FROM delegate(size_t offset) @nogc @safe) pixelAtOffset_;
             
             static if (is(FROM == Color)) {
