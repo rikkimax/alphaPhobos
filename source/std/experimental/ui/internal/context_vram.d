@@ -6,20 +6,6 @@ import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8, RGBA8;
 
 private {
-	/+import std.experimental.ui.internal.defs;
-	import std.experimental.ui.internal.window;
-	import std.experimental.ui.internal.context_vram;
-	import std.experimental.ui.window.features;
-	import std.experimental.ui.window.events;
-	import std.experimental.ui.window.styles;
-	import std.experimental.ui.window.defs;
-	import std.experimental.ui.context_features.vram;
-	import std.experimental.ui.rendering;
-	import std.experimental.ui.events;
-	
-	import std.experimental.ui.internal.platform;+/
-	
-	
 	version(Windows) {
 		import core.sys.windows.windows : HWND, HDC, GetDC, CreateCompatibleDC, IsWindowVisible,
 			RECT, GetClientRect, HBITMAP, CreateBitmap, HGDIOBJ, SelectObject, GetObjectA, StretchBlt,

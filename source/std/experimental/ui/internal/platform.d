@@ -5,7 +5,7 @@ import std.experimental.platform : IPlatform, thePlatform;
 import std.experimental.memory.managed;
 import std.experimental.graphic.color : RGB8, RGBA8;
 import std.experimental.graphic.image : ImageStorage;
-import std.experimental.allocator : IAllocator, processAllocator, theAllocator/+, make, makeArray, dispose+/;
+import std.experimental.allocator : IAllocator, processAllocator, theAllocator;
 import std.experimental.math.linearalgebra.vector : vec2;
 import std.datetime : Duration, seconds, msecs;
 import std.experimental.ui.context_features.vram;
@@ -13,6 +13,7 @@ import std.experimental.ui.context_features.vram;
 private {
 	import std.experimental.ui.internal.defs;
 	import std.experimental.ui.internal.window;
+	import std.experimental.ui.internal.window_creator;
 	import std.experimental.ui.notifications;
 
 	version(Windows) {
@@ -64,8 +65,7 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 
 	managed!IWindowCreator createWindow(IAllocator alloc = theAllocator()) {
 		import std.typecons : tuple;
-		//return cast(managed!IWindowCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
-		assert(0);
+		return cast(managed!IWindowCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
 	}
 	
 	IWindow createAWindow(IAllocator alloc = theAllocator()) {
@@ -77,8 +77,7 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 	
 	managed!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator()) {
 		import std.typecons : tuple;
-		//return cast(managed!IRenderPointCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
-		assert(0);
+		return cast(managed!IRenderPointCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
 	}
 	
 	IRenderPoint createARenderPoint(IAllocator alloc = theAllocator()) {
