@@ -61,6 +61,7 @@ package(std.experimental.ui.internal) {
 		ImageStorage!RGBA8 customCursor;
 		
 		WindowStyle windowStyle;
+		bool ownedByProcess;
 		
 		version(Windows) {
 			HWND hwnd;
@@ -73,6 +74,7 @@ package(std.experimental.ui.internal) {
 				this.alloc = alloc;
 				this.context_ = context;
 				this.hMenu = hMenu;
+				this.ownedByProcess = processOwns;
 				
 				if (hMenu !is null)
 					menuItems = List!MenuItem(alloc);
@@ -228,8 +230,7 @@ package(std.experimental.ui.internal) {
 			IAllocator allocator() { return alloc; }
 			
 			IRenderEvents events() { return this; }
-			IWindowEvents windowEvents() { return this; }
-			
+			IWindowEvents windowEvents() { return ownedByProcess ? this : null; }
 			bool renderable() { return visible(); }
 		}
 		
