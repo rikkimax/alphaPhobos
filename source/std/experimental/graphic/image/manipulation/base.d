@@ -30,10 +30,10 @@ import std.experimental.allocator : IAllocator, theAllocator;
  *  image.fill(RGB8(77, 82, 31));
  * -------------
  */
-Image fillOn(Image, Color = ImageColor!Image)(Image image, Color value) @nogc @safe {
+Image fillOn(Image, Color = ImageColor!Image)(ref Image image, Color value) @nogc @safe {
     foreach(x; 0 .. image.width) {
         foreach(y; 0 .. image.height) {
-            image[x, y] = value;
+            image.setPixel(x, y, value);
         }
     }
 
@@ -199,10 +199,10 @@ Image flipHorizontal(Image)(ref Image image) if (isImage!Image) {
         foreach(x; 0 .. h2width) {
             x2--;
             Color temp;
-            temp = image[x, y];
+            temp = image.getPixel(x, y);
 
-            image[x, y] = image[x2, y];
-            image[x2, y] = temp;
+			image.setPixel(x, y, image.getPixel(x2, y));
+			image.setPixel(x2, y, temp);
         }
     }
 
@@ -231,7 +231,7 @@ unittest {
  * See_Also:
  *      rangeOf
  */
-auto flipHorizontalRange(Image)(Image image, IAllocator allocator=theAllocator()) @safe if (isImage!Image) {
+auto flipHorizontalRange(Image)(ref Image image, IAllocator allocator=theAllocator()) @safe if (isImage!Image) {
     return flipHorizontalRange(image.rangeOf(allocator));
 }
 
@@ -332,10 +332,10 @@ Image flipVertical(Image)(ref Image image) if (isImage!Image) {
         foreach(y; 0 .. h2height) {
             y2--;
             Color temp;
-            temp = image[x, y];
+			temp = image.getPixel(x, y);
 
-            image[x, y] = image[x, y2];
-            image[x, y2] = temp;
+			image.setPixel(x, y, image.getPixel(x, y2));
+			image.setPixel(x, y2, temp);
         }
     }
 
@@ -364,7 +364,7 @@ unittest {
  * See_Also:
  *      rangeOf
  */
-auto flipVerticalRange(Image)(Image image, IAllocator allocator=theAllocator()) @safe if (isImage!Image) {
+auto flipVerticalRange(Image)(ref Image image, IAllocator allocator=theAllocator()) @safe if (isImage!Image) {
     return flipVerticalRange(image.rangeOf(allocator));
 }
 

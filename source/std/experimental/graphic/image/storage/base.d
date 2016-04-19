@@ -11,6 +11,9 @@ import std.experimental.allocator : IAllocator, theAllocator;
 /**
  * A fairly simple image storage type using a horizontal scan line memory order.
  * 
+ * Will automatically deallocate its memory when it goes out of scope.
+ * Should not be copied or moved around.
+ * 
  * See_Also:
  *      ImageStorage
  */
@@ -20,6 +23,9 @@ struct ImageStorageHorizontal(Color) if (isColor!Color) {
         IAllocator allocator;
         Color[][] data;
     }
+
+	@disable
+	this(this);
 
     ///
     this(size_t width, size_t height, IAllocator allocator = theAllocator()) @trusted {
@@ -35,6 +41,16 @@ struct ImageStorageHorizontal(Color) if (isColor!Color) {
             data[_] = allocator.makeArray!Color(height);
         }
     }
+
+	~this() @trusted {
+		import std.experimental.allocator : dispose;
+
+		foreach(_; 0 .. width_) {
+			allocator.dispose(data[_]);
+		}
+
+		allocator.dispose(data);
+	}
 
     @property {
         ///
@@ -116,6 +132,9 @@ unittest {
 /**
  * A fairly simple image storage type using a vertical scan line memory order.
  * 
+ * Will automatically deallocate its memory when it goes out of scope.
+ * Should not be copied or moved around.
+ * 
  * See_Also:
  *      ImageStorage
  */
@@ -140,6 +159,16 @@ struct ImageStorageVertical(Color) if (isColor!Color) {
             data[_] = allocator.makeArray!Color(width);
         }
     }
+
+	~this() @trusted {
+		import std.experimental.allocator : dispose;
+		
+		foreach(_; 0 .. width_) {
+			allocator.dispose(data[_]);
+		}
+		
+		allocator.dispose(data);
+	}
 
     @property {
         ///

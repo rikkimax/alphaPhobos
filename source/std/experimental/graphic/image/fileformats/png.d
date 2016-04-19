@@ -13,7 +13,8 @@ import std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.image.primitives : isImage, ImageColor;
 import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
 import std.experimental.allocator : IAllocator, theAllocator, makeArray, make, expandArray, dispose;
-import std.experimental.graphic.color : isColor, RGB8, RGBA8, convertColor;
+import std.experimental.graphic.color : isColor, RGB8, RGBA8;
+import std.experimental.graphic.color.conv : convertColor;
 import std.experimental.graphic.color.rgb : RGB;
 import std.experimental.memory.managed;
 import std.range : isInputRange, ElementType;
@@ -2203,7 +2204,7 @@ unittest {
     auto input = cast(ubyte[])read("testAssets/test.png");
     
     ImageStorageHorizontal!RGB8 image = ImageStorageHorizontal!RGB8(2, 2);
-    PNGFileFormat!RGB8 image2 = asPNG(image);
+    PNGFileFormat!RGB8 image2 = asPNG(&image);
     
     // modify some fields
     

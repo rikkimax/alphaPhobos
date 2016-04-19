@@ -70,10 +70,12 @@ struct URIAddress
     }
 
     /// Deallocates the path string
-    ~this()
+    ~this() nothrow
     {
-        alloc.dispose(cast(char[]) value);
-        alloc.dispose(arrbuffDirectories);
+		try {
+        	alloc.dispose(cast(char[]) value);
+        	alloc.dispose(arrbuffDirectories);
+		} catch (Exception) {}
     }
 
     /**

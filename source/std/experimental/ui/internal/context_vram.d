@@ -4,6 +4,7 @@ import std.experimental.ui.rendering;
 import std.experimental.ui.context_features.vram;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8, RGBA8;
+import std.experimental.allocator : IAllocator;
 
 private {
 	version(Windows) {

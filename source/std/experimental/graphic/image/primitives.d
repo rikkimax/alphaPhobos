@@ -459,13 +459,13 @@ template PixelRangeColor(T) if (isPixelRange!T) {
  * Returns:
  *      The destination image for composibility reasons
  */
-Image2 copyTo(Image1, Image2)(Image1 input, Image2 destination) /+@nogc+/ @safe if (isImage!Image1 && isImage!Image2) {
+Image2 copyTo(Image1, Image2)(ref Image1 input, ref Image2 destination) /+@nogc+/ @safe if (isImage!Image1 && isImage!Image2) {
     assert(input.width <= destination.width);
     assert(input.height <= destination.height);
     
     foreach(x; 0 .. destination.width) {
         foreach(y; 0 .. destination.height) {
-            destination[x, y] = input[x, y];
+            destination.setPixel(x, y, input.getPixel(x, y));
         }
     }
     
@@ -484,12 +484,12 @@ Image2 copyTo(Image1, Image2)(Image1 input, Image2 destination) /+@nogc+/ @safe 
  * Returns:
  *      The destination image for composibility reasons
  */
-Image copyInto(IRRange, Image)(IRRange input, Image destination) @nogc @safe if (isPixelRange!IRRange && isImage!Image) {
+Image copyInto(IRRange, Image)(ref IRRange input, ref Image destination) @nogc @safe if (isPixelRange!IRRange && isImage!Image) {
     alias Color = PixelRangeColor!IRRange;
     
     foreach(pixel; input) {
-        destination[pixel.x, pixel.y] = pixel.value.convertTo!Color2;
-    }
+		destination.setPixel(pixel.x, pixel.y, pixel.value.convertTo!Color2);
+	}
 
     return destination;
 }
@@ -504,10 +504,10 @@ Image copyInto(IRRange, Image)(IRRange input, Image destination) @nogc @safe if 
  * Returns:
  *      The destination image for composibility reasons
  */
-Image copyInto(IRRange, Image)(IRRange input, Image destination) @nogc @safe if (isPixelRange!IRRange && isImage!Image && is(ImageColor!Image == PixelRangeColor!(PixelRangeColor!IRRange))) {
+Image copyInto(IRRange, Image)(ref IRRange input, ref Image destination) @nogc @safe if (isPixelRange!IRRange && isImage!Image && is(ImageColor!Image == PixelRangeColor!(PixelRangeColor!IRRange))) {
     foreach(pixel; input) {
-        destination[pixel.x, pixel.y] = pixel.value;
-    }
+		destination.setPixel(pixel.x, pixel.y, pixel.value);
+	}
 
     return destination;
 }

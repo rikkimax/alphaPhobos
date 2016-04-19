@@ -1,5 +1,5 @@
 ﻿module std.experimental.containers.list;
-import std.experimental.allocator : IAllocator, theAllocator, make, dispose, shrinkArray, expandArray;
+import std.experimental.allocator : IAllocator, theAllocator, make, dispose, makeArray, shrinkArray, expandArray;
 import std.experimental.memory.managed;
 import std.traits : isArray, isPointer;
 

@@ -16,6 +16,9 @@ import std.experimental.allocator : IAllocator, theAllocator;
  * it is not recommend to be used outside of drawing contexts.
  * Where this is the least expensive option for a buffer to draw upon.
  * 
+ * Will automatically deallocate its memory when it goes out of scope.
+ * Should not be copied or moved around.
+ * 
  * See_Also:
  *      ImageStorage
  */
@@ -36,6 +39,12 @@ struct FlatImageStorage(Color) if (isColor!Color) {
         
         data = allocator.makeArray!(Color)(width * height);
     }
+
+	~this() @trusted {
+		import std.experimental.allocator : dispose;
+		
+		allocator.dispose(data);
+	}
     
     @property {
         ///
