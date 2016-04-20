@@ -30,7 +30,7 @@ import std.experimental.allocator : IAllocator, theAllocator;
  *  image.fill(RGB8(77, 82, 31));
  * -------------
  */
-Image fillOn(Image, Color = ImageColor!Image)(ref Image image, Color value) @nogc @safe {
+ref Image fillOn(Image, Color = ImageColor!Image)(ref Image image, Color value) @nogc @safe {
     foreach(x; 0 .. image.width) {
         foreach(y; 0 .. image.height) {
             image.setPixel(x, y, value);
@@ -187,7 +187,7 @@ unittest {
  * Returns:
  *      The image for composibility reasons
  */
-Image flipHorizontal(Image)(ref Image image) if (isImage!Image) {
+ref Image flipHorizontal(Image)(ref Image image) if (isImage!Image) {
     alias Color = ImageColor!Image;
 
     size_t height = image.height;
@@ -320,7 +320,7 @@ unittest {
  * Returns:
  *      The image for composibility reasons
  */
-Image flipVertical(Image)(ref Image image) if (isImage!Image) {
+ref Image flipVertical(Image)(ref Image image) if (isImage!Image) {
     alias Color = ImageColor!Image;
 
     size_t height = image.height;

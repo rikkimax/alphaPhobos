@@ -36,18 +36,20 @@ final class MenuItemImpl : MenuItem {
 		}
 	}
 
-	this(WindowImpl window, HMENU parent, MenuItemImpl parentMenuItem=null) {
-		this.window = window;
-		this.parent = parent;
-		this.parentMenuItem = parentMenuItem;
-		
-		menuItems = List!MenuItemImpl(window.alloc);
-		
-		menuItemId = window.menuItemsCount;
-		window.menuItemsCount++;
-		
-		AppendMenuA(parent, 0, menuItemId, null);
-		window.redrawMenu = true;
+	version(Windows) {
+		this(WindowImpl window, HMENU parent, MenuItemImpl parentMenuItem=null) {
+			this.window = window;
+			this.parent = parent;
+			this.parentMenuItem = parentMenuItem;
+			
+			menuItems = List!MenuItemImpl(window.alloc);
+			
+			menuItemId = window.menuItemsCount;
+			window.menuItemsCount++;
+			
+			AppendMenuA(parent, 0, menuItemId, null);
+			window.redrawMenu = true;
+		}
 	}
 	
 	override MenuItem addChildItem() {
