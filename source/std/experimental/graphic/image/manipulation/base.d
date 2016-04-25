@@ -11,6 +11,7 @@ import std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.image.primitives : isImage, ImageColor, isPixelRange;
 import std.experimental.graphic.color : isColor;
 import std.experimental.allocator : IAllocator, theAllocator;
+import std.traits : isPointer;
 
 /**
  * Fills an image storage instance with a single color
@@ -30,14 +31,19 @@ import std.experimental.allocator : IAllocator, theAllocator;
  *  image.fill(RGB8(77, 82, 31));
  * -------------
  */
-ref Image fillOn(Image, Color = ImageColor!Image)(ref Image image, Color value) @nogc @safe {
-    foreach(x; 0 .. image.width) {
-        foreach(y; 0 .. image.height) {
-            image.setPixel(x, y, value);
-        }
-    }
+ref Image fillOn(Image, Color = ImageColor!Image)(ref Image image, Color value) @nogc @safe if (isImage!Image && is(Image == struct) && !isPointer!Image) {
+	return *fillOn(&image, value);
+}
 
-    return image;
+// Ditto
+Image fillOn(Image, Color = ImageColor!Image)(Image image, Color value) @nogc @safe if (isImage!Image) {
+	foreach(x; 0 .. image.width) {
+		foreach(y; 0 .. image.height) {
+			image.setPixel(x, y, value);
+		}
+	}
+	
+	return image;
 }
 
 ///
@@ -187,7 +193,12 @@ unittest {
  * Returns:
  *      The image for composibility reasons
  */
-ref Image flipHorizontal(Image)(ref Image image) if (isImage!Image) {
+ref Image flipHorizontal(Image)(ref Image image) if (isImage!Image && is(Image == struct) && !isPointer!Image) {
+	return *flipHorizontal(&image);
+}
+
+/// Ditto
+Image flipHorizontal(Image)(Image image) if (isImage!Image) {
     alias Color = ImageColor!Image;
 
     size_t height = image.height;
@@ -231,6 +242,7 @@ unittest {
  * See_Also:
  *      rangeOf
  */
+
 auto flipHorizontalRange(Image)(ref Image image, IAllocator allocator=theAllocator()) @safe if (isImage!Image) {
     return flipHorizontalRange(image.rangeOf(allocator));
 }
@@ -320,7 +332,12 @@ unittest {
  * Returns:
  *      The image for composibility reasons
  */
-ref Image flipVertical(Image)(ref Image image) if (isImage!Image) {
+ref Image flipVertical(Image)(ref Image image) if (isImage!Image && is(Image == struct) && !isPointer!Image) {
+	return *flipVertical(&image);
+}
+
+/// Ditto
+Image flipVertical(Image)(Image image) if (isImage!Image) {
     alias Color = ImageColor!Image;
 
     size_t height = image.height;

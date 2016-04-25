@@ -35,14 +35,12 @@ import std.experimental.bindings.x11.X;
 ///
 alias wchar_t = c_ulong;
 
-version(none) {
-	///
-	alias wctomb = _Xwctomb;
-	///
-	alias mblen = _Xmblen;
-	///
-	alias mbtowc = _Xmbtowc;
-}
+///
+alias wctomb = _Xwctomb;
+///
+alias mblen = _Xmblen;
+///
+alias mbtowc = _Xmbtowc;
 
 ///
 int function(const char* str, size_t len) _Xmblen;
@@ -507,7 +505,7 @@ struct _XImage {
 	c_ulong blue_mask;
 	/// hook for the object routines to hang on
 	XPointer obdata;
-
+	
 	/// image manipulation routines
 	struct funcs {
 		///
@@ -1379,7 +1377,7 @@ struct XClientMessageEvent {
 	Atom message_type;
 	///
 	int format;
-
+	
 	///
 	union data_t {
 		///
@@ -1980,7 +1978,7 @@ struct _XIMText {
 	XIMFeedback* feedback;
 	///
 	Bool encoding_is_wchar;
-
+	
 	///
 	union string_t {
 		///
@@ -2082,4 +2080,974 @@ enum XIMStringConversionSubstitution = 0x0001;
 ///
 enum XIMStringConversionRetrieval = 0x0002;
 
+///
+enum XIMCaretDirection {
+	///
+	XIMForwardChar,
+	///
+	XIMBackwardChar,
+	///
+	XIMForwardWord,
+	///
+	XIMBackwardWord,
+	///
+	XIMCaretUp,
+	///
+	XIMCaretDown,
+	///
+	XIMNextLine,
+	///
+	XIMPreviousLine,
+	///
+	XIMLineStart,
+	///
+	XIMLineEnd,
+	///
+	XIMAbsolutePosition,
+	///
+	XIMDontChange
+}
 
+///
+struct _XIMStringConversionCallbackStruct {
+	///
+	XIMStringConversionPosition position;
+	///
+	XIMCaretDirection direction;
+	///
+	XIMStringConversionOperation operation;
+	///
+	ushort factor;
+	///
+	XIMStringConversionText* text;
+}
+
+///
+alias XIMStringConversionCallbackStruct = _XIMStringConversionCallbackStruct;
+
+///
+struct _XIMPreeditDrawCallbackStruct {
+	/// Cursor offset within pre-edit string
+	int caret;
+	/// Starting change position
+	int chg_first;
+	/// Length of the change in character count
+	int chg_length;
+	///
+	XIMText *text;
+}
+
+///
+alias XIMPreeditDrawCallbackStruct = _XIMPreeditDrawCallbackStruct;
+
+///
+enum XIMCaretStyle {
+	/// Disable caret feedback
+	XIMIsInvisible,
+	/// UI defined caret feedback
+	XIMIsPrimary,
+	/// UI defined caret feedback
+	XIMIsSecondary
+}
+
+///
+struct _XIMPreeditCaretCallbackStruct {
+	/// Caret offset within pre-edit string
+	int position;
+	/// Caret moves direction
+	XIMCaretDirection direction;
+	/// Feedback of the caret
+	XIMCaretStyle style;
+}
+
+///
+alias XIMPreeditCaretCallbackStruct = _XIMPreeditCaretCallbackStruct;
+
+///
+enum XIMStatusDataType {
+	///
+	XIMTextType,
+	///
+	XIMBitmapType
+}
+
+///
+struct _XIMStatusDrawCallbackStruct {
+	///
+	XIMStatusDataType type;
+	
+	///
+	union data_t {
+		///
+		XIMText* text;
+		///
+		Pixmap bitmap;
+	}
+	///
+	data_t data;
+}
+
+///
+alias XIMStatusDrawCallbackStruct = _XIMStatusDrawCallbackStruct;
+
+///
+struct _XIMHotKeyTrigger {
+	///
+	KeySym keysym;
+	///
+	int modifier;
+	///
+	int modifier_mask;
+}
+
+///
+alias XIMHotKeyTrigger = _XIMHotKeyTrigger;
+
+///
+struct _XIMHotKeyTriggers {
+	///
+	int num_hot_key;
+	///
+	XIMHotKeyTrigger* key;
+}
+
+///
+alias XIMHotKeyTriggers = _XIMHotKeyTriggers;
+
+///
+alias XIMHotKeyState = c_ulong;
+
+///
+enum XIMHotKeyStateON = 0x0001;
+///
+enum XIMHotKeyStateOFF = 0x0002;
+
+///
+struct XIMValuesList {
+	///
+	ushort count_values;
+	///
+	char** supported_values;
+}
+
+/*
+ * We're not porting Xlibint.h since it is internal to the implementation
+ * Could be very dangerous.
+ */
+
+///
+int function() _Xdebug_p;
+
+///
+alias _Xdebug = _Xdebug_p;
+
+///
+XFontStruct* function(Display* display, const char* name) XLoadQueryFont;
+///
+XFontStruct* function(Display* display, XID font_ID) XQueryFont;
+///
+XTimeCoord* function(Display* display, Window w, Time start, Time stop, int* nevents_return) XGetMotionEvents;
+
+///
+version(NeedWidePrototypes) {
+	///
+	XModifierKeymap* function(XModifierKeymap* modmap, uint keycode_entry, int modifier) XDeleteModifiermapEntry;
+} else {
+	///
+	XModifierKeymap* function(XModifierKeymap* modmap, KeyCode keycode_entry, int modifier) XDeleteModifiermapEntry;
+}
+
+///
+XModifierKeymap* function(Display* display) XGetModifierMapping;
+
+///
+version(NeedWidePrototypes) {
+	///
+	XModifierKeymap* function(XModifierKeymap* modmap, uint keycode_entry, int modifier) XInsertModifiermapEntry;
+} else {
+	///
+	XModifierKeymap* function(XModifierKeymap* modmap, KeyCode keycode_entry, int modifier) XInsertModifiermapEntry;
+}
+
+///
+XModifierKeymap* function(int max_keys_per_mod) XNewModifiermap;
+
+///
+XImage* function(Display* display, Visual* visual, uint depth, int format, int offset, char* data, uint width, uint height, int bitmap_pad, int bytes_per_line) XCreateImage;
+///
+Status function(XImage* image) XInitImage;
+///
+XImage* function(Display* display, Drawable d, int x, int y, uint width, uint height, c_ulong plane_mask, int format) XGetImage;
+///
+XImage* function(Display* display, Drawable d, int x, int y, uint width, uint height, c_ulong plane_mask, int format, XImage* dest_image, int dest_x, int dest_y) XGetSubImage;
+
+/*
+ * X function declarations.
+ */
+
+///
+KeySym function(const char* string_) XStringToKeysym;
+///
+c_long function(Display* display) XMaxRequestSize;
+///
+c_long function(Display* display) XExtendedMaxRequestSize;
+///
+char* function(Display* display) XResourceManagerString;
+///
+char* function(Screen* screen) XScreenResourceString;
+///
+c_ulong function(Display* display) XDisplayMotionBufferSize;
+///
+VisualID function(Visual* visual) XVisualIDFromVisual;
+
+/* multithread routines */
+
+///
+Status function() XInitThreads;
+
+///
+void function(Display* display) XLockDisplay;
+
+///
+void function(Display* display) XUnlockDisplay;
+
+/* routines for dealing with extensions */
+
+///
+XExtCodes* function(Display* display, const char* name) XInitExtension;
+
+///
+XExtCodes* function(Display* display) XAddExtension;
+///
+XExtData* function(XExtData** structure, int number) XFindOnExtensionList;
+///
+XExtData** function(XEDataObject object) XEHeadOfExtensionList;
+
+/* these are routines for which there are also macros */
+///
+Window function(Display* display, int screen_number) XRootWindow;
+///
+Window function(Display* display) XDefaultRootWindow;
+///
+Window function(Screen* screen) XRootWindowOfScreen;
+///
+Visual* function(Display* display, int screen_number) XDefaultVisual;
+///
+Visual* function(Screen* screen) XDefaultVisualOfScreen;
+///
+GC function(Display* display, int screen_number) XDefaultGC;
+///
+GC function(Screen* screen) XDefaultGCOfScreen;
+///
+c_ulong function(Display* display, int screen_number) XBlackPixel;
+///
+c_ulong function(Display* display, int screen_number) XWhitePixel;
+///
+c_ulong function() XAllPlanes;
+///
+c_ulong function(Screen* screen) XBlackPixelOfScreen;
+///
+c_ulong function(Screen* screen) XWhitePixelOfScreen;
+///
+c_ulong function(Display* display) XNextRequest;
+///
+c_ulong function(Display* display) XLastKnownRequestProcessed;
+///
+char* function(Display* display) XServerVendor;
+///
+char* function(Display* display) XDisplayString;
+///
+Colormap function(Display* display, int screen_number) XDefaultColormap;
+///
+Colormap function(Screen* screen) XDefaultColormapOfScreen;
+///
+Display* function(Screen* screen) XDisplayOfScreen;
+///
+Screen* function(Display* display, int screen_number) XScreenOfDisplay;
+///
+Screen* function(Display* display) XDefaultScreenOfDisplay;
+///
+long function(Screen* screen) XEventMaskOfScreen;
+///
+int function(Screen* screen) XScreenNumberOfScreen;
+
+/// WARNING, this type not in Xlib spec
+alias XErrorHandler = extern(C) int function(Display* display, XErrorEvent* error_event);
+
+///
+XErrorHandler function(XErrorHandler handler) XSetErrorHandler;
+
+/// WARNING, this type not in Xlib spec
+alias XIOErrorHandler = extern(C) int function(Display* display);
+
+///
+XIOErrorHandler function(XIOErrorHandler handler) XSetIOErrorHandler;
+///
+XPixmapFormatValues* function(Display* display, int* count_return) XListPixmapFormats;
+///
+int* function(Display* display, int screen_number, int* count_return) XListDepths;
+
+/*
+ * ICCCM routines for things that don't require special include files;
+ * other declarations are given in Xutil.h
+ */
+
+///
+Status function(Display* display, Window w, int screen_number, uint mask, XWindowChanges* changes) XReconfigureWMWindow;
+///
+Status function(Display* display, Window w, Atom** protocols_return, int* count_return) XGetWMProtocols;
+///
+Status function(Display* display, Window w, Atom* protocols, int count) XSetWMProtocols;
+///
+Status function( Display* display, Window w, int screen_number) XIconifyWindow;
+///
+Status function(Display* display, Window w, int screen_number) XWithdrawWindow;
+///
+Status function(Display* display, Window w , char*** argv_return, int* argc_return) XGetCommand;
+///
+Status function(Display* display, Window w, Window** windows_return, int* count_return) XGetWMColormapWindows;
+///
+Status function(Display* display, Window w, Window* colormap_windows, int count) XSetWMColormapWindows;
+///
+void function(char** list) XFreeStringList;
+///
+int function(Display* display, Window w, Window prop_window) XSetTransientForHint;
+
+/* The following are given in alphabetical order */
+
+///
+int function(Display* display) XActivateScreenSaver;
+///
+int function(Display* display, XHostAddress* host) XAddHost;
+///
+int function(Display* display, XHostAddress* hosts, int num_hosts) XAddHosts;
+///
+int function(_XExtData** structure, XExtData* ext_data) XAddToExtensionList;
+///
+int function(Display* display, Window w) XAddToSaveSet;
+///
+Status function(Display* display, Colormap colormap, XColor* screen_in_out) XAllocColor;
+///
+Status function(Display* display, Colormap colormap, Bool contig, c_ulong* plane_masks_return, uint nplanes, c_ulong* pixels_return, uint npixels) XAllocColorCells;
+///
+Status function(Display* display, Colormap colormap, Bool contig, c_ulong* pixels_return, int ncolors, int nreds, int ngreens, int nblues, c_ulong* rmask_return, c_ulong* gmask_return, c_ulong* bmask_return) XAllocColorPlanes;
+///
+Status function(Display* display, Colormap colormap, const char* color_name, XColor* screen_def_return, XColor* exact_def_return) XAllocNamedColor;
+///
+int function(Display* display, int event_mode, Time time) XAllowEvents;
+///
+int function(Display* display) XAutoRepeatOff;
+///
+int function(Display* display) XAutoRepeatOn;
+///
+int function(Display* display, int percent) XBell;
+///
+int function(Display* display) XBitmapBitOrder;
+///
+int function(Display* display) XBitmapPad;
+///
+int function(Display* display) XBitmapUnit;
+///
+int function(Screen* screen) XCellsOfScreen;
+///
+int function(Display* display, uint event_mask, Cursor cursor, Time time) XChangeActivePointerGrab;
+///
+int function(Display* display, GC gc, c_ulong valuemask, XGCValues* values) XChangeGC;
+///
+int function(Display* display, c_ulong value_mask, XKeyboardControl* values) XChangeKeyboardControl;
+///
+int function(Display* display, int first_keycode, int keysyms_per_keycode, KeySym* keysyms, int num_codes) XChangeKeyboardMapping;
+///
+int function(Display* display, Bool do_accel, Bool do_threshold, int accel_numerator, int accel_denominator, int threshold) XChangePointerControl;
+///
+int function(Display* display, Window w, Atom property, Atom type, int format, int mode, const ubyte* data, int nelements) XChangeProperty;
+///
+int function(Display* display, Window w, int change_mode) XChangeSaveSet;
+///
+int function(Display* display, Window w, c_ulong valuemask, XSetWindowAttributes* attributes) XChangeWindowAttributes;
+///
+Bool function(Display* display, XEvent* event_return, Bool function(Display* display, XEvent* event, XPointer arg) predicate, XPointer arg) XCheckIfEvent;
+///
+Bool function(Display* display, c_long event_mask, XEvent* event_return) XCheckMaskEvent;
+///
+Bool function(Display* display, int event_type, XEvent* event_return) XCheckTypedEvent;
+///
+Bool function(Display* display, Window w, int event_type, XEvent* event_return) XCheckTypedWindowEvent;
+///
+Bool function(Display* display, Window w, c_long event_mask, XEvent* event_return) XCheckWindowEvent;
+///
+int function(Display* display, Window w, int direction) XCirculateSubwindows;
+///
+int function(Display* display, Window w) XCirculateSubwindowsDown;
+///
+int function(Display* display, Window w) XCirculateSubwindowsUp;
+///
+int function(Display* display, Window w, int x, int y, uint width, uint height, Bool exposures) XClearArea;
+///
+int function(Display* display, Window w) XClearWindow;
+///
+int function(Display* display) XCloseDisplay;
+///
+int function(Display* display, Window w, uint value_mask, XWindowChanges* values) XConfigureWindow;
+///
+int function(Display* display) XConnectionNumber;
+///
+int function(Display* display, Atom selection, Atom target, Atom property, Window requestor, Time time) XConvertSelection;
+///
+int function(Display* display, Drawable src, Drawable dest, GC gc, int src_x, int src_y, uint width, uint height, int dest_x, int dest_y) XCopyArea;
+///
+int function(Display* display, GC src, c_ulong valuemask, GC dest) XCopyGC;
+///
+int function(Display* display, Drawable src, Drawable dest, GC gc, int src_x, int src_y, uint width, uint height, int dest_x, int dest_y, c_ulong plane) XCopyPlane;
+///
+int function(Display* display, int screen_number) XDefaultDepth;
+///
+int function(Screen* screen) XDefaultDepthOfScreen;
+///
+int function(Display* display) XDefaultScreen;
+///
+int function(Display* display, Window w, Cursor cursor) XDefineCursor;
+///
+int function(Display* display, Window w, Atom property) XDeleteProperty;
+///
+int function(Display* display, Window w) XDestroyWindow;
+///
+int function(Display* display, Window w) XDestroySubwindows;
+///
+int function(Screen* screen) XDoesBackingStore;
+///
+Bool function(Screen* screen) XDoesSaveUnders;
+///
+int function(Display* display) XDisableAccessControl;
+///
+int function(Display* display, int screen_number) XDisplayCells;
+///
+int function(Display* display, int screen_number) XDisplayHeight;
+///
+int function(Display* display, int screen_number) XDisplayHeightMM;
+///
+int function(Display* display, int* min_keycodes_return, int* max_keycodes_return) XDisplayKeycodes;
+///
+int function(Display* display, int screen_number) XDisplayPlanes;
+///
+int function(Display* display, int screen_number) XDisplayWidth;
+///
+int function(Display* display, int screen_number) XDisplayWidthMM;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, uint width, uint height, int angle1, int angle2) XDrawArc;
+///
+int function(Display* display, Drawable d, GC gc, XArc* arcs, int narcs) XDrawArcs;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, const char* string_, int length) XDrawImageString;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, const XChar2b* string, int length) XDrawImageString16;
+///
+int function(Display* display, Drawable d, GC gc, int x1, int y1, int x2, int y2) XDrawLine;
+///
+int function(Display* display, Drawable d, GC gc, XPoint* points, int npoints, int mode) XDrawLines;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y) XDrawPoint;
+///
+int function(Display* display, Drawable d, GC gc, XPoint* points, int npoints, int mode) XDrawPoints;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, uint width, uint height) XDrawRectangle;
+///
+int function(Display* display, Drawable d, GC gc, XRectangle* rectangles, int nrectangles) XDrawRectangles;
+///
+int function(Display* display, Drawable d, GC gc, XSegment* segments, int nsegments) XDrawSegments;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, const char* string_, int length) XDrawString;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, const XChar2b* string_, int length) XDrawString16;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, XTextItem* items, int nitems) XDrawText;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, XTextItem16* items, int nitems) XDrawText16;
+///
+int function(Display* display) XEnableAccessControl;
+///
+int function(Display* display, int mode) XEventsQueued;
+///
+Status function(Display* display, Window w, char** window_name_return) XFetchName;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, uint width, uint height, int angle1, int angle2) XFillArc;
+///
+int function(Display* display, Drawable d, GC gc, XArc* arcs, int narcs) XFillArcs;
+///
+int function(Display* display, Drawable d, GC gc, XPoint* points, int npoints, int shape, int mode) XFillPolygon;
+///
+int function(Display* display, Drawable d, GC gc, int x, int y, uint width, uint height) XFillRectangle;
+///
+int function(Display* display, Drawable d, GC gc, XRectangle* rectangles, int nrectangles) XFillRectangles;
+///
+int function(Display* display) XFlush;
+///
+int function(Display* display, int mode) XForceScreenSaver;
+///
+int function(void* data) XFree;
+///
+int function(Display* display, Colormap colormap) XFreeColormap;
+///
+int function(Display* display, Colormap colormap, c_ulong* pixels, int npixels, c_ulong planes) XFreeColors;
+///
+int function(Display* display, Cursor cursor) XFreeCursor;
+///
+int function(char** list) XFreeExtensionList;
+///
+int function(Display* display, XFontStruct* font_struct) XFreeFont;
+///
+int function(char** names, XFontStruct* free_info, int actual_count) XFreeFontInfo;
+///
+int function(char** list) XFreeFontNames;
+///
+int function(char** list) XFreeFontPath;
+///
+int function(Display* display, GC gc) XFreeGC;
+///
+int function(XModifierKeymap* modmap) XFreeModifiermap;
+///
+int function(Display* display, Pixmap pixmap) XFreePixmap;
+///
+int function(Display* display, int screen, const char* position, const char* default_position, uint bwidth, uint fwidth, uint fheight, int xadder, int yadder, int* x_return, int* y_return, int* width_return, int* height_return) XGeometry;
+///
+int function(Display* display, const char* name, const char* message, const char* default_string, char* buffer_return, int length) XGetErrorDatabaseText;
+///
+int function(Display* display, int code, char* buffer_return, int length) XGetErrorText;
+///
+Bool function(XFontStruct* font_struct, Atom atom, c_ulong* value_return) XGetFontProperty;
+///
+Status function(Display* display, GC gc, c_ulong valuemask, XGCValues* values_return) XGetGCValues;
+///
+Status function(Display* display, Drawable d, Window* root_return, int* x_return, int* y_return, uint* width_return, uint* height_return, uint* border_width_return, uint* depth_return) XGetGeometry;
+///
+Status function(Display* display, Window w, char** icon_name_return) XGetIconName;
+///
+int function(Display* display, Window* focus_return, int* revert_to_return) XGetInputFocus;
+///
+int function(Display* display, XKeyboardState* values_return) XGetKeyboardControl;
+///
+int function(Display* display, int* accel_numerator_return, int* accel_denominator_return, int* threshold_return) XGetPointerControl;
+///
+int function(Display* display, ubyte* map_return, int nmap) XGetPointerMapping;
+///
+int function(Display* display, int* timeout_return, int* interval_return, int* prefer_blanking_return, int* allow_exposures_return) XGetScreenSaver;
+///
+Status function(Display* display, Window w, Window* prop_window_return) XGetTransientForHint;
+///
+int function(Display* display, Window w, Atom property, c_long long_offset, c_long long_length, Bool delete_, Atom req_type, Atom* actual_type_return, int* actual_format_return, c_ulong* nitems_return, c_ulong* bytes_after_return, ubyte** prop_return) XGetWindowProperty;
+///
+Status function(Display* display, Window w, XWindowAttributes* window_attributes_return) XGetWindowAttributes;
+///
+int function(Display* display, uint button, uint modifiers, Window grab_window, Bool owner_events, uint event_mask, int pointer_mode, int keyboard_mode, Window confine_to, Cursor cursor) XGrabButton;
+///
+int function(Display* display, int keycode, uint modifiers, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode) XGrabKey;
+///
+int function(Display* display, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode, Time time) XGrabKeyboard;
+///
+int function(Display* display, Window grab_window, Bool owner_events, uint event_mask, int pointer_mode, int keyboard_mode, Window confine_to, Cursor cursor, Time time) XGrabPointer;
+///
+int function(Display* display) XGrabServer;
+///
+int function(Screen* screen) XHeightMMOfScreen;
+///
+int function(Screen* screen) XHeightOfScreen;
+///
+int function(Display* display, XEvent* event_return, Bool function(Display* display, XEvent* event, XPointer arg) predicate, XPointer arg) XIfEvent;
+///
+int function(Display* display) XImageByteOrder;
+///
+int function(Display* display, Colormap colormap) XInstallColormap;
+///
+KeyCode function(Display* display, KeySym keysym) XKeysymToKeycode;
+///
+int function(Display* display, XID resource) XKillClient;
+///
+Status function(Display* display, Colormap colormap, const char* color_name, XColor* exact_def_return, XColor* screen_def_return) XLookupColor;
+///
+int function(Display* display, Window w) XLowerWindow;
+///
+int function(Display* display, Window w) XMapRaised;
+///
+int function(Display* display, Window w) XMapSubwindows;
+///
+int function(Display* display, Window w) XMapWindow;
+///
+int function(Display* display, c_long event_mask, XEvent* event_return) XMaskEvent;
+///
+int function(Screen* screen) XMaxCmapsOfScreen;
+///
+int function(Screen* screen) XMinCmapsOfScreen;
+///
+int function(Display* display, Window w, int x, int y, uint width, uint height) XMoveResizeWindow;
+///
+int function(Display* display, Window w, int x, int y) XMoveWindow;
+///
+int function(Display* display, XEvent* event_return) XNextEvent;
+///
+int function(Display* display) XNoOp;
+///
+Status function(Display* display, Colormap colormap, const char* spec, XColor* exact_def_return) XParseColor;
+///
+int function(const char* parsestring, int* x_return, int* y_return, uint* width_return, uint* height_return) XParseGeometry;
+///
+int function(Display* display, XEvent* event_return) XPeekEvent;
+///
+int function(Display* display, XEvent* event_return, Bool function(Display* display, XEvent* event, XPointer arg) predicate, XPointer arg) XPeekIfEvent;
+///
+int function(Display* display) XPending;
+///
+int function(Screen* screen) XPlanesOfScreen;
+///
+int function(Display* display) XProtocolRevision;
+///
+int function(Display* display) XProtocolVersion;
+///
+int function(Display* display, XEvent* event) XPutBackEvent;
+///
+int function(Display* display, Drawable d, GC gc, XImage* image, int src_x, int src_y, int dest_x, int dest_y, uint width, uint height) XPutImage;
+///
+int function(Display* display) XQLength;
+///
+Status function(Display* display, Drawable d, uint width, uint height, uint* width_return, uint* height_return) XQueryBestCursor;
+///
+Status function(Display* display, int class_, Drawable which_screen, uint width, uint height, uint* width_return, uint* height_return) XQueryBestSize;
+///
+Status function(Display* display, Drawable which_screen, uint width, uint height, uint* width_return, uint* height_return) XQueryBestStipple;
+///
+Status function(Display* display, Drawable which_screen, uint width, uint height, uint* width_return, uint* height_return) XQueryBestTile;
+///
+int function(Display* display, Colormap colormap, XColor* def_in_out) XQueryColor;
+///
+int function(Display* display, Colormap colormap, XColor* defs_in_out, int ncolors) XQueryColors;
+///
+Bool function(Display* display, const char* name, int* major_opcode_return, int* first_event_return, int* first_error_return) XQueryExtension;
+///
+int function(Display* display, char[32] keys_return) XQueryKeymap;
+///
+Bool function(Display* display, Window w, Window* root_return, Window* child_return, int* root_x_return, int* root_y_return, int* win_x_return, int* win_y_return, uint* mask_return) XQueryPointer;
+///
+int function(Display* display, XID font_ID, const char* string_, int nchars, int* direction_return, int* font_ascent_return, int* font_descent_return, XCharStruct* overall_return) XQueryTextExtents;
+///
+int function(Display* display, XID font_ID, const XChar2b* string_, int nchars, int* direction_return, int* font_ascent_return, int* font_descent_return, XCharStruct* overall_return) XQueryTextExtents16;
+///
+Status function(Display* display, Window w, Window* root_return, Window* parent_return, Window** children_return, uint* nchildren_return) XQueryTree;
+///
+int function(Display* display, Window w) XRaiseWindow;
+///
+int function(Display* display, Drawable d, const char* filename, uint* width_return, uint* height_return, Pixmap* bitmap_return, int* x_hot_return, int* y_hot_return) XReadBitmapFile;
+///
+int function(const char* filename, uint* width_return, uint* height_return, ubyte** data_return, int* x_hot_return, int* y_hot_return) XReadBitmapFileData;
+///
+int function(Display* display, KeySym keysym, KeySym* list, int mod_count, const char* string_, int bytes_string) XRebindKeysym;
+///
+int function(Display* display, Cursor cursor, XColor* foreground_color, XColor* background_color) XRecolorCursor;
+///
+int function(XMappingEvent* event_map) XRefreshKeyboardMapping;
+///
+int function(Display* display, Window w) XRemoveFromSaveSet;
+///
+int function(Display* display, XHostAddress* host) XRemoveHost;
+///
+int function(Display* display, XHostAddress* hosts, int num_hosts) XRemoveHosts;
+///
+int function(Display* display, Window w, Window parent, int x, int y) XReparentWindow;
+///
+int function(Display* display) XResetScreenSaver;
+///
+int function(Display* display, Window w, uint width, uint height) XResizeWindow;
+///
+int function(Display* display, Window* windows, int nwindows) XRestackWindows;
+///
+int function(Display* display, int rotate) XRotateBuffers;
+///
+int function(Display* display, Window w, Atom* properties, int num_prop, int npositions) XRotateWindowProperties;
+///
+int function(Display* display) XScreenCount;
+///
+int function(Display* display, Window w, c_long event_mask) XSelectInput;
+///
+Status function(Display* display, Window w, Bool propagate, c_long event_mask, XEvent* event_send) XSendEvent;
+///
+int function(Display* display, int mode) XSetAccessControl;
+///
+int function(Display* display, GC gc, int arc_mode) XSetArcMode;
+///
+int function(Display* display, GC gc, c_ulong background) XSetBackground;
+///
+int function(Display* display, GC gc, Pixmap pixmap) XSetClipMask;
+///
+int function(Display* display, GC gc, int clip_x_origin, int clip_y_origin) XSetClipOrigin;
+///
+int function(Display* display, GC gc, int clip_x_origin, int clip_y_origin, XRectangle* rectangles, int n, int ordering) XSetClipRectangles;
+///
+int function(Display* display, int close_mode) XSetCloseDownMode;
+///
+int function(Display* display, Window w, char** argv, int argc) XSetCommand;
+///
+int function(Display* display, GC gc, int dash_offset, const char* dash_list, int n) XSetDashes;
+///
+int function(Display* display, GC gc, int fill_rule) XSetFillRule;
+///
+int function(Display* display, GC gc, int fill_style) XSetFillStyle;
+///
+int function(Display* display, GC gc, Font font) XSetFont;
+///
+int function(Display* display, char** directories, int ndirs) XSetFontPath;
+///
+int function(Display* display, GC gc, c_ulong foreground) XSetForeground;
+///
+int function(Display* display, GC gc, int function_) XSetFunction;
+///
+int function(Display* display, GC gc, Bool graphics_exposures) XSetGraphicsExposures;
+///
+int function(Display* display, Window w, const char* icon_name) XSetIconName;
+///
+int function(Display* display, Window focus, int revert_to, Time time) XSetInputFocus;
+///
+int function(Display* display, GC gc, uint line_width, int line_style, int cap_style, int join_style) XSetLineAttributes;
+///
+int function(Display* display, XModifierKeymap* modmap) XSetModifierMapping;
+///
+int function(Display* display, GC gc, c_ulong plane_mask) XSetPlaneMask;
+///
+int function(Display* display, const ubyte* map, int nmap) XSetPointerMapping;
+///
+int function(Display* display, int timeout, int interval, int prefer_blanking, int allow_exposures) XSetScreenSaver;
+///
+int function(Display* display, Atom selection, Window owner, Time time) XSetSelectionOwner;
+///
+int function(Display* display, GC gc, c_ulong foreground, c_ulong background, int function_, c_ulong plane_mask) XSetState;
+///
+int function(Display* display, GC gc, Pixmap stipple) XSetStipple;
+///
+int function(Display* display, GC gc, int subwindow_mode) XSetSubwindowMode;
+///
+int function(Display* display, GC gc, int ts_x_origin, int ts_y_origin) XSetTSOrigin;
+///
+int function(Display* display, GC gc, Pixmap tile) XSetTile;
+///
+int function(Display* display, Window w, c_ulong background_pixel) XSetWindowBackground;
+///
+int function(Display* display, Window w, Pixmap background_pixmap) XSetWindowBackgroundPixmap;
+///
+int function(Display* display, Window w, c_ulong border_pixel) XSetWindowBorder;
+///
+int function(Display* display, Window w, Pixmap border_pixmap) XSetWindowBorderPixmap;
+///
+int function(Display* display, Window w, uint width) XSetWindowBorderWidth;
+///
+int function(Display* display, Window w, Colormap colormap) XSetWindowColormap;
+///
+int function(Display* display, const char* bytes, int nbytes, int buffer) XStoreBuffer;
+///
+int function(Display* display, const char* bytes, int nbytes) XStoreBytes;
+///
+int function(Display* display, Colormap colormap, XColor* color) XStoreColor;
+///
+int function(Display* display, Colormap colormap, XColor* color, int ncolors) XStoreColors;
+///
+int function(Display* display, Window w, const char* window_name) XStoreName;
+///
+int function(Display* display, Colormap colormap, const char* color, c_ulong pixel, int flags) XStoreNamedColor;
+///
+int function(Display* display, Bool discard) XSync;
+///
+int function(XFontStruct* font_struct, const char* string_, int nchars, int* direction_return, int* font_ascent_return, int* font_descent_return, XCharStruct* overall_return) XTextExtents;
+///
+int function(XFontStruct* font_struct, const XChar2b* string_, int nchars, int* direction_return, int* font_ascent_return, int* font_descent_return, XCharStruct* overall_return) XTextExtents16;
+///
+int function(XFontStruct* font_struct, const char* string_, int count) XTextWidth;
+///
+int function(XFontStruct* font_struct, const XChar2b* string_, int count) XTextWidth16;
+///
+Bool function(Display* display, Window src_w, Window dest_w, int src_x, int src_y, int* dest_x_return, int* dest_y_return, Window* child_return) XTranslateCoordinates;
+///
+int function(Display* display, Window w) XUndefineCursor;
+///
+int function(Display* display, uint button, uint modifiers, Window grab_window) XUngrabButton;
+///
+int function(Display* display, int keycode, uint modifiers, Window grab_window) XUngrabKey;
+///
+int function(Display* display, Time time) XUngrabKeyboard;
+///
+int function(Display* display, Time time) XUngrabPointer;
+///
+int function(Display* display) XUngrabServer;
+///
+int function(Display* display, Colormap colormap) XUninstallColormap;
+///
+int function(Display* display, Font font) XUnloadFont;
+///
+int function(Display* display, Window w) XUnmapSubwindows;
+///
+int function(Display* display, Window w) XUnmapWindow;
+///
+int function(Display* display) XVendorRelease;
+///
+int function(Display* display, Window src_w, Window dest_w, int src_x, int src_y, uint src_width, uint src_height, int dest_x, int dest_y) XWarpPointer;
+///
+int function(Screen* screen) XWidthMMOfScreen;
+///
+int function(Screen* screen) XWidthOfScreen;
+///
+int function(Display* display, Window w, c_long event_mask, XEvent* event_return) XWindowEvent;
+///
+int function(Display* display, const char* filename, Pixmap bitmap, uint width, uint height, int x_hot, int y_hot) XWriteBitmapFile;
+///
+Bool function() XSupportsLocale;
+///
+char* function(const char* modifier_list) XSetLocaleModifiers;
+///
+XOM function(Display* display, _XrmHashBucketRec* rdb, const char* res_name, const char* res_class) XOpenOM;
+///
+Status function(XOM om) XCloseOM;
+///
+char* function(XOM om, ...) XSetOMValues;
+///
+char* function(XOM om, ...) XGetOMValues;
+///
+Display* function(XOM om) XDisplayOfOM;
+///
+char* function(XOM om) XLocaleOfOM;
+///
+XOC function(XOM om, ...) XCreateOC;
+///
+void function(XOC oc) XDestroyOC;
+///
+XOM function(XOC oc) XOMOfOC;
+///
+char* function(XOC oc, ...) XSetOCValues;
+///
+char* function(XOC oc, ...) XGetOCValues;
+///
+XFontSet function(Display* display, const char* base_font_name_list, char*** missing_charset_list, int* missing_charset_count, char** def_string) XCreateFontSet;
+///
+void function(Display* display, XFontSet font_set) XFreeFontSet;
+///
+int function(XFontSet font_set, XFontStruct*** font_struct_list, char*** font_name_list) XFontsOfFontSet;
+///
+char* function(XFontSet font_set) XBaseFontNameListOfFontSet;
+///
+char* function(XFontSet font_set) XLocaleOfFontSet;
+///
+Bool function(XFontSet font_set) XContextDependentDrawing;
+///
+Bool function(XFontSet font_set) XDirectionalDependentDrawing;
+///
+Bool function(XFontSet font_set) XContextualDrawing;
+///
+XFontSetExtents* function(XFontSet font_set) XExtentsOfFontSet;
+///
+int function(XFontSet font_set, const char* text, int bytes_text) XmbTextEscapement;
+///
+int function(XFontSet font_set, const wchar_t* text, int num_wchars) XwcTextEscapement;
+///
+int function(XFontSet font_set, const char* text, int bytes_text) Xutf8TextEscapement;
+///
+int function(XFontSet font_set, const char* text, int bytes_text, XRectangle* overall_ink_return, XRectangle* overall_logical_return) XmbTextExtents;
+///
+int function(XFontSet font_set, const wchar_t* text, int num_wchars, XRectangle* overall_ink_return, XRectangle* overall_logical_return) XwcTextExtents;
+///
+int function(XFontSet font_set, const char* text, int bytes_text, XRectangle* overall_ink_return, XRectangle* overall_logical_return) Xutf8TextExtents;
+///
+Status function(XFontSet font_set, const char* text, int bytes_text, XRectangle* ink_extents_buffer, XRectangle* logical_extents_buffer, int buffer_size, int* num_chars, XRectangle* overall_ink_return, XRectangle* overall_logical_return) XmbTextPerCharExtents;
+///
+Status function(XFontSet font_set, const wchar_t* text, int num_wchars, XRectangle* ink_extents_buffer, XRectangle* logical_extents_buffer, int buffer_size, int* num_chars, XRectangle* overall_ink_return, XRectangle* overall_logical_return) XwcTextPerCharExtents;
+///
+Status function(XFontSet font_set, const char* text, int bytes_text, XRectangle* ink_extents_buffer, XRectangle* logical_extents_buffer, int buffer_size, int* num_chars, XRectangle* overall_ink_return, XRectangle* overall_logical_return) Xutf8TextPerCharExtents;
+///
+void function(Display* display, Drawable d, GC gc, int x, int y, XmbTextItem* text_items, int nitems) XmbDrawText;
+///
+void function(Display* display, Drawable d, GC gc, int x, int y, XwcTextItem* text_items, int nitems) XwcDrawText;
+///
+void function(Display* display, Drawable d, GC gc, int x, int y, XmbTextItem* text_items, int nitems) Xutf8DrawText;
+///
+void function(Display* display, Drawable d, XFontSet font_set, GC gc, int x, int y, const char* text, int bytes_text) XmbDrawString;
+///
+void function(Display* display, Drawable d, XFontSet font_set, GC gc, int x, int y, const wchar_t* text, int num_wchars) XwcDrawString;
+///
+void function(Display* display, Drawable d, XFontSet font_set, GC gc, int x, int y, const char* text, int bytes_text) Xutf8DrawString;
+///
+void function(Display* display, Drawable d, XFontSet font_set, GC gc, int x, int y, const char* text, int bytes_text) XmbDrawImageString;
+///
+void function(Display* display, Drawable d, XFontSet font_set, GC gc, int x, int y, const wchar_t* text, int num_wchars) XwcDrawImageString;
+///
+void function(Display* display, Drawable d, XFontSet font_set, GC gc, int x, int y, const char* text, int bytes_text) Xutf8DrawImageString;
+///
+XIM function(Display* dpy, _XrmHashBucketRec* rdb, char* res_name, char* res_class) XOpenIM;
+///
+Status function(XIM im) XCloseIM;
+///
+char* function(XIM im, ...) XGetIMValues;
+///
+char* function(XIM im, ...) XSetIMValues;
+///
+Display* function(XIM im) XDisplayOfIM;
+///
+char* function(XIM im) XLocaleOfIM;
+///
+XIC function(XIM im, ...) XCreateIC;
+///
+void function(XIC ic) XDestroyIC;
+///
+void function(XIC ic) XSetICFocus;
+///
+void function(XIC ic) XUnsetICFocus;
+///
+wchar_t* function(XIC ic) XwcResetIC;
+///
+char* function(XIC ic) XmbResetIC;
+///
+char* function(XIC ic) Xutf8ResetIC;
+///
+char* function(XIC ic, ...) XSetICValues;
+///
+char* function(XIC i, ...) XGetICValues;
+///
+XIM function(XIC ic) XIMOfIC;
+///
+Bool function(XEvent* event, Window window) XFilterEvent;
+///
+int function(XIC ic, XKeyPressedEvent* event, char* buffer_return, int bytes_buffer, KeySym* keysym_return, Status* status_return) XmbLookupString;
+///
+int function(XIC ic, XKeyPressedEvent* event, wchar_t* buffer_return, int wchars_buffer, KeySym* keysym_return, Status* status_return) XwcLookupString;
+///
+int function(XIC ic, XKeyPressedEvent* event, char* buffer_return, int bytes_buffer, KeySym* keysym_return, Status* status_return) Xutf8LookupString;
+///
+XVaNestedList function(int unused, ...) XVaCreateNestedList;
+
+/* internal connections for IMs */
+
+///
+Bool function(Display* dpy, _XrmHashBucketRec* rdb, char* res_name, char* res_class, XIDProc callback, XPointer client_data) XRegisterIMInstantiateCallback;
+///
+Bool function(Display* dpy, _XrmHashBucketRec* rdb, char* res_name, char* res_class, XIDProc callback, XPointer client_data) XUnregisterIMInstantiateCallback;
+
+/**
+ * Params: 
+ * 		dpy			=
+ * 		client_data	=
+ * 		fd 			=
+ * 		opening 	=	open or close flag
+ * 		watch_data	=	open sets, close uses
+ */
+alias XConnectionWatchProc = extern(C) void function(Display* dpy, XPointer client_data, int fd, Bool opening, XPointer* watch_data);
+
+///
+Status function(Display* dpy, int** fd_return, int* count_return) XInternalConnectionNumbers;
+///
+void function(Display* dpy, int fd) XProcessInternalConnection;
+///
+Status function(Display* dpy, XConnectionWatchProc callback, XPointer client_data) XAddConnectionWatch;
+///
+void function(Display* dpy, XConnectionWatchProc callback, XPointer client_data) XRemoveConnectionWatch;
+///
+void function(char* name, int namelen, char* data, int datalen) XSetAuthorization;
+///
+int function(wchar_t* wstr, const char* str, size_t len) _Xmbtowc;
+///
+int function(char* str, wchar_t wc) _Xwctomb;
+///
+Bool function(Display* dpy, XGenericEventCookie* cookie) XGetEventData;
+///
+void function(Display* dpy, XGenericEventCookie* cookie) XFreeEventData;
