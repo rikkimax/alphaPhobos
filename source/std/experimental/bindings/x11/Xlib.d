@@ -747,8 +747,8 @@ version(XLIB_ILLEGAL_ACCESS) {
 	///
 	alias _XDisplay = _XPrivDisplay_T;
 } else {
-	///
-	struct _XDisplay;
+	/// Bug: needs to have a size so 0 will do instead of opaque.
+	struct _XDisplay {}
 }
 
 ///
@@ -763,7 +763,7 @@ struct XKeyEvent {
 	/// true if this came from a SendEvent request
 	Bool send_event;
 	/// Display the event was read from
-	Display *display;
+	Display* display;
 	/// "event" window it is reported relative to
 	Window window;
 	/// root window that the event occurred on

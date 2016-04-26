@@ -37,10 +37,7 @@ interface IPlatform {
     void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null);
 
     ///
-    bool eventLoopIteration(bool untilEmpty);
-    
-    ///
-    bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false);
+    bool eventLoopIteration(bool untilEmpty=false);
 
     ///
     final void setAsDefault() {
@@ -58,11 +55,12 @@ IPlatform defaultPlatform() {
     return defaultPlatform_;
 }
 
-private __gshared {
+// not __gshared, thread local.
+private {
     IPlatform defaultPlatform_;
     IPlatform thePlatform_;
     
-    shared static this() {
+    static this() {
 		import std.experimental.ui.internal.platform;
         defaultPlatform_ = new PlatformImpl();
         thePlatform_ = defaultPlatform_;

@@ -11,7 +11,12 @@ private {
 	import std.experimental.ui.events;
 	import std.experimental.ui.window.events;
 	import std.experimental.ui.window.defs;
-	
+	import std.experimental.bindings.x11 : XEvent;
+	static import X11SB = std.experimental.bindings.x11;
+	alias X11Display = X11SB.Display;
+	alias X11Window = X11SB.Window;
+	alias X11Atom = X11SB.Atom;
+
 	version(Windows) {
 		import core.sys.windows.windows : MONITORINFOEXA, GetMonitorInfoA, MONITORINFOF_PRIMARY,
 			DEVMODEA, EnumDisplaySettingsA, ENUM_CURRENT_SETTINGS, CreateDCA, HMENU, HCURSOR,
@@ -26,6 +31,8 @@ private {
 			SM_CXCURSOR, SM_CYCURSOR;
 
 		interface WindowInterfaces : IWindowEvents, Feature_ScreenShot, Feature_Icon, Feature_Menu, Feature_Cursor, Feature_Style, Have_ScreenShot, Have_Icon, Have_Menu, Have_Cursor, Have_Style {}
+	} else {
+		interface WindowInterfaces : IWindowEvents {}
 	}
 }
 
@@ -62,7 +69,14 @@ package(std.experimental.ui.internal) {
 		
 		WindowStyle windowStyle;
 		bool ownedByProcess;
-		
+
+		vec2!ushort lastSize;
+		vec2!short lastLocation;
+
+		bool x11Instance;
+		X11Window x11WindowHandle;
+		X11Atom x11CloseAtom; // set if x11Instance
+
 		version(Windows) {
 			HWND hwnd;
 			HMENU hMenu;
@@ -90,10 +104,16 @@ package(std.experimental.ui.internal) {
 		}
 		
 		~this() {
+			import std.experimental.ui.internal.platform : PlatformImpl;
+
 			if (menuItems.length > 0) {
 				foreach(item; menuItems) {
 					item.remove();
 				}
+			}
+
+			if (x11Instance) {
+				(cast(PlatformImpl)platform).x11Windows.remove(x11WindowHandle);
 			}
 		}
 		
@@ -565,6 +585,100 @@ package(std.experimental.ui.internal) {
 			void onSizeChange(EventOnSizeChangeDel del) { onSizeChangeDel = del; }
 			
 			void onMove(EventOnMoveDel del) { onMoveDel = del; }
+		}
+
+		void processEvent(XEvent* e) {
+			import std.experimental.bindings.x11;
+
+			KeyModifiers convertKeyFromXlibEventModifiers(uint code) {
+				KeyModifiers ret;
+				
+				if (code & Mod1Mask)
+					ret |= KeyModifiers.Alt;
+				if (code & ControlMask)
+					ret |= KeyModifiers.Control;
+				if (code & ShiftMask || code & LockMask)
+					ret |= KeyModifiers.Shift;
+				
+				return ret;
+			}
+
+			if (e.type == Expose) {
+				onDrawDel();
+			} else if (e.type == ConfigureNotify) {
+				if (lastLocation.x != e.xconfigure.x || lastLocation.y != e.xconfigure.y) {
+					lastLocation = vec2!short(cast(short)e.xconfigure.x, cast(short)e.xconfigure.y);
+					onMoveDel(lastLocation.x, lastLocation.y);
+				}
+				
+				if (lastSize.x != e.xconfigure.width || lastSize.y != e.xconfigure.height) {
+					lastSize = vec2!ushort(cast(ushort)e.xconfigure.width, cast(ushort)e.xconfigure.height);
+					onSizeChangeDel(lastSize.x, lastSize.y);
+				}
+			} else if (e.type == ClientMessage) {
+				if (e.xclient.data.l[0] == x11CloseAtom) {
+					close();
+					onCloseDel();
+				}
+			} else if (e.type == MotionNotify) {
+				onCursorMoveDel(cast(short)e.xmotion.x, cast(short)e.xmotion.y);
+			} else if (e.type == ButtonPress) {
+				CursorEventAction cEvent;
+				
+				switch(e.xbutton.button) {
+					case Button2:
+						cEvent = CursorEventAction.ViewChange;
+						break;
+						
+					case Button3:
+						cEvent = CursorEventAction.Alter;
+						break;
+						
+					case Button1:
+					default:
+						cEvent = CursorEventAction.Select;
+						break;
+				}
+				
+				onCursorActionDel(cEvent);
+			} else if (e.type == ButtonRelease) {
+				CursorEventAction cEvent;
+				
+				switch(e.xbutton.button) {
+					case Button2:
+						cEvent = CursorEventAction.ViewChange;
+						break;
+						
+					case Button3:
+						cEvent = CursorEventAction.Alter;
+						break;
+						
+					case Button1:
+					default:
+						cEvent = CursorEventAction.Select;
+						break;
+				}
+				
+				onCursorActionEndDel(cEvent);
+			} /+else if (e.type == KeyPress) {
+				if (e.xkey.window in dispToInsts) {
+					Window window = dispToInsts[e.xkey.window];
+					if (!window.hasBeenClosed_) {
+						xlib.KeySym symbol;
+						xutil.XLookupString(cast(xlib.XKeyEvent*)(&e.xkey), null, 0, &symbol, null);
+						window.onKeyDown(convertKeyFromXlibEvent(cast(uint)symbol), convertKeyFromXlibEventModifiers(e.xkey.state));
+					}
+				}
+			} else if (e.type == KeyRelease) {
+				if (e.xkey.window in dispToInsts) {
+					Window window = dispToInsts[e.xkey.window];
+					if (!window.hasBeenClosed_) {
+						xlib.KeySym symbol;
+						xutil.XLookupString(cast(xlib.XKeyEvent*)(&e.xkey), null, 0, &symbol, null);
+						window.onKeyUp(convertKeyFromXlibEvent(cast(uint)symbol), convertKeyFromXlibEventModifiers(e.xkey.state));
+					}
+				}
+			}+/
 		}
 	}
 }

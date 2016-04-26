@@ -14,6 +14,8 @@ private {
 			DEVMODEA, EnumDisplaySettingsA, ENUM_CURRENT_SETTINGS, CreateDCA;
 		
 		interface DisplayInterfaces : Feature_ScreenShot, Have_ScreenShot {}
+	} else {
+		interface DisplayInterfaces {}
 	}
 }
 

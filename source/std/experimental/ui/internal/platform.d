@@ -15,6 +15,13 @@ private {
 	import std.experimental.ui.internal.window;
 	import std.experimental.ui.internal.window_creator;
 	import std.experimental.ui.notifications;
+	import std.experimental.containers.list;
+	import std.experimental.containers.map;
+	import std.experimental.bindings.x11 : XEvent;
+
+	static import X11SB = std.experimental.bindings.x11;
+	alias X11Display = X11SB.Display;
+	alias X11Window = X11SB.Window;
 
 	version(Windows) {
 		import core.sys.windows.windows : NOTIFYICONDATAW, MSG, DWORD,
@@ -26,8 +33,10 @@ private {
 		pragma(lib, "gdi32");
 		pragma(lib, "user32");
 
+		enum NEED_GUARD_LOAD = false;
 		interface PlatformInterfaces : Feature_Notification, Have_Notification {}
 	} else {
+		enum NEED_GUARD_LOAD = true;
 		interface PlatformInterfaces {}
 	}
 }
@@ -54,6 +63,44 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 			IWindow taskbarIconWindow;
 			NOTIFYICONDATAW taskbarIconNID;
 		}
+
+		List!(X11Display*) x11Displays = void;
+		Map!(X11Window, WindowImpl) x11Windows = void;
+	}
+
+	private {
+		// this can be safely inlined!
+		pragma(inline, true)
+		void guardCheck() {
+			static if (NEED_GUARD_LOAD) {
+				if (enabledEventLoops == 0)
+					handleGuardCheck();
+			} else {
+				// if we don't need to check, this is a free call
+			}
+		}
+
+		void handleGuardCheck() {
+			import std.experimental.bindings.symbolloader : ShouldThrow;
+			bool isMissing;
+			ShouldThrow missingCallback(string) { isMissing = true; return ShouldThrow.No; }
+
+			// 1. check X11
+			import std.experimental.bindings.x11 : X11Loader;
+
+			if (!X11Loader.isLoaded) {
+				isMissing = false;
+				X11Loader.missingSymbolCallback(&missingCallback);
+				X11Loader.load();
+
+				if (!isMissing) {
+					x11Displays = List!(X11Display*)(theAllocator);
+					enabledEventLoops |= EnabledEventLoops.X11;
+				}
+			}
+
+			// 2. XCB
+		}
 	}
 
 	Feature_Notification __getFeatureNotification() {
@@ -65,6 +112,7 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 
 	managed!IWindowCreator createWindow(IAllocator alloc = theAllocator()) {
 		import std.typecons : tuple;
+		guardCheck();
 		return cast(managed!IWindowCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
 	}
 	
@@ -77,6 +125,7 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 	
 	managed!IRenderPointCreator createRenderPoint(IAllocator alloc = theAllocator()) {
 		import std.typecons : tuple;
+		guardCheck();
 		return cast(managed!IRenderPointCreator)managed!WindowCreatorImpl(managers(), tuple(this, alloc), alloc);
 	}
 	
@@ -87,7 +136,7 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 	@property {
 		managed!IDisplay primaryDisplay(IAllocator alloc = processAllocator()) {
 			import std.experimental.ui.internal.display;
-
+		
 			foreach(display; displays) {
 				if ((cast(DisplayImpl)display).primary) {
 					return managed!IDisplay(cast(DisplayImpl)display, managers(), Ownership.Primary, alloc);
@@ -98,6 +147,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 		}
 		
 		managed!(IDisplay[]) displays(IAllocator alloc = processAllocator()) {
+			guardCheck();
+
 			version(Windows) {
 				GetDisplays ctx = GetDisplays(alloc, this);
 				ctx.call;
@@ -107,6 +158,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 		}
 		
 		managed!(IWindow[]) windows(IAllocator alloc = processAllocator()) {
+			guardCheck();
+
 			version(Windows) {
 				GetWindows ctx = GetWindows(alloc, this, null);
 				ctx.call;
@@ -120,7 +173,9 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 		ImageStorage!RGBA8 getNotificationIcon(IAllocator alloc=theAllocator) {
 			import std.experimental.graphic.image.interfaces : imageObjectFrom;
 			import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
-			
+
+			guardCheck();
+
 			version(Windows) {
 				return imageObjectFrom!(ImageStorageHorizontal!RGBA8)(taskbarCustomIcon, alloc);
 			} else {
@@ -132,6 +187,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 			import std.experimental.graphic.image.interfaces : imageObjectFrom;
 			import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
 			
+			guardCheck();
+
 			version(Windows) {
 				if (icon is null) {
 					Shell_NotifyIconW(NIM_DELETE, &taskbarIconNID);
@@ -181,6 +238,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 
 	void notify(ImageStorage!RGBA8 icon, dstring title, dstring text, IAllocator alloc=theAllocator) {
 		import std.utf : byUTF;
+
+		guardCheck();
 
 		version(Windows) {
 			import core.sys.windows.windows : HDC, GetDC, CreateCompatibleDC, HWND, Shell_NotifyIconW,
@@ -242,6 +301,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 	}
 	
 	void clearNotifications() {
+		guardCheck();
+
 		version(Windows) {
 			// nothing needs to happen :)
 		} else {
@@ -257,6 +318,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 		import std.datetime : to;
 		import std.algorithm : min;
 		import core.thread : Thread;
+
+		guardCheck();
 
 		version(Windows) {
 			if (enabledEventLoops & EnabledEventLoops.Windows) {
@@ -307,37 +370,29 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 		}
 		
 		if (enabledEventLoops & EnabledEventLoops.X11) {
-			assert(0);
+			import std.experimental.bindings.x11 : XPending, XNextEvent;
+			XEvent event;
+
+			foreach(display; x11Displays) {
+				do {
+					XNextEvent(display, &event);
+					handleEvent(&event);
+				} while(callback is null ? true : callback());
+			}
 		}
 		if (enabledEventLoops & EnabledEventLoops.Wayland) {
 			assert(0);
 		}
 	}
 	
-	bool eventLoopIteration(bool untilEmpty) {
-		return eventLoopIteration(0.seconds, untilEmpty);
-	}
-	
-	bool eventLoopIteration(Duration timeout = 0.seconds, bool untilEmpty=false) {
+	bool eventLoopIteration(bool untilEmpty=false) {
 		import std.datetime : to;
 		import std.algorithm : min;
 		
+		guardCheck();
+
 		version(Windows) {
-			if (enabledEventLoops & EnabledEventLoops.Windows) {
-				DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
-				DWORD signal = MsgWaitForMultipleObjectsEx(
-					cast(DWORD)0,
-					null,
-					msTimeout,
-					QS_ALLEVENTS | QS_SENDMESSAGE,
-					// MWMO_ALERTABLE: Wakes up to execute overlapped hEvent (i/o completion)
-					// MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
-					MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
-					);
-				
-				if (signal == WAIT_TIMEOUT)
-					return false;
-				
+			if ((enabledEventLoops & EnabledEventLoops.Windows) == EnabledEventLoops.Windows) {
 				MSG msg;
 				
 				if (untilEmpty) {
@@ -356,19 +411,52 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 				}
 			}
 		} else version(OSX) {
-			if (enabledEventLoops & EnabledEventLoops.Cocoa) {
+			if ((enabledEventLoops & EnabledEventLoops.Cocoa) == EnabledEventLoops.Cocoa) {
 				assert(0);
 			}
 		}
 		
-		if (enabledEventLoops & EnabledEventLoops.X11) {
-			assert(0);
+		if ((enabledEventLoops & EnabledEventLoops.X11) == EnabledEventLoops.X11) {
+			import std.experimental.bindings.x11 : XPending, XNextEvent;
+
+			XEvent event;
+
+			if (untilEmpty) {
+				foreach(display; x11Displays) {
+					while(XPending(display) > 0) {
+						XNextEvent(display, &event);
+						handleEvent(&event);
+					}
+				}
+			} else {
+				foreach(display; x11Displays) {
+					XNextEvent(display, &event);
+					handleEvent(&event);
+				}
+			}
 		}
-		if (enabledEventLoops & EnabledEventLoops.Wayland) {
+		if ((enabledEventLoops & EnabledEventLoops.Wayland) == EnabledEventLoops.Wayland) {
 			assert(0);
 		}
 		
 		return true;
+	}
+
+	private {
+		void handleEvent(XEvent* event) {
+			auto x11window = event.xany.window;
+
+			WindowImpl windowInstance = x11Windows[x11window];
+			if (windowInstance !is null) {
+				if (windowInstance !is null) {
+					windowInstance.processEvent(event);
+				} else {
+					// ah oh, ignore it :/
+				}
+			} else {
+				// ah oh, ignore it :/
+			}
+		}
 	}
 }
 

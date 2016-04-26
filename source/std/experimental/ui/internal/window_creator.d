@@ -25,6 +25,8 @@ private {
 			WM_MBUTTONDOWN, WM_MBUTTONUP, COLOR_WINDOW, WM_MOUSEWHEEL, WM_KEYDOWN, WM_KEYUP, WM_CHAR, HBRUSH;
 		
 		interface WindowCreatorInterfaces : Have_Icon, Have_Cursor, Have_Style, Have_VRamCtx, Feature_Icon, Feature_Cursor, Feature_Style {}
+	} else {
+		interface WindowCreatorInterfaces {}
 	}
 }
 
