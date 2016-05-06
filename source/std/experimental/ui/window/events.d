@@ -30,5 +30,7 @@ interface IWindowEvents : IRenderEvents {
 		
 		/// Ditto
 		final void onMove(EventOnMoveFunc func) { onMove(func.toDelegate); }
+
+		// TODO: on key down + up
 	}
 }

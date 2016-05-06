@@ -1,43 +1,63 @@
 ﻿module std.experimental.ui.internal.native_menu;
+import std.experimental.ui.window.features.menu;
+import std.experimental.ui.internal.defs;
 import std.experimental.memory.managed;
 import std.experimental.platform : IPlatform;
 import std.experimental.allocator : IAllocator;
 import std.experimental.graphic.image : ImageStorage;
 import std.experimental.graphic.color : RGB8, RGBA8;
 
-private {
-	import std.experimental.ui.window.features.menu;
-	import std.experimental.ui.internal.window : WindowImpl;
-	import std.experimental.ui.internal.defs;
+abstract class MenuItemImpl : MenuItem {
+	import std.experimental.containers.list;
 
-	version(Windows) {
+	private {
+		List!MenuItemImpl menuItems = void;
+		
+		uint menuItemId;
+		MenuItemImpl parentMenuItem;
+	}
+
+	override MenuItem addChildItem();
+	override void remove();
+
+	@property {
+		managed!(MenuItem[]) childItems();
+		managed!(ImageStorage!RGB8) image();
+		void image(ImageStorage!RGB8 input);
+
+		managed!dstring text();
+		void text(string text);
+		void text(wstring text);
+		void text(dstring text);
+
+		bool divider();
+		void divider(bool v);
+		bool disabled();
+		void disabled(bool v);
+		void callback(MenuCallback callback);
+	}
+}
+
+version(Windows) {
+	final class WinAPIMenuItemImpl : MenuItemImpl {
+		import std.experimental.ui.internal.window : WindowImpl;
+		import std.traits : isSomeString;
 		import core.sys.windows.windows : HMENU, HBITMAP, AppendMenuA, CreatePopupMenu,
 			ModifyMenuA, RemoveMenu, DeleteMenu, DeleteObject, MENUITEMINFOA, GetMenuItemInfoA,
 			HDC, GetDC, CreateCompatibleDC, DeleteDC, ReleaseDC, BITMAP, GetObjectA, ModifyMenuW,
 			MF_BYCOMMAND, MF_POPUP, UINT_PTR, GetMenuStringW, MF_STRING, GetMenuState, MF_BITMAP,
 			MF_SEPARATOR, MF_DISABLED, MF_ENABLED;
-	}
-}
 
-final class MenuItemImpl : MenuItem {
-	package(std.experimental.ui.internal) {
-		import std.experimental.containers.list;
-		
-		WindowImpl window;
-		List!MenuItemImpl menuItems = void;
-		
-		uint menuItemId;
-		MenuItemImpl parentMenuItem;
-		
-		version(Windows) {
+		package(std.experimental.ui.internal) {
+			WinAPIWindowImpl window;
+			uint menuItemId;
+
 			HMENU parent;
 			HMENU myChildren;
 			HBITMAP lastBitmap;
 		}
-	}
 
-	version(Windows) {
-		this(WindowImpl window, HMENU parent, MenuItemImpl parentMenuItem=null) {
+		this(WinAPIWindowImpl window, HMENU parent, WinAPIMenuItemImpl parentMenuItem=null) {
 			this.window = window;
 			this.parent = parent;
 			this.parentMenuItem = parentMenuItem;
@@ -50,22 +70,17 @@ final class MenuItemImpl : MenuItem {
 			AppendMenuA(parent, 0, menuItemId, null);
 			window.redrawMenu = true;
 		}
-	}
-	
-	override MenuItem addChildItem() {
-		version(Windows) {
+
+		override MenuItem addChildItem() {
 			if (myChildren is null) {
 				myChildren = CreatePopupMenu();
 			}
 			
 			ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_POPUP, cast(UINT_PTR) myChildren, null);
 			return window.alloc.make!MenuItemImpl(window, myChildren, this);
-		} else
-			assert(0);
-	}
-	
-	override void remove() {
-		version(Windows) {
+		}
+		
+		override void remove() {
 			foreach(sub; menuItems) {
 				sub.remove();
 			}
@@ -87,15 +102,13 @@ final class MenuItemImpl : MenuItem {
 			window.redrawMenu = true;
 			window.alloc.dispose(this);
 		}
-	}
-	
-	@property {
-		override managed!(MenuItem[]) childItems() {
-			return cast(managed!(MenuItem[]))menuItems[];
-		}
-		
-		override managed!(ImageStorage!RGB8) image() {
-			version(Windows) {
+
+		@property {
+			override managed!(MenuItem[]) childItems() {
+				return cast(managed!(MenuItem[]))menuItems[];
+			}
+			
+			override managed!(ImageStorage!RGB8) image() {
 				MENUITEMINFOA mmi;
 				mmi.cbSize = MENUITEMINFOA.sizeof;
 				GetMenuItemInfoA(parent, menuItemId, false, &mmi);
@@ -112,12 +125,9 @@ final class MenuItemImpl : MenuItem {
 				GetObjectA(mmi.hbmpItem, BITMAP.sizeof, &bm);
 				
 				return managed!(ImageStorage!RGB8)(bitmapToImage(mmi.hbmpItem, hMemoryDC, vec2!size_t(bm.bmWidth, bm.bmHeight), window.alloc), managers(), Ownership.Secondary, window.alloc);
-			} else
-				assert(0);
-		}
-		
-		override void image(ImageStorage!RGB8 input) {
-			version(Windows) {
+			}
+			
+			override void image(ImageStorage!RGB8 input) {
 				HDC hFrom = GetDC(null);
 				HDC hMemoryDC = CreateCompatibleDC(hFrom);
 				
@@ -132,12 +142,11 @@ final class MenuItemImpl : MenuItem {
 				if (lastBitmap !is null)
 					DeleteObject(lastBitmap);
 				lastBitmap = bitmap;
+
+				window.redrawMenu = true;
 			}
-			window.redrawMenu = true;
-		}
-		
-		override managed!dstring text() {
-			version(Windows) {
+			
+			override managed!dstring text() {
 				wchar[32] buffer;
 				int length = GetMenuStringW(parent, menuItemId, buffer.ptr, buffer.length, MF_BYCOMMAND);
 				assert(length >= 0);
@@ -146,12 +155,9 @@ final class MenuItemImpl : MenuItem {
 				buffer2[0 .. length] = cast(dchar[])buffer[0 .. length];
 				
 				return managed!dstring(cast(dstring)buffer2, managers(), Ownership.Secondary, window.alloc);
-			} else
-				assert(0);
-		}
-		
-		private void setText(T)(T input) {
-			version(Windows) {
+			}
+			
+			private void setText(T)(T input) if (isSomeString!String) {
 				import std.utf : byWchar;
 				
 				wchar[] buffer = window.alloc.makeArray!wchar(input.length);
@@ -170,63 +176,43 @@ final class MenuItemImpl : MenuItem {
 				
 				ModifyMenuW(parent, menuItemId, MF_BYCOMMAND | MF_STRING, 0, cast(const(wchar)*)buffer.ptr);
 				window.alloc.dispose(buffer);
+
+				window.redrawMenu = true;
 			}
-			window.redrawMenu = true;
-		}
-		
-		override void text(dstring input) {
-			version(Windows) {
-				setText(input);
-			}
-		}
-		
-		override void text(wstring input) {
-			version(Windows) {
-				setText(input);
-			}
-		}
-		override void text(string input) {
-			version(Windows) {
-				setText(input);
-			}
-		}
-		
-		override bool divider() {
-			version(Windows) {
+			
+			override void text(dstring input) { setText(input); }
+			override void text(wstring input) { setText(input); }
+			override void text(string input) { setText(input); }
+			
+			override bool divider() {
 				return (GetMenuState(parent, menuItemId, MF_BYCOMMAND) & MF_SEPARATOR) == MF_SEPARATOR;
-			} else
-				assert(0);
-		}
-		
-		override void divider(bool v) {
-			version(Windows) {
+			}
+			
+			override void divider(bool v) {
 				if (v)
 					ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_SEPARATOR, 0, null);
 				else
 					ModifyMenuA(parent, menuItemId, MF_BYCOMMAND & ~MF_SEPARATOR, 0, null);
+
+				window.redrawMenu = true;
 			}
-			window.redrawMenu = true;
-		}
-		
-		override bool disabled() {
-			version(Windows) {
+			
+			override bool disabled() {
 				return (GetMenuState(parent, menuItemId, MF_BYCOMMAND) & MF_DISABLED) == MF_DISABLED;
-			} else
-				assert(0);
-		}
-		
-		override void disabled(bool v) {
-			version(Windows) {
+			}
+			
+			override void disabled(bool v) {
 				if (v)
 					ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_DISABLED, 0, null);
 				else
 					ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_ENABLED, 0, null);
+
+				window.redrawMenu = true;
 			}
-			window.redrawMenu = true;
-		}
-		
-		override void callback(MenuCallback callback) {
-			window.menuCallbacks[menuItemId] = callback;
+			
+			override void callback(MenuCallback callback) {
+				window.menuCallbacks[menuItemId] = callback;
+			}
 		}
 	}
 }

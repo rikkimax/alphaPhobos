@@ -508,6 +508,8 @@ struct _XImage {
 	
 	/// image manipulation routines
 	struct funcs {
+	extern(C):
+
 		///
 		_XImage function(
 			_XDisplay* display, Visual* visual,
@@ -517,13 +519,13 @@ struct _XImage {
 		///
 		int function(_XImage*) destroy_image;
 		///
-		c_ulong function(_XImage *, int, int) get_pixel;
+		c_ulong function(_XImage*, int, int) get_pixel;
 		///
-		int function(_XImage *, int, int, c_ulong) put_pixel;
+		int function(_XImage*, int, int, c_ulong) put_pixel;
 		///
-		_XImage* function(_XImage *, int, int, uint, uint) sub_pixel;
+		_XImage* function(_XImage*, int, int, uint, uint) sub_pixel;
 		///
-		int function(_XImage *, c_long) add_pixel;
+		int function(_XImage*, c_long) add_pixel;
 	}
 	///
 	funcs f;
@@ -712,7 +714,7 @@ struct _XPrivDisplay_T {
 	///
 	_XrmHashBucketRec* db;
 	///
-	int function(_XDisplay*) private15;
+	extern(C) int function(_XDisplay*) private15;
 	/// "host:display" string used on this connect
 	char* display_name;
 	/// default screen for operations
@@ -1266,7 +1268,7 @@ struct XPropertyEvent {
 	/// true if this came from a SendEvent request
 	Bool send_event;
 	/// Display the event was read from
-	Display *display;
+	Display* display;
 	///
 	Window window;
 	///
@@ -1286,7 +1288,7 @@ struct XSelectionClearEvent {
 	///
 	Bool send_event;	/* true if this came from a SendEvent request */
 	///
-	Display *display;	/* Display the event was read from */
+	Display* display;	/* Display the event was read from */
 	///
 	Window window;
 	///
@@ -1304,7 +1306,7 @@ struct XSelectionRequestEvent {
 	/// true if this came from a SendEvent request
 	Bool send_event;
 	/// Display the event was read from
-	Display *display;
+	Display* display;
 	///
 	Window owner;
 	///
@@ -1328,7 +1330,7 @@ struct XSelectionEvent {
 	/// true if this came from a SendEvent request
 	Bool send_event;
 	/// Display the event was read from
-	Display *display;
+	Display* display;
 	///
 	Window requestor;
 	///
@@ -1350,7 +1352,7 @@ struct XColormapEvent {
 	///
 	Bool send_event;	/* true if this came from a SendEvent request */
 	///
-	Display *display;	/* Display the event was read from */
+	Display* display;	/* Display the event was read from */
 	///
 	Window window;
 	///

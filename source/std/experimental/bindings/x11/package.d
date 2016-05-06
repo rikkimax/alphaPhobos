@@ -4,6 +4,8 @@ public import std.experimental.bindings.x11.Xlib;
 public import std.experimental.bindings.x11.Xmd;
 public import std.experimental.bindings.x11.Xproto;
 public import std.experimental.bindings.x11.Xprotostr;
+public import std.experimental.bindings.x11.Xresource;
+public import std.experimental.bindings.x11.Xutil;
 public import std.experimental.bindings.x11.keysym;
 public import std.experimental.bindings.x11.keysymdef;
 

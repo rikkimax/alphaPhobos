@@ -96,6 +96,7 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 				if (!isMissing) {
 					x11Displays = List!(X11Display*)(theAllocator);
 					enabledEventLoops |= EnabledEventLoops.X11;
+
 				}
 			}
 
@@ -447,14 +448,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 			auto x11window = event.xany.window;
 
 			WindowImpl windowInstance = x11Windows[x11window];
-			if (windowInstance !is null) {
-				if (windowInstance !is null) {
-					windowInstance.processEvent(event);
-				} else {
-					// ah oh, ignore it :/
-				}
-			} else {
-				// ah oh, ignore it :/
+			if (X11WindowImpl instance = cast(X11WindowImpl)windowInstance) {
+				instance.processEvent(event);
 			}
 		}
 	}

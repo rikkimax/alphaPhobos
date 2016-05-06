@@ -501,4 +501,38 @@ package(std.experimental.ui.internal) {
 			return hBitmap1;
 		}
 	}
+
+	import std.experimental.bindings.x11 : XEvent, XIC, XPointer;
+	import X11SB = std.experimental.bindings.x11;
+	alias X11Bool = X11SB.Bool;
+	alias X11Display = X11SB.Display;
+
+	auto translateKeyCallXLib(XEvent* e, XIC xic, out SpecialKey specialKey, out ushort KeyModifiers, char[] buffer) {
+		import std.experimental.bindings.x11;
+		import std.utf : byDchar;
+
+		KeySym keysym;
+		int bufResult = Xutf8LookupString(xic, &e.xkey, buffer.ptr, cast(int)buffer.length, &keysym, null);
+
+		switch(keysym) {
+			// TODO: assign from keysym as SpecialKey when working
+
+			default:
+				specialKey = SpecialKey.None;
+				break;
+		}
+
+		if (bufResult >= 0) {
+			return buffer[0 .. bufResult].byDchar;
+		} else {
+			/// XBufferOverflow or something else kinda bad
+			return buffer[0 .. 0].byDchar;
+		}
+	}
+
+	extern(C) X11Bool X11CheckEventKeyPress(X11Display* display, XEvent* event, XPointer arg) {
+		import std.experimental.bindings.x11 : KeyPress, XKeyEvent;
+		XKeyEvent* eventPrevious = cast(XKeyEvent*)arg;
+		return event.type == KeyPress && event.xkey.keycode == eventPrevious.keycode && event.xkey.time == eventPrevious.time && event.xkey.state == eventPrevious.state;
+	}
 }
