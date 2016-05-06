@@ -40,7 +40,7 @@ abstract class MenuItemImpl : MenuItem {
 
 version(Windows) {
 	final class WinAPIMenuItemImpl : MenuItemImpl {
-		import std.experimental.ui.internal.window : WindowImpl;
+		import std.experimental.ui.internal.window : WinAPIWindowImpl;
 		import std.traits : isSomeString;
 		import core.sys.windows.windows : HMENU, HBITMAP, AppendMenuA, CreatePopupMenu,
 			ModifyMenuA, RemoveMenu, DeleteMenu, DeleteObject, MENUITEMINFOA, GetMenuItemInfoA,
@@ -77,7 +77,7 @@ version(Windows) {
 			}
 			
 			ModifyMenuA(parent, menuItemId, MF_BYCOMMAND | MF_POPUP, cast(UINT_PTR) myChildren, null);
-			return window.alloc.make!MenuItemImpl(window, myChildren, this);
+			return window.alloc.make!WinAPIMenuItemImpl(window, myChildren, this);
 		}
 		
 		override void remove() {
@@ -157,7 +157,7 @@ version(Windows) {
 				return managed!dstring(cast(dstring)buffer2, managers(), Ownership.Secondary, window.alloc);
 			}
 			
-			private void setText(T)(T input) if (isSomeString!String) {
+			private void setText(T)(T input) if (isSomeString!T) {
 				import std.utf : byWchar;
 				
 				wchar[] buffer = window.alloc.makeArray!wchar(input.length);

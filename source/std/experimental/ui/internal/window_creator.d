@@ -166,7 +166,7 @@ final class WindowCreatorImpl : IWindowCreator, WindowCreatorInterfaces {
 				context = alloc.make!VRAMContextImpl(hwnd, vramWithAlpha, alloc);
 			}
 			
-			WindowImpl ret = alloc.make!WindowImpl(hwnd, context, alloc, platform, hMenu, true);
+			WinAPIWindowImpl ret = alloc.make!WinAPIWindowImpl(hwnd, context, alloc, platform, hMenu, true);
 			SetWindowLongPtrW(hwnd, GWLP_USERDATA, cast(size_t)cast(void*)ret);
 			if (icon !is null)
 				ret.setIcon(icon);
@@ -239,7 +239,7 @@ package(std.experimental.ui.internal) {
 	version(Windows) {
 		extern(Windows)
 		LRESULT callbackWindowHandler(HWND hwnd, uint uMsg, WPARAM wParam, LPARAM lParam) nothrow {
-			WindowImpl window = cast(WindowImpl)cast(void*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+			WinAPIWindowImpl window = cast(WinAPIWindowImpl)cast(void*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
 			
 			switch(uMsg) {
 				case WM_DESTROY:

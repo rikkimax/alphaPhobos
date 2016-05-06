@@ -42,8 +42,9 @@ struct FlatImageStorage(Color) if (isColor!Color) {
 
 	~this() @trusted {
 		import std.experimental.allocator : dispose;
-		
-		allocator.dispose(data);
+
+		if (!__ctfe)
+			allocator.dispose(data);
 	}
     
     @property {

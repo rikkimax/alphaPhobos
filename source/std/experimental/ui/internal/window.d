@@ -13,10 +13,10 @@ import std.experimental.memory.managed;
 import std.experimental.ui.rendering : IContext;
 import std.experimental.platform : IPlatform;
 import std.experimental.allocator : IAllocator;
-import std.utf : byChar, byDchar, codeLength;
+import std.utf : byChar, byWchar, byDchar, codeLength;
 
 abstract class WindowImpl : IWindow, IWindowEvents {
-	private {
+	package(std.experimental.ui.internal) {
 		IAllocator alloc;
 		IPlatform platform;
 		IContext context_;
@@ -144,7 +144,7 @@ version(Windows) {
 		}
 		
 		@property {
-			managed!dstring title() {
+			override managed!dstring title() {
 				int textLength = GetWindowTextLengthW(hwnd);
 				wchar[] buffer = alloc.makeArray!wchar(textLength + 1);
 				GetWindowTextW(hwnd, buffer.ptr, cast(int)buffer.length);
@@ -162,9 +162,9 @@ version(Windows) {
 				return managed!dstring(cast(dstring)buffer2, managers(), Ownership.Secondary, alloc);
 			}
 
-			void title(string text) { setTitle(text); }
-			void title(wstring text) { setTitle(text); }
-			void title(dstring text) { setTitle(text); }
+			override void title(string text) { setTitle(text); }
+			override void title(wstring text) { setTitle(text); }
+			override void title(dstring text) { setTitle(text); }
 			
 			void setTitle(String)(String text) if (isSomeString!String) {
 				wchar[] buffer = alloc.makeArray!wchar(codeLength!wchar(text) + 1);
@@ -180,13 +180,13 @@ version(Windows) {
 				alloc.dispose(buffer);
 			}
 			
-			vec2!ushort size() {
+			override vec2!ushort size() {
 				RECT rect;
 				GetClientRect(hwnd, &rect);
 				return vec2!ushort(cast(ushort)rect.right, cast(ushort)rect.bottom);
 			}
 			
-			void size(vec2!ushort point) {
+			override void size(vec2!ushort point) {
 				RECT rect;
 				rect.top = point.x;
 				rect.bottom = point.y;
@@ -195,22 +195,22 @@ version(Windows) {
 				SetWindowPos(hwnd, null, 0, 0, rect.right, rect.bottom, SWP_NOMOVE);
 			}
 			
-			vec2!short location() {
+			override vec2!short location() {
 				RECT rect;
 				GetWindowRect(hwnd, &rect);
 				return vec2!short(cast(short)rect.left, cast(short)rect.top);
 			}
 			
-			void location(vec2!short point) {
+			override void location(vec2!short point) {
 				SetWindowPos(hwnd, null, point.x, point.y, 0, 0, SWP_NOSIZE);
 			}
 			
-			bool visible() {
+			override bool visible() {
 				return cast(bool)IsWindowVisible(hwnd);
 			}
 			
 			// display_ can and will most likely change during runtime
-			managed!IDisplay display() {
+			override managed!IDisplay display() {
 				import std.typecons : tuple;
 				
 				HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
@@ -220,19 +220,19 @@ version(Windows) {
 					return cast(managed!IDisplay)managed!DisplayImpl(managers(), tuple(monitor, alloc, platform), alloc);
 			}
 			
-			void* __handle() { return &hwnd; }
+			override void* __handle() { return &hwnd; }
 		}
 		
-		void hide() {
+		override void hide() {
 			ShowWindow(hwnd, SW_HIDE);
 		}
 		
-		void show() {
+		override void show() {
 			ShowWindow(hwnd, SW_SHOW);
 			UpdateWindow(hwnd);
 		}
 		
-		void close() {
+		override void close() {
 			CloseWindow(hwnd);
 		}
 		
@@ -303,7 +303,7 @@ version(Windows) {
 		}
 		
 		MenuItem addItem() {
-			auto ret = alloc.make!MenuItemImpl(this, hMenu, null);
+			auto ret = alloc.make!WinAPIMenuItemImpl(this, hMenu, null);
 			
 			menuItems ~= ret;
 			return ret;
@@ -457,7 +457,7 @@ version(Windows) {
 			MONITORINFOEXA mi;
 			mi.cbSize = MONITORINFOEXA.sizeof;
 			
-			HMONITOR hMonitor = *cast(HMONITOR*)display_().__handle;
+			HMONITOR hMonitor = *cast(HMONITOR*)display().__handle;
 			GetMonitorInfoA(hMonitor, &mi);
 			
 			if (windowStyle == WindowStyle.Fullscreen) {

@@ -128,7 +128,7 @@ package(std.experimental.ui.internal) {
 					return true;
 				
 				try {
-					WindowImpl window = ctx.alloc.make!WindowImpl(hwnd, cast(IContext)null, ctx.alloc, ctx.platform);
+					WinAPIWindowImpl window = ctx.alloc.make!WinAPIWindowImpl(hwnd, cast(IContext)null, ctx.alloc, ctx.platform);
 					
 					if (ctx.display is null) {
 						ctx.alloc.expandArray(ctx.windows, 1);

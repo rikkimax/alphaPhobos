@@ -782,7 +782,7 @@ auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @tru
  * See_Also:
  *      ImageObject
  */
-auto imageObjectFrom(Impl, Image)(Image from, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isImage!Image) {
+auto imageObjectFrom(Impl, Image)(Image from, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isImage!Impl && isImage!Image) {
     import std.experimental.graphic.image.primitives : copyTo;
     import std.experimental.allocator : make;
 
