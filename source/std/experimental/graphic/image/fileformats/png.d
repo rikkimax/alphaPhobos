@@ -1421,7 +1421,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             // it contains nothing, so why bother having a dedicated method?
             writeChunk(cast(char[4])"IEND", null);
             
-            allocator.dispose(buffer);
+			GC.enable;
+			allocator.dispose(buffer);
             return managed!(ubyte[])(ret, managers(), Ownership.Secondary, alloc);
         }
         
