@@ -6,8 +6,8 @@ void main() {
 	import std.experimental.allocator.mallocator;
 	import std.experimental.allocator.mmap_allocator;
 
-	//theAllocator = Mallocator.instance.allocatorObject;
-	theAllocator = MmapAllocator.instance.allocatorObject;
+	theAllocator = Mallocator.instance.allocatorObject;
+	//theAllocator = MmapAllocator.instance.allocatorObject;
 
     //VFSTest();
     //windowTest();
@@ -15,12 +15,12 @@ void main() {
     //notifyTest();
     //managedMemoryTest();
 
-	ubyte[] data = theAllocator.makeArray!ubyte(1000000000/100);
+	/+ubyte[] data = theAllocator.makeArray!ubyte(1000000000/100);
 	data[] = 1;
 	theAllocator.dispose(data);
 	data = theAllocator.makeArray!ubyte(1000000000/1000);
 	data[] = 2;
-	theAllocator.dispose(data);
+	theAllocator.dispose(data);+/
 
 	displaysTest();
 }
@@ -123,10 +123,13 @@ void displaysTest() {
 
     writeln(tempLocation(""));
 
+	import core.memory : GC;
+
     foreach(i, display; defaultPlatform().displays) {
 		auto ds = display.screenshot();
 		if (ds != typeof(ds).init && ds.width > 0 && ds.height > 0) {
 			write(tempLocation("display_" ~ i.text ~ ".png"), ds.asPNG.toBytes);
+			GC.collect;
 		}
 
         foreach(j, window; display.windows) {
@@ -137,7 +140,8 @@ void displaysTest() {
 			auto ii = window.icon;
 			if (ii != typeof(ii).init && ii.width > 0 && ii.height > 0)
 				write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ "_icon.png"), ii.asPNG.toBytes);
-        }
+			GC.collect;
+		}
     }
 
 	foreach(i, window; defaultPlatform().windows) {
@@ -148,6 +152,7 @@ void displaysTest() {
 		auto ii = window.icon;
 		if (ii != typeof(ii).init && ii.width > 0 && ii.height > 0)
 			write(tempLocation("window_" ~ i.text ~ "_icon.png"), ii.asPNG.toBytes);
+			GC.collect;
     }
 }
 
