@@ -121,9 +121,7 @@ version(Windows) {
 			this.hMenu = hMenu;
 			this.ownedByProcess = processOwns;
 			
-			if (hMenu !is null)
-				menuItems = List!MenuItem(alloc);
-			
+			menuItems = List!MenuItem(alloc);
 			menuCallbacks = Map!(uint, MenuCallback)(alloc);
 			menuItemsCount = 9000;
 			
@@ -181,8 +179,15 @@ version(Windows) {
 			}
 			
 			override vec2!ushort size() {
+				if (!visible)
+					return vec2!ushort(cast(ushort)0, cast(ushort)0);
+
 				RECT rect;
 				GetClientRect(hwnd, &rect);
+
+				if (rect.right < 0 || rect.bottom < 0)
+					return vec2!ushort(cast(ushort)0, cast(ushort)0);
+
 				return vec2!ushort(cast(ushort)rect.right, cast(ushort)rect.bottom);
 			}
 			
@@ -206,7 +211,7 @@ version(Windows) {
 			}
 			
 			override bool visible() {
-				return cast(bool)IsWindowVisible(hwnd);
+				return IsWindowVisible(hwnd) == 1;
 			}
 			
 			// display_ can and will most likely change during runtime
@@ -245,10 +250,15 @@ version(Windows) {
 		ImageStorage!RGB8 screenshot(IAllocator alloc=null) {
 			if (alloc is null)
 				alloc = this.alloc;
-			
+
+			auto sizet = size();
+			if (sizet.x < 0 || sizet.y < 0)
+				return null;
+
 			HDC hWindowDC = GetDC(hwnd);
-			auto storage = screenshotImpl(alloc, hWindowDC, cast(vec2!ushort)size());
+			auto storage = screenshotImpl(alloc, hWindowDC, cast(vec2!ushort)sizet);
 			ReleaseDC(hwnd, hWindowDC);
+
 			return storage;
 		}
 		

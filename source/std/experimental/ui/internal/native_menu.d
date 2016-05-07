@@ -17,24 +17,26 @@ abstract class MenuItemImpl : MenuItem {
 		MenuItemImpl parentMenuItem;
 	}
 
-	override MenuItem addChildItem();
-	override void remove();
+	abstract {
+		MenuItem addChildItem();
+		void remove();
 
-	@property {
-		managed!(MenuItem[]) childItems();
-		managed!(ImageStorage!RGB8) image();
-		void image(ImageStorage!RGB8 input);
+		@property {
+			managed!(MenuItem[]) childItems();
+			managed!(ImageStorage!RGB8) image();
+			void image(ImageStorage!RGB8 input);
 
-		managed!dstring text();
-		void text(string text);
-		void text(wstring text);
-		void text(dstring text);
+			managed!dstring text();
+			void text(string text);
+			void text(wstring text);
+			void text(dstring text);
 
-		bool divider();
-		void divider(bool v);
-		bool disabled();
-		void disabled(bool v);
-		void callback(MenuCallback callback);
+			bool divider();
+			void divider(bool v);
+			bool disabled();
+			void disabled(bool v);
+			void callback(MenuCallback callback);
+		}
 	}
 }
 

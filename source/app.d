@@ -3,11 +3,26 @@ import std.experimental.allocator;
 import std.experimental.memory.managed;
 
 void main() {
-    VFSTest();
+	import std.experimental.allocator.mallocator;
+	import std.experimental.allocator.mmap_allocator;
+
+	//theAllocator = Mallocator.instance.allocatorObject;
+	theAllocator = MmapAllocator.instance.allocatorObject;
+
+    //VFSTest();
     //windowTest();
     //displaysTest();
     //notifyTest();
     //managedMemoryTest();
+
+	ubyte[] data = theAllocator.makeArray!ubyte(1000000000/100);
+	data[] = 1;
+	theAllocator.dispose(data);
+	data = theAllocator.makeArray!ubyte(1000000000/1000);
+	data[] = 2;
+	theAllocator.dispose(data);
+
+	displaysTest();
 }
 
 void VFSTest() {
@@ -109,24 +124,30 @@ void displaysTest() {
     writeln(tempLocation(""));
 
     foreach(i, display; defaultPlatform().displays) {
-        write(tempLocation("display_" ~ i.text ~ ".png"),
-            (cast()display).screenshot().asPNG.toBytes);
+		auto ds = display.screenshot();
+		if (ds != typeof(ds).init && ds.width > 0 && ds.height > 0) {
+			write(tempLocation("display_" ~ i.text ~ ".png"), ds.asPNG.toBytes);
+		}
 
         foreach(j, window; display.windows) {
-            write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ ".png"),
-                (cast()window).screenshot().asPNG.toBytes);
-
-            write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ "_icon.png"),
-                (cast()window).icon.asPNG.toBytes);
+			auto ws = window.screenshot();
+			if (ws != typeof(ws).init && ws.width > 0 && ws.height > 0)
+				write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ ".png"), ws.asPNG.toBytes);
+			
+			auto ii = window.icon;
+			if (ii != typeof(ii).init && ii.width > 0 && ii.height > 0)
+				write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ "_icon.png"), ii.asPNG.toBytes);
         }
     }
 
-    foreach(i, window; defaultPlatform().windows) {
-        write(tempLocation("window_" ~ i.text ~ ".png"),
-            (cast()window).screenshot().asPNG.toBytes);
+	foreach(i, window; defaultPlatform().windows) {
+		auto ws = window.screenshot();
+		if (ws != typeof(ws).init && ws.width > 0 && ws.height > 0)
+			write(tempLocation("window_" ~ i.text ~ ".png"), ws.asPNG.toBytes);
 
-        write(tempLocation("window_" ~ i.text ~ "_icon.png"),
-            (cast()window).icon.asPNG.toBytes);
+		auto ii = window.icon;
+		if (ii != typeof(ii).init && ii.width > 0 && ii.height > 0)
+			write(tempLocation("window_" ~ i.text ~ "_icon.png"), ii.asPNG.toBytes);
     }
 }
 
@@ -180,7 +201,7 @@ void windowTest() {
     import std.datetime : msecs;
 
     window.show();
-    thePlatform().optimizedEventLoop(() { return window.renderable;});
+	thePlatform().optimizedEventLoop(() { return window.renderable; });
     /+while(window.visible) {
         thePlatform().eventLoopIteration(true);
         //onIteration();

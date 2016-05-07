@@ -1364,7 +1364,8 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
         managed!(ubyte[]) performExport() @trusted {
             import std.digest.crc : crc32Of;
             ubyte[] buffer = allocator.makeArray!ubyte((1024 * 1024 * 8) + 4); // 8mb
-            
+			assert(buffer.length > 0);
+
             import core.memory : GC;
             GC.disable;
             

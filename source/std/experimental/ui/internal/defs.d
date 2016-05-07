@@ -123,10 +123,10 @@ package(std.experimental.ui.internal) {
 				
 				RECT rect;
 				GetWindowRect(hwnd, &rect);
-				
+
 				if (rect.right - rect.left == 0 || rect.bottom - rect.top == 0)
 					return true;
-				
+
 				try {
 					WinAPIWindowImpl window = ctx.alloc.make!WinAPIWindowImpl(hwnd, cast(IContext)null, ctx.alloc, ctx.platform);
 					
@@ -134,12 +134,12 @@ package(std.experimental.ui.internal) {
 						ctx.alloc.expandArray(ctx.windows, 1);
 						ctx.windows[$-1] = window;
 					} else {
-						IDisplay display2 = (cast(IWindow)window).display;
+						auto display2 = window.display;
 						if (display2 is null) {
 							ctx.alloc.dispose(window);
 							return true;
 						}
-						
+
 						if (display2.name == ctx.display.name) {
 							ctx.alloc.expandArray(ctx.windows, 1);
 							ctx.windows[$-1] = window;

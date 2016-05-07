@@ -28,8 +28,8 @@ bool isImage(Image)() pure if (isPointer!Image && !__traits(compiles, {alias T =
 }
 
 ///
-bool isImage(Image)() pure if (__traits(compiles, {alias T = Image.PayLoadType;}) && !isPointer!Image) {
-    return isImage!(Image.PayLoadType)();
+bool isImage(Image)() pure if (__traits(compiles, {alias T = Image.PayLoadType;})) {
+	return isImage!(Image.PayLoadType)();
 }
 
 ///
@@ -459,7 +459,17 @@ template PixelRangeColor(T) if (isPixelRange!T) {
  * Returns:
  *      The destination image for composibility reasons
  */
-Image2 copyTo(Image1, Image2)(ref Image1 input, ref Image2 destination) /+@nogc+/ @safe if (isImage!Image1 && isImage!Image2) {
+Image2 copyTo(Image1, Image2)(ref Image1 input, Image2 destination) @trusted if (is(Image1 == struct) && !is(Image2 == struct) && !isPointer!Image1 && isImage!Image1 && isImage!Image2)  {
+	return copyTo(&input, destination);
+}
+
+/// Ditto
+ref Image2 copyTo(Image1, Image2)(Image1 input, ref Image2 destination) @trusted if (is(Image2 == struct) && !isPointer!Image2 && isImage!Image1 && isImage!Image2)  {
+	return *copyTo(input, &destination);
+}
+
+/// Ditto
+Image2 copyTo(Image1, Image2)(Image1 input, Image2 destination) /+@nogc+/ @safe if (isImage!Image1 && isImage!Image2) {
     assert(input.width <= destination.width);
     assert(input.height <= destination.height);
     

@@ -162,7 +162,7 @@ struct ImageStorageVertical(Color) if (isColor!Color) {
 
 	~this() @trusted {
 		import std.experimental.allocator : dispose;
-		
+
 		foreach(_; 0 .. width_) {
 			allocator.dispose(data[_]);
 		}

@@ -129,7 +129,7 @@ struct managed(MyType) {
 @trusted:
     private {
         final class SPointer {
-            MyType __self;
+            MyType __self = void;
             alias __self this;
         }
 
@@ -190,7 +190,12 @@ struct managed(MyType) {
         } else if (__internal.memmgrs.opShouldDeallocate) {
             __internal.allocator.dispose(__internal.memmgrs);
 			if (__internal.selfReUpdate is null) {
-				__internal.allocator.dispose(*cast(void**)&__internal.self);
+				static if (isArray!MyType) {
+					import std.traits : Unqual, ForeachType;
+					__internal.allocator.dispose(cast(Unqual!(ForeachType!MyType)[])__internal.self);
+				} else {
+					__internal.allocator.dispose(cast(Object)__internal.self);
+				}
 			}
         } else {
             // do nothing
@@ -211,8 +216,8 @@ struct managed(MyType) {
                 ret.__internal.memmgrs = __internal.memmgrs;
                 ret.__internal.allocator = __internal.allocator;
 
-                ret.__postblit();
-                return ret;
+				ret.__internal.memmgrs.opInc();
+				return ret;
             } else {
                 static assert(0, "A managed object may only be casted to a more generic version");
             }
@@ -234,8 +239,8 @@ struct managed(MyType) {
                 ret.__internal.memmgrs = __internal.memmgrs;
                 ret.__internal.allocator = __internal.allocator;
                 
-                ret.__postblit();
-                return ret;
+				ret.__internal.memmgrs.opInc();
+				return ret;
             } else {
                 static assert(0, "A managed object may only be casted to a more generic version");
             }
@@ -257,8 +262,8 @@ struct managed(MyType) {
                 ret.__internal.memmgrs = __internal.memmgrs;
                 ret.__internal.allocator = __internal.allocator;
                 
-                ret.__postblit();
-                return ret;
+				ret.__internal.memmgrs.opInc();
+				return ret;
             } else {
                 static assert(0, "Managed memory may only be cast from if resulting size is identical to original");
             }
@@ -419,10 +424,17 @@ struct managed(MyType) {
                     }
                     
                     // duplicates if needed
-                    if (from is null) {
-                        ret.__internal.self = alloc.make!MyType;
-                    } else if (ownership) {
-                        ret.__internal.self = from.dup(alloc);
+
+                    if (ownership) {
+						if (from is null) {
+							static if (__traits(compiles, {alloc.make!MyType;})) {
+								ret.__internal.self = alloc.make!MyType;
+							} else {
+								return managed!MyType.init;
+							}
+						} else {
+                        	ret.__internal.self = from.dup(alloc);
+						}
                     } else {
                         ret.__internal.self = from;
                     }
@@ -432,7 +444,7 @@ struct managed(MyType) {
                 }
             } else {
                 static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, Ownership ownership = Ownership.Secondary, IAllocator alloc=theAllocator()) {
-                    assert(ownership == Ownership.Secondary);
+                    assert(ownership == Ownership.Secondary, "Secondary only for classes that do not support .dup(IAllocator)");
 
                     managed!MyType ret;
                     ret.__internal.allocator = alloc;
@@ -632,7 +644,7 @@ struct ManagedRefCount {
     }
     
     bool opShouldDeallocate() {
-        return refCount == 0;
+		return refCount == 0;
     }
 }
 

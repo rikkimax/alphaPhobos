@@ -11,7 +11,7 @@ private {
 	
 	version(Windows) {
 		import core.sys.windows.windows : MONITORINFOEXA, GetMonitorInfoA, MONITORINFOF_PRIMARY,
-			DEVMODEA, EnumDisplaySettingsA, ENUM_CURRENT_SETTINGS, CreateDCA;
+			DEVMODEA, EnumDisplaySettingsA, ENUM_CURRENT_SETTINGS, CreateDCA, LONG;
 		
 		interface DisplayInterfaces : Feature_ScreenShot, Have_ScreenShot {}
 	} else {
@@ -48,9 +48,14 @@ package(std.experimental.ui.internal) {
 				name_ = alloc.makeArray!char(temp.length + 1);
 				name_[0 .. $-1] = temp[];
 				name_[$-1] = '\0';
-				
-				size_.x = cast(ushort)(info.rcMonitor.right - info.rcMonitor.left);
-				size_.y = cast(ushort)(info.rcMonitor.bottom - info.rcMonitor.top);
+
+				LONG sizex = info.rcMonitor.right - info.rcMonitor.left;
+				LONG sizey = info.rcMonitor.bottom - info.rcMonitor.top;
+
+				if (sizex > 0 && sizey > 0) {
+					size_.x = cast(ushort)sizex;
+					size_.y = cast(ushort)sizey;
+				}
 				
 				primaryDisplay_ = (info.dwFlags & MONITORINFOF_PRIMARY) == MONITORINFOF_PRIMARY;
 				
@@ -62,7 +67,11 @@ package(std.experimental.ui.internal) {
 		}
 		
 		@property {
-			string name() { return cast(immutable)name_[0 .. $-1]; }
+			string name() {
+				if (name_.length < 2)
+					return null;
+				return cast(immutable)name_[0 .. $-1];
+			}
 			vec2!ushort size() { return size_; }
 			uint refreshRate() { return refreshRate_; }
 			
@@ -100,7 +109,7 @@ package(std.experimental.ui.internal) {
 			
 			bool primary() { return primaryDisplay_; }
 			
-			IDisplay dup(IAllocator alloc) {
+			DisplayImpl dup(IAllocator alloc) {
 				version(Windows) {
 					return alloc.make!DisplayImpl(hMonitor, alloc, platform);
 				} else
@@ -127,6 +136,9 @@ package(std.experimental.ui.internal) {
 				alloc = this.alloc;
 			
 			version(Windows) {
+				if (size_.x < 0 || size_.y < 0)
+					return null;
+
 				HDC hScreenDC = CreateDCA(name_.ptr, null, null, null);
 				auto storage = screenshotImpl(alloc, hScreenDC, size_);
 				DeleteDC(hScreenDC);

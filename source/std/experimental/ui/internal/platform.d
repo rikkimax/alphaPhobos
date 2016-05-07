@@ -140,7 +140,7 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 		
 			foreach(display; displays) {
 				if ((cast(DisplayImpl)display).primary) {
-					return managed!IDisplay(cast(DisplayImpl)display, managers(), Ownership.Primary, alloc);
+					return cast(managed!IDisplay)managed!DisplayImpl(cast(DisplayImpl)display, managers(), Ownership.Primary, alloc);
 				}
 			}
 			
@@ -312,18 +312,17 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 	}
 
 	void optimizedEventLoop(bool delegate() callback) {
-		optimizedEventLoop(0.seconds, callback);
+		optimizedEventLoop(5.seconds, callback);
 	}
 	
-	void optimizedEventLoop(Duration timeout = 0.seconds, bool delegate() callback=null) {
+	void optimizedEventLoop(Duration timeout = 5.seconds, bool delegate() callback=null) {
 		import std.datetime : to;
 		import std.algorithm : min;
 		import core.thread : Thread;
 
 		guardCheck();
-
 		version(Windows) {
-			if (enabledEventLoops & EnabledEventLoops.Windows) {
+			if ((enabledEventLoops & EnabledEventLoops.Windows) == EnabledEventLoops.Windows) {
 				DWORD msTimeout = cast(DWORD)min(timeout.total!"msecs", INFINITE);
 				MSG msg;
 				
@@ -349,11 +348,15 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 						// MWMO_INPUTAVAILABLE: Processes key/mouse input to avoid window ghosting
 						MWMO_ALERTABLE | MWMO_INPUTAVAILABLE
 						);
-					
+
 					// there are no messages so lets make sure the callback is called then repeat
 					if (signal == WAIT_TIMEOUT) {
-						Thread.sleep(35.msecs);
-						continue;
+						if (callback is null ? false : callback())
+							break;
+						else {
+							//Thread.sleep(5.msecs);
+							continue;
+						}
 					}
 					
 					// remove all messages from the queue
@@ -369,8 +372,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 				assert(0);
 			}
 		}
-		
-		if (enabledEventLoops & EnabledEventLoops.X11) {
+
+		if ((enabledEventLoops & EnabledEventLoops.X11) == EnabledEventLoops.X11) {
 			import std.experimental.bindings.x11 : XPending, XNextEvent;
 			XEvent event;
 
@@ -381,7 +384,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 				} while(callback is null ? true : callback());
 			}
 		}
-		if (enabledEventLoops & EnabledEventLoops.Wayland) {
+
+		if ((enabledEventLoops & EnabledEventLoops.Wayland) == EnabledEventLoops.Wayland) {
 			assert(0);
 		}
 	}
