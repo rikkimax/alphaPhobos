@@ -23,7 +23,8 @@
  *     TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
  *     OF THIS SOFTWARE.
  *
- *     Author:  Jim Gettys, HP Labs, Hewlett-Packard, Inc.
+ * Authors:
+ * 		Jim Gettys, HP Labs, Hewlett-Packard, Inc.
  *	    Keith Packard, Intel Corporation
  */
 module std.experimental.bindings.x11.extensions.Xrandr;
@@ -682,21 +683,3 @@ void function(Display* dpy, RRProvider provider, Atom property, Atom type, int f
 void function(Display* dpy, RRProvider provider, Atom property) XRRDeleteProviderProperty;
 ///
 int function(Display* dpy, RRProvider provider, Atom property, c_long offset, c_long length, Bool _delete, Bool pending, Atom req_type, Atom* actual_type, int* actual_format, c_ulong* nitems, c_ulong* bytes_after, ubyte** prop) XRRGetProviderProperty;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
