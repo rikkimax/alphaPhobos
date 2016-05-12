@@ -86,17 +86,23 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 			ShouldThrow missingCallback(string) { isMissing = true; return ShouldThrow.No; }
 
 			// 1. check X11
-			import std.experimental.bindings.x11 : X11Loader;
+			import std.experimental.bindings.x11 : X11Loader, XrandrLoader;
 
-			if (!X11Loader.isLoaded) {
+			if (!X11Loader.isLoaded || !XrandrLoader.isLoaded) {
 				isMissing = false;
+
 				X11Loader.missingSymbolCallback(&missingCallback);
 				X11Loader.load();
 
 				if (!isMissing) {
-					x11Displays = List!(X11Display*)(theAllocator);
-					enabledEventLoops |= EnabledEventLoops.X11;
+					isMissing = false;
+					XrandrLoader.missingSymbolCallback(&missingCallback);
+					XrandrLoader.load();
 
+					if (!isMissing) {
+						x11Displays = List!(X11Display*)(theAllocator);
+						enabledEventLoops |= EnabledEventLoops.X11;
+					}
 				}
 			}
 
