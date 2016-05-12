@@ -145,14 +145,6 @@ enum {
 ///
 enum {
 	///
-	PictTypeIndex = 0,
-	///
-	PictTypeDirect = 1
-}
-
-///
-enum {
-	///
 	PictTypeIndexed = 0,
 	///
 	PictTypeDirect = 1
@@ -258,46 +250,6 @@ enum {
 	PictOpConjointXor = 0x2b,
 	///
 	PictOpConjointMaximum = 0x2b
-}
-
-// Operators only available in version 0.11
-
-///
-enum {
-	///
-	PictOpBlendMinimum = 0x30,
-	///
-	PictOpMultiply = 0x30,
-	///
-	PictOpScreen = 0x31,
-	///
-	PictOpOverlay = 0x32,
-	///
-	PictOpDarken = 0x33,
-	///
-	PictOpLighten = 0x34,
-	///
-	PictOpColorDodge = 0x35,
-	///
-	PictOpColorBurn = 0x36,
-	///
-	PictOpHardLight = 0x37,
-	///
-	PictOpSoftLight = 0x38,
-	///
-	PictOpDifference = 0x39,
-	///
-	PictOpExclusion = 0x3a,
-	///
-	PictOpHSLHue = 0x3b,
-	///
-	PictOpHSLSaturation = 0x3c,
-	///
-	PictOpHSLColor = 0x3d,
-	///
-	PictOpHSLLuminosity = 0x3e,
-	///
-	PictOpBlendMaximum = 0x3e,
 }
 
 // Operators only available in version 0.11

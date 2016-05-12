@@ -288,7 +288,7 @@ XRRScreenSize* function(XRRScreenConfiguration* config, int* nsizes) XRRConfigSi
 ///
 short* function(XRRScreenConfiguration* config, int sizeID, int* nrates) XRRConfigRates;
 ///
-SizeID function(XRRSreenConfiguration* config, Rotation* rotation) XRRConfigCurrentConfiguration;
+SizeID function(XRRScreenConfiguration* config, Rotation* rotation) XRRConfigCurrentConfiguration;
 ///
 short function(XRRScreenConfiguration* config) XRRConfigCurrentRate;
 ///
