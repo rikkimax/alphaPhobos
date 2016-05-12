@@ -9,10 +9,29 @@ public import std.experimental.bindings.symbolloader : SharedLibVersion;
 import std.experimental.bindings.symbolloader;
 
 /// Symbol mangled name, used as a UDA.
-struct SymbolName {
+struct SharedLibSymbolName {
     ///
     string name;
 }
+
+/+ Idea, perhaps?
+struct SharedLibExtension {
+	///
+	string name;
+	///
+	SharedLibVersion since;
+
+	this(string name, int[] since...) {
+		assert(since.length <= 3, "since must have three parts: Major.Minor.Patch too many arguments provided");
+
+		since.length = 3;
+		this.name = name;
+
+		this.since.major = since[0];
+		this.since.minor = since[1];
+		this.since.patch = since[2];
+	}
+}+/
 
 ///
 alias SharedLibAutoLoader(string mod = __MODULE__) = SharedLibAutoLoader!([mod]);
@@ -204,8 +223,8 @@ foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
         string symbolName;
         SharedLibVersion introducedVersion;
         
-        static if (hasUDA!(__traits(getMember, " ~ gettype ~ ", sym), SymbolName))
-            symbolName = getUDAs!(__traits(getMember, " ~ gettype ~ ", sym), SymbolName)[0].name;
+        static if (hasUDA!(__traits(getMember, " ~ gettype ~ ", sym), SharedLibSymbolName))
+            symbolName = getUDAs!(__traits(getMember, " ~ gettype ~ ", sym), SharedLibSymbolName)[0].name;
         else
             symbolName = sym;
             
@@ -231,8 +250,8 @@ foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
                 ret2 ~= """
 static if (__traits(compiles, { auto t = Container." ~ sym ~ "; bool b = isFunctionPointer!(Container." ~ sym ~ "); }) &&
     isFunctionPointer!(Container." ~ sym ~ ")) {
-    static if (hasUDA!(Container." ~ sym ~ ", SymbolName))
-        symbolName = getUDAs!(Container." ~ sym ~ ", SymbolName)[0].name;
+    static if (hasUDA!(Container." ~ sym ~ ", SharedLibSymbolName))
+        symbolName = getUDAs!(Container." ~ sym ~ ", SharedLibSymbolName)[0].name;
     else
         symbolName = \"" ~ sym ~  "\";
     haveIntroducedVersion = hasUDA!(Container." ~ sym ~ ", SharedLibVersion);

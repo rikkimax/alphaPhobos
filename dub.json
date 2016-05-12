@@ -7,7 +7,7 @@
     "versions-windows": ["WindowsVista", "IE7"],
 	"libs-windows-x86": ["dxva2_OMF"],
 	"libs-windows-x86_64": ["dxva2"],
-	"libs-linux": ["X11", "Xrandr"],
+	"libs-linux": ["X11", "Xrandr", "Xrender"],
 	
     "subPackages": [
         {

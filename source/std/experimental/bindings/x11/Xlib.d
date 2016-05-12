@@ -508,24 +508,22 @@ struct _XImage {
 	
 	/// image manipulation routines
 	struct funcs {
-	extern(C):
-
 		///
-		_XImage function(
+		extern(C) _XImage function(
 			_XDisplay* display, Visual* visual,
 			uint depth, int format, int offset,
 			char* data, uint width, uint height,
 			int bitmap_pad, int bytes_per_line) create_image;
 		///
-		int function(_XImage*) destroy_image;
+		extern(C) int function(_XImage*) destroy_image;
 		///
-		c_ulong function(_XImage*, int, int) get_pixel;
+		extern(C) c_ulong function(_XImage*, int, int) get_pixel;
 		///
-		int function(_XImage*, int, int, c_ulong) put_pixel;
+		extern(C) int function(_XImage*, int, int, c_ulong) put_pixel;
 		///
-		_XImage* function(_XImage*, int, int, uint, uint) sub_pixel;
+		extern(C) _XImage* function(_XImage*, int, int, uint, uint) sub_pixel;
 		///
-		int function(_XImage*, c_long) add_pixel;
+		extern(C) int function(_XImage*, c_long) add_pixel;
 	}
 	///
 	funcs f;
