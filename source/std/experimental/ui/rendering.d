@@ -156,7 +156,7 @@ interface IDisplay {
          * Returns:
          *      The name of the display.
          */
-        string name();
+        managed!string name();
         
         /**
          * The dimensions of the display.
@@ -191,9 +191,14 @@ interface IDisplay {
         
 		/**
 		 * Is this display the primary monitor?
+		 * 
+		 * If it is not gainable and there is only one display
+		 *  it will return true; otherwise false.
+		 * 
+		 * Returns:
+		 * 		If this display is the primary one.
 		 */
-		bool primary();
-
+		bool isPrimary();
 
         /**
          * How bright the display is.

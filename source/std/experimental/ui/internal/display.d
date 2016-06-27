@@ -14,22 +14,17 @@ abstract class DisplayImpl : IDisplay {
 		IAllocator alloc;
 		IPlatform platform;
 		
-		char[] name_;
+		managed!string name_;
 		bool primaryDisplay_;
 		vec2!ushort size_;
 		uint refreshRate_;
 	}
 
 	@property {
-		string name() {
-			if (name_.length < 2)
-				return null;
-			return cast(immutable)name_[0 .. $-1];
-		}
-
+		managed!string name() { return name_; }
 		vec2!ushort size() { return size_; }
 		uint refreshRate() { return refreshRate_; }
-		bool primary() { return primaryDisplay_; }
+		bool isPrimary() { return primaryDisplay_; }
 	}
 }
 
@@ -53,9 +48,11 @@ version(Windows) {
 			GetMonitorInfoA(hMonitor, &info);
 			
 			char[] temp = info.szDevice.ptr.fromStringz;
-			name_ = alloc.makeArray!char(temp.length + 1);
+			char[] name_ = alloc.makeArray!char(temp.length + 1);
 			name_[0 .. $-1] = temp[];
 			name_[$-1] = '\0';
+
+			this.name_ = managed!string(cast(string)name_[0 .. $-1], managers(), Ownership.Secondary, alloc);
 			
 			LONG sizex = info.rcMonitor.right - info.rcMonitor.left;
 			LONG sizey = info.rcMonitor.bottom - info.rcMonitor.top;
