@@ -81,6 +81,32 @@ alias MissingSymbolCallbackDg = ShouldThrow delegate( string symbolName );
 /// Convenient alias to use as a return value.
 alias MissingSymbolCallback = MissingSymbolCallbackDg;
 
+version(Posix) {
+	/// Linker flags for Posix using LD.
+	enum LDFlags {
+		///
+		rtldLocal = RTLD_LOCAL,
+		///
+		rtldLazy = RTLD_LAZY,
+		///
+		rtldNow = RTLD_NOW,
+		///
+		rtldGlobal = RTLD_GLOBAL
+	}
+
+	/**
+	 * Sets the linker flags.
+	 * 
+	 * Only available for Posix while using the LD family of linkers.
+	 * 
+	 * Params:
+	 * 		flags	=	The flag to set.
+	 */
+	void posixLDFlags(LDFlags flags) {
+		ldFlags = flags;
+	}
+}
+
 /**
  * A handy utility abstract class for wrapping SharedLib.
  * Extend it, implement loadSymbols and use it to manage a binding.
@@ -202,7 +228,10 @@ abstract class SharedLibLoader {
          *       library.
          */
         void load( string libNames ) {
-            assert( libNames !is null );
+            if (libNames is null) {
+				this.load();
+				return;
+			}
 
             auto lnames = libNames.split( "," );
             foreach( ref string l; lnames )
@@ -652,12 +681,14 @@ private {
     version(Posix){
         import core.sys.posix.dlfcn;
     
+		LDFlags ldFlags = LDFlags.rtldNow;
+
         private {
             SharedLibHandle LoadSharedLib( string libName )    {
                 if (libName == SELF_SYMBOL_LOOKUP)
-                    return dlopen(null, RTLD_NOW);
+					return dlopen(null, ldFlags);
                 else
-                    return dlopen( libName.toStringz(), RTLD_NOW );
+					return dlopen( libName.toStringz(), ldFlags);
             }
     
             void UnloadSharedLib( SharedLibHandle hlib ) {
