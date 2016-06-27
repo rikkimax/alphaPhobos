@@ -217,7 +217,7 @@ version(Windows) {
 			// display_ can and will most likely change during runtime
 			override managed!IDisplay display() {
 				import std.typecons : tuple;
-				
+
 				HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
 				if (monitor is null)
 					return (managed!IDisplay).init;

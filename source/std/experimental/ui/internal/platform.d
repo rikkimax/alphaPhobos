@@ -145,8 +145,8 @@ final class PlatformImpl : IPlatform, PlatformInterfaces {
 			import std.experimental.ui.internal.display;
 		
 			foreach(display; displays) {
-				if ((cast(DisplayImpl)display).primary) {
-					return cast(managed!IDisplay)managed!DisplayImpl(cast(DisplayImpl)display, managers(), Ownership.Primary, alloc);
+				if (display.primary) {
+					return managed!IDisplay(display, managers(), Ownership.Primary, alloc);
 				}
 			}
 			

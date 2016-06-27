@@ -122,6 +122,7 @@ void displaysTest() {
     }
 
     writeln(tempLocation(""));
+	stdout.flush;
 
 	import core.memory : GC;
 	// std.zlib leaks memory so we gotta add some collects in there :/

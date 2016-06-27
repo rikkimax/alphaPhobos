@@ -427,7 +427,7 @@ struct managed(MyType) {
 
                     if (ownership) {
 						if (from is null) {
-							static if (__traits(compiles, {alloc.make!MyType;})) {
+							static if (__traits(compiles, {ret.__internal.self = alloc.make!MyType;})) {
 								ret.__internal.self = alloc.make!MyType;
 							} else {
 								return managed!MyType.init;
