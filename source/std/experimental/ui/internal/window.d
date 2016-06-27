@@ -222,7 +222,7 @@ version(Windows) {
 				if (monitor is null)
 					return (managed!IDisplay).init;
 				else
-					return cast(managed!IDisplay)managed!DisplayImpl(managers(), tuple(monitor, alloc, platform), alloc);
+					return cast(managed!IDisplay)managed!WinAPIDisplayImpl(managers(), tuple(monitor, alloc, platform), alloc);
 			}
 			
 			override void* __handle() { return &hwnd; }

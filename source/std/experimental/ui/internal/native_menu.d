@@ -60,6 +60,7 @@ version(Windows) {
 		}
 
 		this(WinAPIWindowImpl window, HMENU parent, WinAPIMenuItemImpl parentMenuItem=null) {
+			import std.experimental.containers.list;
 			this.window = window;
 			this.parent = parent;
 			this.parentMenuItem = parentMenuItem;

@@ -3,7 +3,7 @@
 package(std.experimental.ui.internal) {
 	import std.experimental.allocator : IAllocator, make, makeArray, expandArray, dispose;
 	import std.experimental.ui.window.defs : IWindow;
-	import std.experimental.ui.rendering : IDisplay;
+	import std.experimental.ui.rendering : IDisplay, IContext;
 	import std.experimental.ui.events : KeyModifiers, SpecialKey, EventOnKeyDel;
 	import std.experimental.platform : IPlatform;
 	import std.experimental.graphic.image : ImageStorage;
@@ -104,9 +104,9 @@ package(std.experimental.ui.internal) {
 			int callbackGetDisplays(HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam) nothrow {
 				import std.experimental.ui.internal.display;
 				GetDisplays* ctx = cast(GetDisplays*)lParam;
-				
+
 				try {
-					IDisplay display = ctx.alloc.make!DisplayImpl(hMonitor, ctx.alloc, ctx.platform);
+					IDisplay display = ctx.alloc.make!WinAPIDisplayImpl(hMonitor, ctx.alloc, ctx.platform);
 					ctx.alloc.expandArray(ctx.displays, 1);
 					ctx.displays[$-1] = display;
 				} catch (Exception e) {}

@@ -124,6 +124,7 @@ void displaysTest() {
     writeln(tempLocation(""));
 
 	import core.memory : GC;
+	// std.zlib leaks memory so we gotta add some collects in there :/
 
     foreach(i, display; defaultPlatform().displays) {
 		auto ds = display.screenshot();

@@ -189,6 +189,12 @@ interface IDisplay {
          */
         uint luminosity();
         
+		/**
+		 * Is this display the primary monitor?
+		 */
+		bool primary();
+
+
         /**
          * How bright the display is.
          * For usage with gamma display algorithms.
@@ -216,8 +222,10 @@ interface IDisplay {
          *      All the windows on this display or null if none.
          */
         managed!(IWindow[]) windows();
-        
+
         /// No touchy, very dangerous!
         void* __handle();
     }
+
+	IDisplay dup(IAllocator alloc);
 }
