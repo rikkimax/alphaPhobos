@@ -77,10 +77,10 @@ final class SharedLibAutoLoader(string[] modules) : SharedLibLoader {
     public this( string libNames ) {
         super(libNames);
     }
-    
-    public this( string[] libNames ...) {
-        super(libNames);
-    }
+
+	public this(string[] libNames...) {
+		super(libNames);
+	}
     
     protected {
         override void loadSymbols() {

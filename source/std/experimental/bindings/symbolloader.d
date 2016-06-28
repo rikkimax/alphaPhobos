@@ -114,11 +114,9 @@ version(Posix) {
 abstract class SharedLibLoader {
     private {
         import std.array : split;
-        import std.string : strip;
+        import std.string : strip, join;
     
         string _libNames;
-        string[] _libNames2;
-        
         SharedLib _lib;
     }
 
@@ -136,11 +134,11 @@ abstract class SharedLibLoader {
     public this( string libNames ) {
         _libNames = libNames;
     }
-    
-    /// Ditto
-    public this( string[] libNames ...) {
-        _libNames2 = libNames;
-    }
+
+	/// Ditto except with libNames in an array instead of a single string
+	public this(string[] libNames...) {
+		_libNames = libNames.join(",");
+	}
 
     public final {
         /**
@@ -164,11 +162,7 @@ abstract class SharedLibLoader {
          *       library.
          */
         void load() {
-            if (_libNames !is null)
-                load( _libNames );
-            else if (_libNames2 !is null)
-                load( _libNames2);
-            else assert(0);
+       		load( _libNames );
         }
 
         /**
@@ -228,10 +222,8 @@ abstract class SharedLibLoader {
          *       library.
          */
         void load( string libNames ) {
-            if (libNames is null) {
-				this.load();
-				return;
-			}
+            if (libNames == null)
+				libNames = _libNames;
 
             auto lnames = libNames.split( "," );
             foreach( ref string l; lnames )
