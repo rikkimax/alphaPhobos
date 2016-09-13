@@ -13,7 +13,7 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
     testOutput(baseName(file).tempLocation);
     
     testOutput("header check");
-    HeadersOnlyPNGFileFormat headerImage = loadPNGHeaders(cast(ubyte[])read(file));
+    auto headerImage = loadPNGHeaders(cast(ubyte[])read(file));
     check(headerImage);
     
     // import 1
