@@ -11,7 +11,7 @@ import std.experimental.graphic.image.primitives;
 import std.experimental.graphic.color;
 import std.experimental.graphic.color.conv : convertColor;
 import std.experimental.allocator : IAllocator, theAllocator;
-import std.traits : isPointer, PointerTarget;
+import std.traits : isPointer, PointerTarget, isUnsigned;
 
 /**
  * Interface that defines the root methods required for a class/struct to be an image storage type.$(BR)
@@ -227,7 +227,8 @@ struct SwappableImage(Color) if (isColor!Color) {
      * See_Also:
      *      ImageStorage, ImageStorageOffset
      */
-    this(T)(T from, IAllocator allocator = null) @nogc @trusted if ((!isPointer!T && isImage!T) || (isPointer!T && isImage!(PointerTarget!T)))
+	this(T)(T from, IAllocator allocator = null) @nogc @trusted if (((!isPointer!T && isImage!T) || (isPointer!T && isImage!(PointerTarget!T))) &&
+		isUnsigned!(ImageIndexType!T) && (ImageIndexType!T).sizeof <= (void*).sizeof)
     in {
         static if (is(T == class))
             assert(from !is null);
@@ -694,7 +695,7 @@ struct PixelPoint(Color) if (isColor!Color) {
 }
 
 /// Wraps a struct image storage type into a class
-final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == struct)) {
+final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
     alias Color = ImageColor!Impl;
 
     // If I could make this private, I would...
@@ -746,7 +747,7 @@ final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == st
  * See_Also:
  *      ImageObject
  */
-auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct)) {
+auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
     import std.experimental.allocator : make;
     return allocator.make!(ImageObject!Impl)(width, height, allocator);
 }
@@ -764,7 +765,7 @@ auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAl
  * See_Also:
  *      ImageObject
  */
-auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct)) {
+auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
     import std.experimental.allocator : make;
     return allocator.make!(ImageObject!Impl)(instance);
 }
@@ -782,7 +783,7 @@ auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @tru
  * See_Also:
  *      ImageObject
  */
-auto imageObjectFrom(Impl, Image)(Image from, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isImage!Impl && isImage!Image) {
+auto imageObjectFrom(Impl, Image)(Image from, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isImage!Impl && isImage!Image && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
     import std.experimental.graphic.image.primitives : copyTo;
     import std.experimental.allocator : make;
 

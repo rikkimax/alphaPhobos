@@ -239,6 +239,16 @@ template ImageColor(Image) if (isImage!Image) {
 }
 
 /**
+ * The type utilized as the main index for an image.
+ * 
+ * Uses the first overload.
+ */
+template ImageIndexType(Image) if (isImage!Image) {
+	import std.traits : Parameters;
+	alias ImageIndexType = Parameters!(__traits(getOverloads, Image, "getPixel")[0])[0];
+}
+
+/**
  * Determine if an image supports the pixel offset extension.
  * 
  * Use ImageStorageOffset as the definition to compare against.
