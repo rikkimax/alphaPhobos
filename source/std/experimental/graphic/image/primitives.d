@@ -34,7 +34,7 @@ bool isImage(Image)() pure if (__traits(compiles, {alias T = Image.PayLoadType;}
 
 ///
 bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T = Image.PayLoadType;})) {
-    import std.traits : ReturnType;
+	import std.traits : ReturnType, isIntegral, isUnsigned, Parameters;
     import std.experimental.graphic.color : isColor;
 
     static if (__traits(compiles, {Image image = Image.init;}) && is(Image == class) || is(Image == interface) || is(Image == struct)) {
@@ -48,14 +48,7 @@ bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T 
             static if (!isColor!Color)
                 return false;
             else {
-                static if (!__traits(compiles, {
-                    Image image = void;
-                    size_t width = image.width;
-                    size_t height = image.height;
-                })) {
-                    // can we get access to basic elements of the image?
-                    return false;
-                } else static if (!__traits(compiles, {
+               static if (!__traits(compiles, {
                     Image image = void;
                     Color c = image.getPixel(0, 0);
                     image.setPixel(0, 0, c);
@@ -72,7 +65,17 @@ bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T 
                 }) && !(is(SwappableImage!Color == Image) || is(ImageStorage!Color == Image))) {
                     // check the constructor is valid
                     return false;
+				} else static if(!(isIntegral!(ReturnType!(Image.width)) && isUnsigned!(ReturnType!(Image.width)) && is(ReturnType!(Image.width) == ReturnType!(Image.height)))) {
+					// length must be unsigned integer (of some kind)
+					return false;
                 } else {
+					foreach(overload; __traits(getOverloads, Image, "getPixel")) {
+						alias Targs = Parameters!overload;
+
+						if (!(Targs.length == 2 && is(Targs[0] == Targs[1]) && isIntegral!(Targs[0])))
+							return false;
+					}
+
                     // ok, is an image
                     return true;
                 }
