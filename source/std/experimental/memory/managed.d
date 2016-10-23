@@ -204,28 +204,38 @@ struct managed(MyType) {
     }
 
     static if (is(MyType == class) || is(MyType == interface)) {
-        import std.traits : isInstanceOf, moduleName;
+        auto opCast(TMyType2)() {
+		static if (__traits(hasMember, TMyType2, "PayLoadType")) {
+			alias MyType2 = TMyType2.PayLoadType;
+		} else {
+			alias MyType2 = TMyType2;
+		}
 
-        auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
-            alias MyType2 = TMyType2.PayLoadType;
+		static if (is(MyType : MyType2)) {
+			managed!MyType2 ret;
 
-            static if (is(MyType : MyType2)) {
-                managed!MyType2 ret;
+			ret.__internal.self = cast(MyType2)__internal.self;
+			ret.__internal.memmgrs = __internal.memmgrs;
+			ret.__internal.allocator = __internal.allocator;
 
-                ret.__internal.self = cast(MyType2)__internal.self;
-                ret.__internal.memmgrs = __internal.memmgrs;
-                ret.__internal.allocator = __internal.allocator;
+			ret.__internal.memmgrs.opInc();
+			return ret;
+		} else static if (is(MyType2 == interface)) {
+			managed!MyType2 ret;
+
+			if (MyType2 v = cast(MyType2)__internal.self) {
+				ret.__internal.self = cast(MyType2)__internal.self;
+				ret.__internal.memmgrs = __internal.memmgrs;
+				ret.__internal.allocator = __internal.allocator;
 
 				ret.__internal.memmgrs.opInc();
-				return ret;
-            } else {
-                static assert(0, "A managed object may only be casted to a more generic version");
-            }
-        }
+			}
 
-        auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
-            static assert(0, "Managed memory may not be casted from");
-        }
+			return ret;
+		} else {
+                	static assert(0, "A managed object may only be casted to a more generic version");
+		}
+	}
     } else static if (isArray!MyType && (is(ForeachType!MyType == class) || is(ForeachType!MyType == interface))) {
         import std.traits : moduleName;
         
