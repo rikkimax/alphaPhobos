@@ -9,10 +9,6 @@ void main() {
 	theAllocator = Mallocator.instance.allocatorObject;
 	//theAllocator = MmapAllocator.instance.allocatorObject;
 
-    //VFSTest();
-    //windowTest();
-    //displaysTest();
-    //notifyTest();
     //managedMemoryTest();
 
 	/+ubyte[] data = theAllocator.makeArray!ubyte(1000000000/100);
@@ -21,8 +17,6 @@ void main() {
 	data = theAllocator.makeArray!ubyte(1000000000/1000);
 	data[] = 2;
 	theAllocator.dispose(data);+/
-
-	displaysTest();
 }
 
 void VFSTest() {
@@ -79,140 +73,6 @@ void VFSTest() {
 			theFile.remove();
 		}
 	}
-}
-
-void notifyTest() {
-    import std.experimental.platform;
-    import std.experimental.ui.notifications;
-    import std.experimental.graphic.image.fileformats.png;
-    import std.file : read;
-
-    thePlatform().notificationIcon(loadPNG!RGBA8(cast(ubyte[])read("testAssets/test.png")));
-    thePlatform().notify(loadPNG!RGBA8(cast(ubyte[])read("testAssets/test2.png")), "Hey testing!"d, "Some text here..."d);
-
-    thePlatform().createAWindow().show();
-    thePlatform().optimizedEventLoop();
-}
-
-void displaysTest() {
-    import std.experimental.platform;
-    import std.experimental.ui.window.features;
-    import std.experimental.graphic.image.fileformats.png;
-    import std.file : write;
-    import std.conv : text;
-
-    auto primaryDisplay = defaultPlatform().primaryDisplay;
-    writeln(primaryDisplay.name, " ", primaryDisplay.size, " ", primaryDisplay.refreshRate, "hz ", primaryDisplay.luminosity, " lumens");
-
-    foreach(display; defaultPlatform().displays) {
-        writeln(display.name, " ", display.size, " ", display.refreshRate, "hz");
-    }
-
-    string tempLocation(string for_) {
-        import std.path : buildPath;
-        import std.file : tempDir, exists, mkdirRecurse;
-        import std.process : thisProcessID;
-        import std.conv : text;
-        
-        string tempLoc = buildPath(tempDir(), thisProcessID.text);
-        if (!exists(tempLoc))
-            mkdirRecurse(tempLoc);
-        
-        return buildPath(tempLoc, for_);
-    }
-
-    writeln(tempLocation(""));
-	stdout.flush;
-
-	import core.memory : GC;
-	// std.zlib leaks memory so we gotta add some collects in there :/
-
-    foreach(i, display; defaultPlatform().displays) {
-		auto ds = display.screenshot();
-		if (ds != typeof(ds).init && ds.width > 0 && ds.height > 0) {
-			write(tempLocation("display_" ~ i.text ~ ".png"), ds.asPNG.toBytes);
-			GC.collect;
-		}
-
-        foreach(j, window; display.windows) {
-			auto ws = window.screenshot();
-			if (ws != typeof(ws).init && ws.width > 0 && ws.height > 0)
-				write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ ".png"), ws.asPNG.toBytes);
-			
-			auto ii = window.icon;
-			if (ii != typeof(ii).init && ii.width > 0 && ii.height > 0)
-				write(tempLocation("display_" ~ i.text ~ "_window_" ~ j.text ~ "_icon.png"), ii.asPNG.toBytes);
-			GC.collect;
-		}
-    }
-
-	foreach(i, window; defaultPlatform().windows) {
-		auto ws = window.screenshot();
-		if (ws != typeof(ws).init && ws.width > 0 && ws.height > 0)
-			write(tempLocation("window_" ~ i.text ~ ".png"), ws.asPNG.toBytes);
-
-		auto ii = window.icon;
-		if (ii != typeof(ii).init && ii.width > 0 && ii.height > 0)
-			write(tempLocation("window_" ~ i.text ~ "_icon.png"), ii.asPNG.toBytes);
-			GC.collect;
-    }
-}
-
-void windowTest() {
-    import std.experimental.platform;
-    import std.experimental.ui;
-    import std.experimental.graphic.image.manipulation.base : fillOn;
-
-    IWindow window;
-
-    auto creator = thePlatform.createWindow();
-    //creator.style = WindowStyle.Fullscreen;
-    //creator.size = UIPoint(cast(short)800, cast(short)600);
-    
-    window = creator.createWindow();
-    window.title = "Title!";
-    
-    window.events.onForcedDraw = () {
-        writeln("onForcedDraw");
-        stdout.flush;
-        
-        window.context.vramAlphaBuffer.fillOn(RGBA8(255, 0, 0, 255));
-        window.context.swapBuffers();
-    };
-    
-    window.events.onCursorMove = (short x, short y) {
-        writeln("onCursorMove: x: ", x, " y: ", y);
-        stdout.flush;
-    };
-    
-    window.events.onCursorAction = (CursorEventAction action) {
-        writeln("onCursorAction: ", action);
-        stdout.flush;
-    };
-    
-    window.events.onKeyEntry = (dchar key, SpecialKey specialKey, ushort modifiers) {
-        writeln("onKeyEntry: key: ", key, " specialKey: ", specialKey, " modifiers: ", modifiers);
-        stdout.flush;
-    };
-    
-    window.events.onScroll = (short amount) {
-        writeln("onScroll: ", amount);
-        stdout.flush;
-    };
-    
-    window.events.onClose = () {
-        writeln("onClose");
-        stdout.flush;
-    };
-    
-    import std.datetime : msecs;
-
-    window.show();
-	thePlatform().optimizedEventLoop(() { return window.renderable; });
-    /+while(window.visible) {
-        thePlatform().eventLoopIteration(true);
-        //onIteration();
-    }+/
 }
 
 interface ManagedIFoo {

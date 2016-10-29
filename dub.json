@@ -4,11 +4,6 @@
 	"copyright": "Copyright © 2015, rikki",
 	"authors": ["rikki"],
 	
-    "versions-windows": ["WindowsVista", "IE7"],
-	"libs-windows-x86": ["dxva2_OMF"],
-	"libs-windows-x86_64": ["dxva2"],
-	"libs-linux": ["X11", "Xrandr", "Xrender"],
-	
     "subPackages": [
         {
             "name": "tests",
