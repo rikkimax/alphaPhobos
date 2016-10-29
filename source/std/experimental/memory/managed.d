@@ -166,8 +166,8 @@ struct managed(MyType) {
             }
         }
     }
-    
-    ~this() {
+
+	~this() {
         // check to make sure we are allocated/initialized
         if (__internal.self is null)
             return;
@@ -493,6 +493,22 @@ struct managed(MyType) {
 			ret.__internal.self = alloc.make!SPointer;
 			ret.__internal.self.__self = MyType(args.expand);
 			
+			ret.__internal.memmgrs.opInc();
+			return ret;
+		}
+
+		static managed!MyType opCall(MemoryManagerST)(MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
+			import std.traits : ForeachType;
+			
+			managed!MyType ret;
+			ret.__internal.allocator = alloc;
+			static if (is(MemoryManagerST : IMemoryManager)) {
+				ret.__internal.memmgrs = memmgr.dup(alloc);
+			} else {
+				ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
+			}
+			
+			ret.__internal.self = alloc.make!SPointer;
 			ret.__internal.memmgrs.opInc();
 			return ret;
 		}
