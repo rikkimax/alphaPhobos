@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Managed memory is a safe wrapper around existing heap allocated memory.
  * Safe heap allocated memory ensures that it cannot be deallocated until such time
  *  it is no longer used.
@@ -205,37 +205,37 @@ struct managed(MyType) {
 
     static if (is(MyType == class) || is(MyType == interface)) {
         auto opCast(TMyType2)() {
-		static if (__traits(hasMember, TMyType2, "PayLoadType")) {
-			alias MyType2 = TMyType2.PayLoadType;
-		} else {
-			alias MyType2 = TMyType2;
-		}
-
-		static if (is(MyType : MyType2)) {
-			managed!MyType2 ret;
-
-			ret.__internal.self = cast(MyType2)__internal.self;
-			ret.__internal.memmgrs = __internal.memmgrs;
-			ret.__internal.allocator = __internal.allocator;
-
-			ret.__internal.memmgrs.opInc();
-			return ret;
-		} else static if (is(MyType2 == interface)) {
-			managed!MyType2 ret;
-
-			if (MyType2 v = cast(MyType2)__internal.self) {
-				ret.__internal.self = cast(MyType2)__internal.self;
-				ret.__internal.memmgrs = __internal.memmgrs;
-				ret.__internal.allocator = __internal.allocator;
-
-				ret.__internal.memmgrs.opInc();
+			static if (__traits(hasMember, TMyType2, "PayLoadType")) {
+            	alias MyType2 = TMyType2.PayLoadType;
+			} else {
+				alias MyType2 = TMyType2;
 			}
 
-			return ret;
-		} else {
-                	static assert(0, "A managed object may only be casted to a more generic version");
-		}
-	}
+            static if (is(MyType : MyType2)) {
+                managed!MyType2 ret;
+
+                ret.__internal.self = cast(MyType2)__internal.self;
+                ret.__internal.memmgrs = __internal.memmgrs;
+                ret.__internal.allocator = __internal.allocator;
+
+				ret.__internal.memmgrs.opInc();
+				return ret;
+			} else static if (is(MyType2 == interface)) {
+				managed!MyType2 ret;
+
+				if (MyType2 v = cast(MyType2)__internal.self) {
+					ret.__internal.self = cast(MyType2)__internal.self;
+					ret.__internal.memmgrs = __internal.memmgrs;
+					ret.__internal.allocator = __internal.allocator;
+					
+					ret.__internal.memmgrs.opInc();
+				}
+
+				return ret;
+			} else {
+                static assert(0, "A managed object may only be casted to a more generic version");
+            }
+        }
     } else static if (isArray!MyType && (is(ForeachType!MyType == class) || is(ForeachType!MyType == interface))) {
         import std.traits : moduleName;
         
