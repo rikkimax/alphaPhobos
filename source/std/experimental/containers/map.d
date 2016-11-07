@@ -1,4 +1,4 @@
-﻿module std.experimental.containers.map;
+module std.experimental.containers.map;
 import std.experimental.allocator : IAllocator, theAllocator, make, dispose, makeArray, shrinkArray, expandArray;
 import std.experimental.memory.managed;
 import std.traits : isArray, isPointer;
@@ -15,22 +15,6 @@ final class Map(K, V) {
 		managed!(V[]) manvslice = void;
 		
 		size_t offsetAlloc;
-		
-		final class SelfMemManager {
-			uint refCount;
-			
-			void opInc() @safe {
-				refCount++;
-			}
-			
-			void opDec() @safe {
-				refCount--;
-			}
-			
-			bool opShouldDeallocate() @safe {
-				return refCount == 0;
-			}
-		}
 	}
 	
 	~this() @trusted {
@@ -235,5 +219,21 @@ unittest {
 	foreach(k, v; test) {
 		assert(k == 1234);
 		assert(v == "boo");
+	}
+}
+
+private final class SelfMemManager {
+	uint refCount;
+	
+	void opInc() @safe {
+		refCount++;
+	}
+	
+	void opDec() @safe {
+		refCount--;
+	}
+	
+	bool opShouldDeallocate() @safe {
+		return refCount == 0;
 	}
 }
