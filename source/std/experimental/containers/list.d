@@ -1,4 +1,4 @@
-﻿module std.experimental.containers.list;
+module std.experimental.containers.list;
 import std.experimental.allocator : IAllocator, theAllocator, make, dispose, makeArray, shrinkArray, expandArray;
 import std.experimental.memory.managed;
 import std.traits : isArray, isPointer;
@@ -11,22 +11,6 @@ final class List(T) {
 		managed!(T[]) manslice = void;
 		
 		size_t offsetAlloc;
-		
-		final class SelfMemManager {
-			uint refCount;
-			
-			void opInc() @safe {
-				refCount++;
-			}
-			
-			void opDec() @safe {
-				refCount--;
-			}
-			
-			bool opShouldDeallocate() @safe {
-				return refCount == 0;
-			}
-		}
 	}
 	
 	~this() @trusted {
@@ -212,4 +196,20 @@ unittest {
 	list.length = 0;
 	assert((cast(size_t)list.values_raw.ptr) > 0);
 	assert(list.offsetAlloc == 1);
+}
+
+private final class SelfMemManager {
+	uint refCount;
+	
+	void opInc() @safe {
+		refCount++;
+	}
+	
+	void opDec() @safe {
+		refCount--;
+	}
+	
+	bool opShouldDeallocate() @safe {
+		return refCount == 0;
+	}
 }
