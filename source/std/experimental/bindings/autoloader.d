@@ -215,7 +215,7 @@ private {
     }
     
     string handleContainer(string gettype, string getvar) pure {
-        return """
+        return "
 foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
     static if (mixin(\"__traits(compiles, { auto t = " ~ gettype ~ ".\" ~ sym ~ \"; bool b = isFunctionPointer!(" ~ gettype ~ ".\" ~ sym ~ \"); })\") &&
                mixin(\"isFunctionPointer!(" ~ gettype ~ ".\" ~ sym ~ \")\")){
@@ -235,7 +235,7 @@ foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
             
         bindFunc(cast(void**)mixin(\"&" ~ getvar ~ ".\" ~ sym), symbolName, introducedVersion <= minVersion);
     }
-}""";
+}";
     }
     
     string bindFuncsHandleContainer(alias Container, string getvar, string getminVersion)() {
@@ -247,7 +247,7 @@ foreach(sym; __traits(allMembers, " ~ gettype ~ ")) {
             string ret2;
         
             foreach(sym; __traits(allMembers, Container)) {
-                ret2 ~= """
+                ret2 ~= "
 static if (__traits(compiles, { auto t = Container." ~ sym ~ "; bool b = isFunctionPointer!(Container." ~ sym ~ "); }) &&
     isFunctionPointer!(Container." ~ sym ~ ")) {
     static if (hasUDA!(Container." ~ sym ~ ", SharedLibSymbolName))
@@ -263,7 +263,7 @@ static if (__traits(compiles, { auto t = Container." ~ sym ~ "; bool b = isFunct
     } else {
         ret ~= \"true);\\n\";
     }
-}""";
+}";
             }
             
             return ret2;
