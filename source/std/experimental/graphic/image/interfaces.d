@@ -9,7 +9,6 @@
 module std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.image.primitives;
 import std.experimental.graphic.color;
-import std.experimental.graphic.color.conv : convertColor;
 import std.experimental.allocator : IAllocator, theAllocator;
 import std.traits : isPointer, PointerTarget, isUnsigned;
 

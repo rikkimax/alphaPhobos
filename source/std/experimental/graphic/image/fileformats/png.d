@@ -13,8 +13,7 @@ import std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.image.primitives : isImage, ImageColor;
 import std.experimental.graphic.image.storage.base : ImageStorageHorizontal;
 import std.experimental.allocator : IAllocator, theAllocator, makeArray, make, expandArray, dispose;
-import std.experimental.graphic.color : isColor, RGB8, RGBA8;
-import std.experimental.graphic.color.conv : convertColor;
+import std.experimental.graphic.color : isColor, RGB8, RGBA8, convertColor;
 import std.experimental.graphic.color.rgb : RGB;
 import std.experimental.memory.managed;
 import std.range : isInputRange, ElementType;
@@ -445,10 +444,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             
                             if (IDAT is null) {// allocate the image storage
                                 IDAT = allocator.make!(IDAT_Chunk!Color);
+								IDAT.data = allocator.makeArray!ubyte(chunkData.length);
                                 theImageAllocator(IHDR.width, IHDR.height);
-                            }
-                            
-                            allocator.expandArray(IDAT.data, chunkData.length);
+							} else
+								allocator.expandArray(IDAT.data, chunkData.length);
                             IDAT.data[$-chunkData.length .. $] = chunkData[];
                             break;
                         }
@@ -1448,9 +1447,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
 
             size_t offset;
             foreach(i, c; PLTE.colors) {
-                towrite[offset] = c.r;
-                towrite[offset + 1] = c.g;
-                towrite[offset + 2] = c.b;
+                towrite[offset] = c.r.value;
+                towrite[offset + 1] = c.g.value;
+                towrite[offset + 2] = c.b.value;
 
                 offset += 3;
             }
@@ -1467,30 +1466,30 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
                     towrite = buffer[0 .. 2];
-                    towrite[] = nativeToBigEndian(tRNS.b16.r);
+					towrite[] = nativeToBigEndian(tRNS.b16.r.value);
                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
                     towrite = buffer[0 .. 2];
-                    towrite[0] = tRNS.b8.r;
+					towrite[0] = tRNS.b8.r.value;
                 } else {
                     towrite = buffer[0 .. 2];
-                    towrite[0] = cast(ubyte)(tRNS.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[0] = cast(ubyte)(tRNS.b8.r.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
                 }
             } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
                     towrite = buffer[0 .. 6];
-                    towrite[0 .. 2] = nativeToBigEndian(tRNS.b16.r);
-                    towrite[2 .. 4] = nativeToBigEndian(tRNS.b16.g);
-                    towrite[4 .. 6] = nativeToBigEndian(tRNS.b16.b);
+                    towrite[0 .. 2] = nativeToBigEndian(tRNS.b16.r.value);
+					towrite[2 .. 4] = nativeToBigEndian(tRNS.b16.g.value);
+					towrite[4 .. 6] = nativeToBigEndian(tRNS.b16.b.value);
                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
                     towrite = buffer[0 .. 6];
-                    towrite[0] = tRNS.b8.r;
-                    towrite[2] = tRNS.b8.g;
-                    towrite[4] = tRNS.b8.b;
+					towrite[0] = tRNS.b8.r.value;
+					towrite[2] = tRNS.b8.g.value;
+					towrite[4] = tRNS.b8.b.value;
                 } else {
                     towrite = buffer[0 .. 6];
-                    towrite[0] = cast(ubyte)(tRNS.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                    towrite[2] = cast(ubyte)(tRNS.b8.g / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                    towrite[4] = cast(ubyte)(tRNS.b8.b / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[0] = cast(ubyte)(tRNS.b8.r.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[2] = cast(ubyte)(tRNS.b8.g.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[4] = cast(ubyte)(tRNS.b8.b.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
                 }
             }
             
@@ -1581,30 +1580,30 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             } else if (IHDR.colorType & PngIHDRColorType.Grayscale) {
                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
                     towrite = buffer[0 .. 2];
-                    towrite[] = nativeToBigEndian(bKGD.b16.r);
+					towrite[] = nativeToBigEndian(bKGD.b16.r.value);
                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
                     towrite = buffer[0 .. 2];
-                    towrite[0] = bKGD.b8.r;
+					towrite[0] = bKGD.b8.r.value;
                 } else {
                     towrite = buffer[0 .. 2];
-                    towrite[0] = cast(ubyte)(bKGD.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[0] = cast(ubyte)(bKGD.b8.r.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
                 }
             } else if (IHDR.colorType & PngIHDRColorType.ColorUsed) {
                 if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth16) {
                     towrite = buffer[0 .. 6];
-                    towrite[0 .. 2] = nativeToBigEndian(bKGD.b16.r);
-                    towrite[2 .. 4] = nativeToBigEndian(bKGD.b16.g);
-                    towrite[4 .. 6] = nativeToBigEndian(bKGD.b16.b);
+					towrite[0 .. 2] = nativeToBigEndian(bKGD.b16.r.value);
+					towrite[2 .. 4] = nativeToBigEndian(bKGD.b16.g.value);
+					towrite[4 .. 6] = nativeToBigEndian(bKGD.b16.b.value);
                 } else if (IHDR.bitDepth == PngIHDRBitDepth.BitDepth8) {
                     towrite = buffer[0 .. 6];
-                    towrite[0] = bKGD.b8.r;
-                    towrite[2] = bKGD.b8.g;
-                    towrite[4] = bKGD.b8.b;
+					towrite[0] = bKGD.b8.r.value;
+					towrite[2] = bKGD.b8.g.value;
+					towrite[4] = bKGD.b8.b.value;
                 } else {
                     towrite = buffer[0 .. 6];
-                    towrite[0] = cast(ubyte)(bKGD.b8.r / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                    towrite[2] = cast(ubyte)(bKGD.b8.g / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
-                    towrite[4] = cast(ubyte)(bKGD.b8.b / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[0] = cast(ubyte)(bKGD.b8.r.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[2] = cast(ubyte)(bKGD.b8.g.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
+					towrite[4] = cast(ubyte)(bKGD.b8.b.value / cast(ubyte)(256f/(2^(cast(ubyte)IHDR.bitDepth))-1));
                 }
             }
             
@@ -1667,10 +1666,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     towrite = buffer[0 .. towrite.length + (chunk.colors.length * 6)];
                     
                     foreach(c; chunk.colors) {
-                        towrite[offset] = c.color.b8.r;
-                        towrite[offset + 1] = c.color.b8.g;
-                        towrite[offset + 2] = c.color.b8.b;
-                        towrite[offset + 3] = c.color.b8.a;
+						towrite[offset] = c.color.b8.r.value;
+						towrite[offset + 1] = c.color.b8.g.value;
+						towrite[offset + 2] = c.color.b8.b.value;
+						towrite[offset + 3] = c.color.b8.a.value;
                         towrite[offset + 4 .. offset + 6] = nativeToBigEndian(c.frequency);
                         
                         offset += 6;
@@ -1680,10 +1679,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                     towrite = buffer[0 .. towrite.length + (chunk.colors.length * 10)];
                     
                     foreach(c; chunk.colors) {
-                        towrite[offset .. offset + 2] = nativeToBigEndian(c.color.b16.r);
-                        towrite[offset + 2 .. offset + 4] = nativeToBigEndian(c.color.b16.g);
-                        towrite[offset + 4 .. offset + 6] = nativeToBigEndian(c.color.b16.b);
-                        towrite[offset + 6 .. offset + 8] = nativeToBigEndian(c.color.b16.a);
+						towrite[offset .. offset + 2] = nativeToBigEndian(c.color.b16.r.value);
+						towrite[offset + 2 .. offset + 4] = nativeToBigEndian(c.color.b16.g.value);
+						towrite[offset + 4 .. offset + 6] = nativeToBigEndian(c.color.b16.b.value);
+						towrite[offset + 6 .. offset + 8] = nativeToBigEndian(c.color.b16.a.value);
                         towrite[offset + 8 .. offset + 10] = nativeToBigEndian(c.frequency);
                         
                         offset += 10;
@@ -1892,7 +1891,11 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                         }
                     }
 
-                    alloc.expandArray(decompressed, scanLine.length-scanLineFilterMethodOffset);
+					if (decompressed is null) {
+						decompressed = alloc.makeArray!ubyte(scanLine.length-scanLineFilterMethodOffset);
+					} else {
+						alloc.expandArray(decompressed, scanLine.length-scanLineFilterMethodOffset);
+					}
                     decompressed[$-(scanLine.length - scanLineFilterMethodOffset) .. $] = scanLine[scanLineFilterMethodOffset .. $];
 
                     previousScanLine = tempFilterPrevious[0 .. scanLine.length];
@@ -1934,21 +1937,21 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             
                             if (isColor) {
                                 if (withAlpha) {
-                                    currentScanLine[$-8 .. $-6] = nativeToBigEndian(pixToUse.r);
-                                    currentScanLine[$-6 .. $-4] = nativeToBigEndian(pixToUse.g);
-                                    currentScanLine[$-4 .. $-2] = nativeToBigEndian(pixToUse.b);
-                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.a);
+                                    currentScanLine[$-8 .. $-6] = nativeToBigEndian(pixToUse.r.value);
+									currentScanLine[$-6 .. $-4] = nativeToBigEndian(pixToUse.g.value);
+									currentScanLine[$-4 .. $-2] = nativeToBigEndian(pixToUse.b.value);
+									currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.a.value);
                                 } else {
-                                    currentScanLine[$-6 .. $-4] = nativeToBigEndian(pixToUse.r);
-                                    currentScanLine[$-4 .. $-2] = nativeToBigEndian(pixToUse.g);
-                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.b);
+                                    currentScanLine[$-6 .. $-4] = nativeToBigEndian(pixToUse.r.value);
+                                    currentScanLine[$-4 .. $-2] = nativeToBigEndian(pixToUse.g.value);
+                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.b.value);
                                 }
                             } else if (isGrayScale) {
-                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
+                                float pixG = (pixToUse.r.value / 3f) + (pixToUse.g.value / 3f) + (pixToUse.b.value / 3f);
                                 
                                 if (withAlpha) {
                                     currentScanLine[$-4 .. $-2] = nativeToBigEndian(cast(ushort)pixG);
-                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.a);
+                                    currentScanLine[$-2 .. $] = nativeToBigEndian(pixToUse.a.value);
                                 } else {
                                     currentScanLine[$-2 .. $] = nativeToBigEndian(cast(ushort)pixG);
                                 }
@@ -1958,21 +1961,21 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                             
                             if (isColor) {
                                 if (withAlpha) {
-                                    currentScanLine[$-4 .. $-3] = pixToUse.r;
-                                    currentScanLine[$-3 .. $-2] = pixToUse.g;
-                                    currentScanLine[$-2 .. $-1] = pixToUse.b;
-                                    currentScanLine[$-1 .. $] = pixToUse.a;
+                                    currentScanLine[$-4 .. $-3] = pixToUse.r.value;
+                                    currentScanLine[$-3 .. $-2] = pixToUse.g.value;
+                                    currentScanLine[$-2 .. $-1] = pixToUse.b.value;
+                                    currentScanLine[$-1 .. $] = pixToUse.a.value;
                                 } else {
-                                    currentScanLine[$-3 .. $-2] = pixToUse.r;
-                                    currentScanLine[$-2 .. $-1] = pixToUse.g;
-                                    currentScanLine[$-1 .. $] = pixToUse.b;
+                                    currentScanLine[$-3 .. $-2] = pixToUse.r.value;
+                                    currentScanLine[$-2 .. $-1] = pixToUse.g.value;
+                                    currentScanLine[$-1 .. $] = pixToUse.b.value;
                                 }
                             } else if (isGrayScale) {
-                                float pixG = (pixToUse.r / 3f) + (pixToUse.g / 3f) + (pixToUse.b / 3f);
+                                float pixG = (pixToUse.r.value / 3f) + (pixToUse.g.value / 3f) + (pixToUse.b.value / 3f);
                                 
                                 if (withAlpha) {
                                     currentScanLine[$-2 .. $-1] = cast(ubyte)pixG;
-                                    currentScanLine[$-1 .. $] = pixToUse.a;
+                                    currentScanLine[$-1 .. $] = pixToUse.a.value;
                                 } else {
                                     currentScanLine[$-1 .. $] = cast(ubyte)pixG;
                                 }
@@ -2002,10 +2005,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
                         
                         RGBA8 pixToUse = convertColor!RGBA8(c);
                         ubyte[4] bitDepthValues = [
-                            cast(ubyte)ceil((pixToUse.r / 256f) * bitMaxValue),
-                            cast(ubyte)ceil((pixToUse.g / 256f) * bitMaxValue),
-                            cast(ubyte)ceil((pixToUse.b / 256f) * bitMaxValue),
-                            cast(ubyte)ceil((pixToUse.a / 256f) * bitMaxValue)
+                            cast(ubyte)ceil((pixToUse.r.value / 256f) * bitMaxValue),
+                            cast(ubyte)ceil((pixToUse.g.value / 256f) * bitMaxValue),
+                            cast(ubyte)ceil((pixToUse.b.value / 256f) * bitMaxValue),
+                            cast(ubyte)ceil((pixToUse.a.value / 256f) * bitMaxValue)
                         ];
                         
                         if (isColor) {

@@ -1,92 +1,67 @@
 // Written in the D programming language.
 
 /**
-    This module implements XYZ and xyY _color types.
+This module implements $(LINK2 https://en.wikipedia.org/wiki/CIE_1931_color_space, CIE XYZ) and
+$(LINK2 https://en.wikipedia.org/wiki/CIE_1931_color_space#CIE_xy_chromaticity_diagram_and_the_CIE_xyY_color_space, xyY)
+_color types.
 
-    Authors:    Manu Evans
-    Copyright:  Copyright (c) 2015, Manu Evans.
-    License:    $(WEB boost.org/LICENSE_1_0.txt, Boost License 1.0)
-    Source:     $(PHOBOSSRC std/experimental/color/xyz.d)
+These _color spaces represent the simplest expression of the full-spectrum of human visible _color.
+No attempts are made to support perceptual uniformity, or meaningful _color blending within these _color spaces.
+They are most useful as an absolute representation of human visible colors, and a centre point for _color space
+conversions.
+
+Authors:    Manu Evans
+Copyright:  Copyright (c) 2015, Manu Evans.
+License:    $(WEB boost.org/LICENSE_1_0.txt, Boost License 1.0)
+Source:     $(PHOBOSSRC std/experimental/color/_xyz.d)
 */
 module std.experimental.graphic.color.xyz;
 
 import std.experimental.graphic.color;
-import std.experimental.graphic.color.conv: convertColor;
+version(unittest)
+    import std.experimental.graphic.color.colorspace : WhitePoint;
 
-import std.traits: isFloatingPoint, isIntegral, isSigned, isSomeChar, Unqual;
-import std.typetuple: TypeTuple;
-import std.typecons: tuple;
+import std.traits : isInstanceOf, isFloatingPoint, Unqual;
+import std.typetuple : TypeTuple;
+import std.typecons : tuple;
 
-@safe: pure: nothrow: @nogc:
+@safe pure nothrow @nogc:
 
 
 /**
-Detect whether $(D T) is an XYZ color.
+Detect whether $(D_INLINECODE T) is an XYZ color.
 */
 enum isXYZ(T) = isInstanceOf!(XYZ, T);
 
+///
+unittest
+{
+    static assert(isXYZ!(XYZ!float) == true);
+    static assert(isXYZ!(xyY!double) == false);
+    static assert(isXYZ!int == false);
+}
+
+
 /**
-Detect whether $(D T) is an xyY color.
+Detect whether $(D_INLINECODE T) is an xyY color.
 */
 enum isxyY(T) = isInstanceOf!(xyY, T);
 
-
-/** White points of standard illuminants. */
-template WhitePoint(F) if(isFloatingPoint!F)
+///
+unittest
 {
-    /** */
-    enum WhitePoint
-    {
-        /** Incandescent / Tungsten */
-        A =   xyY!F(0.44757, 0.40745, 1.00000),
-        /** [obsolete] Direct sunlight at noon */
-        B =   xyY!F(0.34842, 0.35161, 1.00000),
-        /** [obsolete] Average / North sky Daylight */
-        C =   xyY!F(0.31006, 0.31616, 1.00000),
-        /** Horizon Light, ICC profile PCS (Profile connection space) */
-        D50 = xyY!F(0.34567, 0.35850, 1.00000),
-        /** Mid-morning / Mid-afternoon Daylight */
-        D55 = xyY!F(0.33242, 0.34743, 1.00000),
-        /** Noon Daylight: Television, sRGB color space */
-        D65 = xyY!F(0.31271, 0.32902, 1.00000),
-        /** North sky Daylight */
-        D75 = xyY!F(0.29902, 0.31485, 1.00000),
-        /** Equal energy */
-        E =   xyY!F(1.0/3.0, 1.0/3.0, 1.00000),
-        /** Daylight Fluorescent */
-        F1 =  xyY!F(0.31310, 0.33727, 1.00000),
-        /** Cool White Fluorescent */
-        F2 =  xyY!F(0.37208, 0.37529, 1.00000),
-        /** White Fluorescent */
-        F3 =  xyY!F(0.40910, 0.39430, 1.00000),
-        /** Warm White Fluorescent */
-        F4 =  xyY!F(0.44018, 0.40329, 1.00000),
-        /** Daylight Fluorescent */
-        F5 =  xyY!F(0.31379, 0.34531, 1.00000),
-        /** Lite White Fluorescent */
-        F6 =  xyY!F(0.37790, 0.38835, 1.00000),
-        /** D65 simulator, Daylight simulator */
-        F7 =  xyY!F(0.31292, 0.32933, 1.00000),
-        /** D50 simulator, Sylvania F40 Design 50 */
-        F8 =  xyY!F(0.34588, 0.35875, 1.00000),
-        /** Cool White Deluxe Fluorescent */
-        F9 =  xyY!F(0.37417, 0.37281, 1.00000),
-        /** Philips TL85, Ultralume 50 */
-        F10 = xyY!F(0.34609, 0.35986, 1.00000),
-        /** Philips TL84, Ultralume 40 */
-        F11 = xyY!F(0.38052, 0.37713, 1.00000),
-        /** Philips TL83, Ultralume 30 */
-        F12 = xyY!F(0.43695, 0.40441, 1.00000)
-    }
+    static assert(isxyY!(xyY!float) == true);
+    static assert(isxyY!(XYZ!double) == false);
+    static assert(isxyY!int == false);
 }
 
 
 /**
 A CIE 1931 XYZ color, parameterised for component type.
 */
-struct XYZ(F = float) if(isFloatingPoint!F)
+struct XYZ(F = float) if (isFloatingPoint!F)
 {
-@safe: pure: nothrow: @nogc:
+@safe pure nothrow @nogc:
 
     /** Type of the color components. */
     alias ComponentType = F;
@@ -104,7 +79,6 @@ struct XYZ(F = float) if(isFloatingPoint!F)
         return tuple(X, Y, Z);
     }
 
-    // CIE XYZ constructor
     /** Construct a color from XYZ values. */
     this(ComponentType X, ComponentType Y, ComponentType Z)
     {
@@ -113,33 +87,96 @@ struct XYZ(F = float) if(isFloatingPoint!F)
         this.Z = Z;
     }
 
-    // casts
-    Color opCast(Color)() const if(isColor!Color)
+    /**
+    Cast to other color types.
+
+    This cast is a convenience which simply forwards the call to convertColor.
+    */
+    Color opCast(Color)() const if (isColor!Color)
     {
         return convertColor!Color(this);
     }
 
-    // operators
-    mixin ColorOperators!(TypeTuple!("X","Y","Z"));
+    /** Unary operators. */
+    typeof(this) opUnary(string op)() const if (op == "+" || op == "-" || (op == "~" && is(ComponentType == NormalizedInt!U, U)))
+    {
+        Unqual!(typeof(this)) res = this;
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("res._ = #_;", c, op));
+        return res;
+    }
+    /** Binary operators. */
+    typeof(this) opBinary(string op)(typeof(this) rh) const if (op == "+" || op == "-" || op == "*")
+    {
+        Unqual!(typeof(this)) res = this;
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("res._ #= rh._;", c, op));
+        return res;
+    }
+    /** Binary operators. */
+    typeof(this) opBinary(string op, S)(S rh) const if (isColorScalarType!S && (op == "*" || op == "/" || op == "%" || op == "^^"))
+    {
+        Unqual!(typeof(this)) res = this;
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("res._ #= rh;", c, op));
+        return res;
+    }
+    /** Binary assignment operators. */
+    ref typeof(this) opOpAssign(string op)(typeof(this) rh) if (op == "+" || op == "-" || op == "*")
+    {
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("_ #= rh._;", c, op));
+        return this;
+    }
+    /** Binary assignment operators. */
+    ref typeof(this) opOpAssign(string op, S)(S rh) if (isColorScalarType!S && (op == "*" || op == "/" || op == "%" || op == "^^"))
+    {
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("_ #= rh;", c, op));
+        return this;
+    }
+
+
+package:
+
+    static To convertColorImpl(To, From)(From color) if (isXYZ!From && isXYZ!To)
+    {
+        alias F = To.ComponentType;
+        return To(F(color.X), F(color.Y), F(color.Z));
+    }
+    unittest
+    {
+        static assert(convertColorImpl!(XYZ!float)(XYZ!double(1, 2, 3)) == XYZ!float(1, 2, 3));
+        static assert(convertColorImpl!(XYZ!double)(XYZ!float(1, 2, 3)) == XYZ!double(1, 2, 3));
+    }
+
+private:
+    alias AllComponents = TypeTuple!("X", "Y", "Z");
 }
 
+///
 unittest
 {
+    // CIE XYZ 1931 color with float components
     alias XYZf = XYZ!float;
-    alias xyYf = xyY!float;
 
-    // TODO: test XYZ operators and functions..
+    XYZf c = XYZf(0.8, 1, 1.2);
+
+    // tristimulus() returns a tuple of the components
+    assert(c.tristimulus == tuple(c.X, c.Y, c.Z));
+
+    // test XYZ operators and functions
+    static assert(XYZf(0, 0.5, 0) + XYZf(0.5, 0.5, 1) == XYZf(0.5, 1, 1));
     static assert(XYZf(0.5, 0.5, 1) * 100.0 == XYZf(50, 50, 100));
-    static assert(cast(XYZf)xyYf(0.5, 0.5, 1) == XYZf(1, 1, 0));
 }
 
 
 /**
 A CIE 1931 xyY color, parameterised for component type.
 */
-struct xyY(F = float) if(isFloatingPoint!F)
+struct xyY(F = float) if (isFloatingPoint!F)
 {
-@safe: pure: nothrow: @nogc:
+@safe pure nothrow @nogc:
 
     /** Type of the color components. */
     alias ComponentType = F;
@@ -151,7 +188,6 @@ struct xyY(F = float) if(isFloatingPoint!F)
     /** Y value (luminance). */
     F Y = 0;
 
-    // CIE xyY constructor
     /** Construct a color from xyY values. */
     this(ComponentType x, ComponentType y, ComponentType Y)
     {
@@ -160,25 +196,121 @@ struct xyY(F = float) if(isFloatingPoint!F)
         this.Y = Y;
     }
 
-    // casts
-    Color opCast(Color)() const if(isColor!Color)
+    /**
+    Cast to other color types.
+
+    This cast is a convenience which simply forwards the call to convertColor.
+    */
+    Color opCast(Color)() const if (isColor!Color)
     {
         return convertColor!Color(this);
     }
 
-    // operators
-    mixin ColorOperators!(TypeTuple!("x","y","Y"));
+    /** Unary operators. */
+    typeof(this) opUnary(string op)() const if (op == "+" || op == "-" || (op == "~" && is(ComponentType == NormalizedInt!U, U)))
+    {
+        Unqual!(typeof(this)) res = this;
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("res._ = #_;", c, op));
+        return res;
+    }
+
+    /** Binary operators. */
+    typeof(this) opBinary(string op)(typeof(this) rh) const if (op == "+" || op == "-" || op == "*")
+    {
+        Unqual!(typeof(this)) res = this;
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("res._ #= rh._;", c, op));
+        return res;
+    }
+
+    /** Binary operators. */
+    typeof(this) opBinary(string op, S)(S rh) const if (isColorScalarType!S && (op == "*" || op == "/" || op == "%" || op == "^^"))
+    {
+        Unqual!(typeof(this)) res = this;
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("res._ #= rh;", c, op));
+        return res;
+    }
+
+    /** Binary assignment operators. */
+    ref typeof(this) opOpAssign(string op)(typeof(this) rh) if (op == "+" || op == "-" || op == "*")
+    {
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("_ #= rh._;", c, op));
+        return this;
+    }
+
+    /** Binary assignment operators. */
+    ref typeof(this) opOpAssign(string op, S)(S rh) if (isColorScalarType!S && (op == "*" || op == "/" || op == "%" || op == "^^"))
+    {
+        foreach (c; AllComponents)
+            mixin(ComponentExpression!("_ #= rh;", c, op));
+        return this;
+    }
+
+
+package:
+
+    alias ParentColor = XYZ!ComponentType;
+
+    static To convertColorImpl(To, From)(From color) if (isxyY!From && isxyY!To)
+    {
+        alias F = To.ComponentType;
+        return To(F(color.x), F(color.y), F(color.Y));
+    }
+    unittest
+    {
+        static assert(convertColorImpl!(xyY!float)(xyY!double(1, 2, 3)) == xyY!float(1, 2, 3));
+        static assert(convertColorImpl!(xyY!double)(xyY!float(1, 2, 3)) == xyY!double(1, 2, 3));
+    }
+
+    static To convertColorImpl(To, From)(From color) if (isxyY!From && isXYZ!To)
+    {
+        alias F = To.ComponentType;
+        if (color.y == 0)
+            return To(F(0), F(0), F(0));
+        else
+            return To(F((color.Y/color.y)*color.x), F(color.Y), F((color.Y/color.y)*(1-color.x-color.y)));
+    }
+    unittest
+    {
+        static assert(convertColorImpl!(XYZ!float)(xyY!float(0.5, 0.5, 1)) == XYZ!float(1, 1, 0));
+
+        // degenerate case
+        static assert(convertColorImpl!(XYZ!float)(xyY!float(0.5, 0, 1)) == XYZ!float(0, 0, 0));
+    }
+
+    static To convertColorImpl(To, From)(From color) if (isXYZ!From && isxyY!To)
+    {
+        alias F = To.ComponentType;
+        auto sum = color.X + color.Y + color.Z;
+        if (sum == 0)
+            return To(WhitePoint!F.D65.x, WhitePoint!F.D65.y, F(0));
+        else
+            return To(F(color.X/sum), F(color.Y/sum), F(color.Y));
+    }
+    unittest
+    {
+        static assert(convertColorImpl!(xyY!float)(XYZ!float(0.5, 1, 0.5)) == xyY!float(0.25, 0.5, 1));
+
+        // degenerate case
+        static assert(convertColorImpl!(xyY!float)(XYZ!float(0, 0, 0)) == xyY!float(WhitePoint!float.D65.x, WhitePoint!float.D65.y, 0));
+    }
 
 private:
-    alias ParentColor = XYZ!ComponentType;
+    alias AllComponents = TypeTuple!("x", "y", "Y");
 }
 
+///
 unittest
 {
-    alias XYZf = XYZ!float;
-    alias xyYf = xyY!float;
+    // CIE xyY 1931 color with double components
+    alias xyYd = xyY!double;
 
-    // TODO: test xxY operators and functions..
-    static assert(xyYf(0.5, 0.5, 1) * 100.0 == xyYf(50, 50, 100));
-    static assert(cast(xyYf)XYZf(0.5, 1, 0.5) == xyYf(0.25, 0.5, 1));
+    xyYd c = xyYd(0.4, 0.5, 1);
+
+    // test xyY operators and functions
+    static assert(xyYd(0, 0.5, 0) + xyYd(0.5, 0.5, 1) == xyYd(0.5, 1, 1));
+    static assert(xyYd(0.5, 0.5, 1) * 100.0 == xyYd(50, 50, 100));
 }

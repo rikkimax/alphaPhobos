@@ -48,10 +48,10 @@ void png_test1(string checkStatements)(string file, bool mustBeExact) {
                 }
             }
             
-            checkp(p1.r, p2.r);
-            checkp(p1.g, p2.g);
-            checkp(p1.b, p2.b);
-            checkp(p1.a, p2.a);
+			checkp(p1.r.value, p2.r.value);
+			checkp(p1.g.value, p2.g.value);
+			checkp(p1.b.value, p2.b.value);
+			checkp(p1.a.value, p2.a.value);
         }
     }
     
