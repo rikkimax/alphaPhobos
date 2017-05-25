@@ -82,6 +82,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     ///
     DateTime* tIME;
 
+	// we can't copy because of ImageStorage type probably won't be able to be
+	@disable
+	this(this);
+
     static if (!is(Color == HeadersOnly)) {
         /// Only available when Color is specified as not HeadersOnly
         ImageStorage!Color value;
@@ -2189,7 +2193,8 @@ unittest {
  * Returns:
  *      A compatible PNG image
  */
-managed!(PNGFileFormat!Color) asPNG(From, Color = ImageColor!From, ImageImpl=ImageStorageHorizontal!Color)(From from, IAllocator allocator = theAllocator()) @safe if (isImage!From) {
+managed!(PNGFileFormat!Color) asPNG(From, Color = ImageColor!From, ImageImpl=ImageStorageHorizontal!Color)(From from, IAllocator allocator = theAllocator()) @safe
+if (isImage!From && !is(From == struct)) {
     import std.experimental.graphic.image.primitives : copyTo;
     
     managed!(PNGFileFormat!Color) ret = managed!(PNGFileFormat!Color)(managers(), tuple(allocator), allocator);
@@ -2199,6 +2204,11 @@ managed!(PNGFileFormat!Color) asPNG(From, Color = ImageColor!From, ImageImpl=Ima
     ret.performCompatConfigure();
     
     return ret;
+}
+
+managed!(PNGFileFormat!Color) asPNG(From, Color = ImageColor!From, ImageImpl=ImageStorageHorizontal!Color)(ref From from, IAllocator allocator = theAllocator()) @safe
+if (isImage!From && is(From == struct)) {
+	return asPNG!(From, Color, ImageImpl)(&from, allocator);
 }
 
 ///
