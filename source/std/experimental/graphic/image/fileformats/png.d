@@ -19,6 +19,7 @@ import std.experimental.memory.managed;
 import std.range : isInputRange, ElementType;
 import std.datetime : DateTime;
 import std.traits : isPointer;
+import std.typecons : tuple;
 
 ///
 alias HeadersOnlyPNGFileFormat = PNGFileFormat!HeadersOnly;
@@ -60,9 +61,9 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     iCCP_Chunk* iCCP;
     
     /// tEXt values are really latin-1 but treated as UTF-8 in D code, may originate from iEXt
-    managed!(Map!(PngTextKeywords, string)) tEXt = void;
+    managed!(Map!(PngTextKeywords, string)) tEXt;
     /// zEXt values are really latin-1 but treated as UTF-8 in D code, may originate from iEXt
-    managed!(Map!(PngTextKeywords, string)) zEXt = void;
+    managed!(Map!(PngTextKeywords, string)) zEXt;
     
     ///
     bKGD_Chunk* bKGD;
@@ -74,10 +75,10 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
     sBIT_Chunk* sBIT;
     
     ///
-    managed!(List!sPLT_Chunk) sPLT = void;
+    managed!(List!sPLT_Chunk) sPLT;
     
     ///
-    managed!(List!ushort) hIST = void;
+    managed!(List!ushort) hIST;
     
     ///
     DateTime* tIME;
@@ -1426,7 +1427,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             
 			GC.enable;
 			allocator.dispose(buffer);
-            return managed!(ubyte[])(ret, managers(), Ownership.Secondary, alloc);
+            return managed!(ubyte[])(ret, managers(ReferenceCountedManager(), NeverDeallocateManager()), alloc);
         }
         
         void writeChunk_IHDR(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {
@@ -2149,7 +2150,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
  *      A PNG files headers without the image data
  */
 managed!(PNGFileFormat!HeadersOnly) loadPNGHeaders(IR)(IR input, IAllocator allocator = theAllocator()) @trusted if (isInputRange!IR && is(ElementType!IR == ubyte)) {
-	managed!(PNGFileFormat!HeadersOnly) ret = managed!(PNGFileFormat!HeadersOnly)(managers(), tuple(allocator), allocator);
+	managed!(PNGFileFormat!HeadersOnly) ret = managed!(PNGFileFormat!HeadersOnly)(managers(ReferenceCountedManager()), tuple(allocator), allocator);
 	ret.performInput(input);
     
     return ret;
@@ -2166,7 +2167,7 @@ managed!(PNGFileFormat!HeadersOnly) loadPNGHeaders(IR)(IR input, IAllocator allo
  *      A PNG file, loaded as an image along with its headers. Using specified image storage type.
  */
 managed!(PNGFileFormat!Color) loadPNG(Color, ImageImpl=ImageStorageHorizontal!Color, IR)(IR input, IAllocator allocator = theAllocator()) @trusted if (isInputRange!IR && is(ElementType!IR == ubyte) && isImage!ImageImpl) {
-	managed!(PNGFileFormat!Color) ret = managed!(PNGFileFormat!Color)(managers(), tuple(allocator), allocator);
+	managed!(PNGFileFormat!Color) ret = managed!(PNGFileFormat!Color)(managers(ReferenceCountedManager()), tuple(allocator), allocator);
 
     ret.theImageAllocator = &ret.allocateTheImage!ImageImpl;
     ret.performInput(input);
@@ -2197,7 +2198,7 @@ managed!(PNGFileFormat!Color) asPNG(From, Color = ImageColor!From, ImageImpl=Ima
 if (isImage!From && !is(From == struct)) {
     import std.experimental.graphic.image.primitives : copyTo;
     
-    managed!(PNGFileFormat!Color) ret = managed!(PNGFileFormat!Color)(managers(), tuple(allocator), allocator);
+    managed!(PNGFileFormat!Color) ret = managed!(PNGFileFormat!Color)(managers(ReferenceCountedManager()), tuple(allocator), allocator);
     ret.allocateTheImage!ImageImpl(from.width, from.height);
     
     from.copyTo(ret.value);

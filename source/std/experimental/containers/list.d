@@ -8,7 +8,7 @@ final class List(T) {
 		IAllocator allocator;
 		T[] values_raw, values_real;
 		SelfMemManager memmgr;
-		managed!(T[]) manslice = void;
+		managed!(T[]) manslice;
 		
 		size_t offsetAlloc;
 	}
@@ -75,7 +75,7 @@ final class List(T) {
 			int result = 0;
 			
 			foreach(i, v; values_raw[0 .. $-offsetAlloc]) {
-				auto ret = managed!T(v, managers(memmgr), Ownership.Secondary, allocator);
+				auto ret = managed!T(v, managers(memmgr, NeverDeallocateManager()), allocator);
 				result = dg(ret);
 				if (result)
 					break;
@@ -87,7 +87,7 @@ final class List(T) {
 			int result = 0;
 			
 			foreach(i, v; values_raw[0 .. $-offsetAlloc]) {
-				auto ret = managed!T(v, managers(memmgr), Ownership.Secondary, allocator);
+				auto ret = managed!T(v, managers(memmgr, NeverDeallocateManager()), allocator);
 				result = dg(i, ret);
 				if (result)
 					break;
@@ -138,7 +138,7 @@ final class List(T) {
 		ret2.values_raw = alloc.makeArray!T(1);
 		ret2.manslice = managed!(T[])(&ret2.values_real, managers(mgr), alloc);
 		
-		auto ret = managed!(List!T)(ret2, managers(mgr), Ownership.Secondary, alloc);
+		auto ret = managed!(List!T)(ret2, managers(mgr, NeverDeallocateManager()), alloc);
 		
 		return ret;
 	}
@@ -201,15 +201,15 @@ unittest {
 private final class SelfMemManager {
 	uint refCount;
 	
-	void opInc() @safe {
+	void onIncrement() @safe nothrow  {
 		refCount++;
 	}
 	
-	void opDec() @safe {
+	void onDecrement() @safe nothrow  {
 		refCount--;
 	}
 	
-	bool opShouldDeallocate() @safe {
+	bool shouldDeallocate() @safe nothrow  {
 		return refCount == 0;
 	}
 }

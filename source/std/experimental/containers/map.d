@@ -11,8 +11,8 @@ final class Map(K, V) {
 		V[] values_, values_real;
 		
 		SelfMemManager memmgr;
-		managed!(K[]) mankslice = void;
-		managed!(V[]) manvslice = void;
+		managed!(K[]) mankslice;
+		managed!(V[]) manvslice;
 		
 		size_t offsetAlloc;
 	}
@@ -104,8 +104,8 @@ final class Map(K, V) {
 			int result = 0;
 			
 			foreach(i, ref k; keys_[0 .. $-offsetAlloc]) {
-				auto retk = managed!K(k, managers(memmgr), Ownership.Secondary, allocator);
-				auto retv = managed!V(values_[i], managers(memmgr), Ownership.Secondary, allocator);
+				auto retk = managed!K(k, managers(memmgr, NeverDeallocateManager()), allocator);
+				auto retv = managed!V(values_[i], managers(memmgr, NeverDeallocateManager()), allocator);
 				result = dg(retk, retv);
 				if (result)
 					break;
@@ -117,7 +117,7 @@ final class Map(K, V) {
 			int result = 0;
 			
 			foreach(i, ref k; keys_[0 .. $-offsetAlloc]) {
-				auto retk = managed!K(k, managers(memmgr), Ownership.Secondary, allocator);
+				auto retk = managed!K(k, managers(memmgr, NeverDeallocateManager()), allocator);
 				result = dg(retk, values_[i]);
 				if (result)
 					break;
@@ -129,7 +129,7 @@ final class Map(K, V) {
 			int result = 0;
 			
 			foreach(i, ref k; keys_[0 .. $-offsetAlloc]) {
-				auto retv = managed!V(values_[i], managers(memmgr), Ownership.Secondary, allocator);
+				auto retv = managed!V(values_[i], managers(memmgr, NeverDeallocateManager()), allocator);
 				result = dg(k, retv);
 				if (result)
 					break;
@@ -162,7 +162,7 @@ final class Map(K, V) {
 		ret2.mankslice = managed!(K[])(&ret2.keys_real, managers(mgr), alloc);
 		ret2.manvslice = managed!(V[])(&ret2.values_real, managers(mgr), alloc);
 		
-		auto ret = managed!(Map!(K, V))(ret2, managers(mgr), Ownership.Secondary, alloc);
+		auto ret = managed!(Map!(K, V))(ret2, managers(mgr), alloc);
 		
 		return ret;
 	}
@@ -225,15 +225,15 @@ unittest {
 private final class SelfMemManager {
 	uint refCount;
 	
-	void opInc() @safe {
+	void onIncrement() @safe nothrow  {
 		refCount++;
 	}
 	
-	void opDec() @safe {
+	void onDecrement() @safe nothrow  {
 		refCount--;
 	}
 	
-	bool opShouldDeallocate() @safe {
+	bool shouldDeallocate() @safe nothrow  {
 		return refCount == 0;
 	}
 }

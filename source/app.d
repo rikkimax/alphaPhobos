@@ -9,7 +9,7 @@ void main() {
 	theAllocator = Mallocator.instance.allocatorObject;
 	//theAllocator = MmapAllocator.instance.allocatorObject;
 
-    //managedMemoryTest();
+    managedMemoryTest();
 
 	/+ubyte[] data = theAllocator.makeArray!ubyte(1000000000/100);
 	data[] = 1;
@@ -90,10 +90,10 @@ class ManagedFoo : ManagedIFoo {
 }
 
 void managedMemoryTest() {
-    import std.experimental.allocator : IAllocator, processAllocator;
+    import std.experimental.allocator : IAllocator, theAllocator;
 
-    managed!ManagedFoo create(IAllocator alloc=processAllocator()) {
-        return managed!ManagedFoo(managers(), alloc);
+	managed!ManagedFoo create(IAllocator alloc=theAllocator()) {
+        return managed!ManagedFoo(alloc.make!ManagedFoo, managers(), alloc);
     }
 
     void func() {
@@ -103,16 +103,16 @@ void managedMemoryTest() {
         value.doit();
 
         auto value2 = cast(managed!ManagedIFoo)value;
-        value2.doit();
-        
+		value2.doit();
+
         writeln("END2");
     }
 
     void func2() {
         writeln("START3");
 
-        auto func2_1(IAllocator alloc=processAllocator()) {
-            return cast(managed!ManagedIFoo)managed!ManagedFoo(managers!(ManagedFoo, ManagedRefCount), alloc);
+		auto func2_1(IAllocator alloc=theAllocator()) {
+            return cast(managed!ManagedIFoo)managed!ManagedFoo(alloc.make!ManagedFoo, managers(ReferenceCountedManager()), alloc);
         }
 
         managed!ManagedIFoo value = func2_1();

@@ -9,86 +9,40 @@
  * Authors: $(LINK2 http://cattermole.co.nz, Richard Andrew Cattermole)
  */
 module std.experimental.memory.managed;
-public import std.typecons : tuple;
-import std.experimental.allocator : IAllocator, theAllocator, make, dispose, makeArray;
+import std.experimental.allocator : ISharedAllocator, IAllocator, make, dispose, processAllocator, theAllocator;
 import std.typecons : Tuple;
-import std.traits : isArray, isBasicType;
-import std.range : ForeachType;
+import std.traits : CopyConstness, isBasicType, isPointer, ForeachType, isArray, isDynamicArray, Unqual;
 
-/**
- * Do you own this memory?
- * 
- * If no this implys you should not deallocate unless told otherwise and prevents duplication
- */
-enum Ownership : bool {
-    ///
-    Primary = true,
-    ///
-    Secondary = false
+version(Windows) {
+	import core.sys.windows.com : IUnknown;
 }
 
 /**
- * Defaults to using ManagedRefCount as memory manager
+ * Defaults to using ReferenceCountedManager as memory manager
  * 
  * See_Also:
- *      ManagedRefCount
+ *      ReferenceCountedManager
  */
 auto managers() {
-    import std.typecons : Tuple;
-    
-    MemoryManagerS!(Tuple!(ManagedRefCount)) ret;
-    return ret;
+	MemoryManagerS!(Tuple!(ReferenceCountedManager)) ret;
+	return ret;
 }
 
 /**
- * 
- */
-auto managers(MyType, T...)() if (T.length > 0) {
-    import std.typecons : Tuple;
-    
-    mixin(managersAliasFixUp!(MyType, T));
-    
-    return MemoryManagerS!O.init;
-}
-
-/**
- * 
- */
-auto managers(U...)(U args) if (U.length > 0) {
-    import std.typecons : Tuple;
-    return MemoryManagerS!(Tuple!U)(Tuple!U(args));
-}
-
-/**
- * 
+ * Puts together a group of managers for use with managed!T
  * 
  * See_Also:
- *      managers
+ *      managed
  */
-interface IMemoryManager {
-    ///
-    IMemoryManager dup(IAllocator);
-    
-    /**
-     * on ~this() call
-     */
-    bool opShouldDeallocate();
-    
-    /**
-     * this()
-     */
-    void opInc();
-    /**
-     * ~this()
-     */
-    void opDec();
+auto managers(U...)(U args) if (U.length > 0) {
+	return MemoryManagerS!(Tuple!U)(Tuple!U(args));
 }
 
 /**
  * Implements a managed memory model representation for heap allocated data.
  * 
  * Ensures all memory allocated is accessed in a safe manner but may result in unsafe data usage. $(BR)
- * Original concept was for language support $(WEB wiki.dlang.org/User:Alphaglosined/ManagedMemory, link).
+ * Original concept was for language support $(WEB http://cattermole.co.nz/article/managed_memory, link).
  * 
  * This can be thought of in terms of c++ const which is a head only const. A head const is where the pointer may not
  *  not change but the data is modifiable. For example an element in array may be changed but it may not be changed to
@@ -97,14 +51,11 @@ interface IMemoryManager {
  * Compatibility with allocators are a requirement, using IAllocator to represent it. This is a optional element and
  *  will by default use theAllocator(). This allows fine grain control over how it allocates on the $(B heap).
  * 
- * Managed memory may not be allocated upon the stack. It is passed around on the stack using at most 3 pointers to
- *  represent the real type.
- * 
  * When using a COM object as the source, it will assume the responsiblity of AddRef and Releaseing instead
  *  of opInc + opDec. Ensuring deallocation when all references are removed. Rule: has secondary ownership and
  *  will not attempt to deallocate. But may deallocate at any time.
  * 
- * A managed type is compatible with $(D @safe), $(D @nogc) and $(D nothrow). However only on the type being represented
+ * A managed type is compatible with $(D @safe), "$(D @nogc)" and $(D nothrow). However only on the type being represented
  *  all of the methods upon $(D managed!T) itself is @trusted because of how allocators work.
  * 
  * You may not cast away $(D managed!T) or get the real instance of the type. For classes you may cast to a more generic
@@ -120,563 +71,577 @@ interface IMemoryManager {
  *  Since internally it will be comparing to a pointer while using $(D is).
  * 
  * See_Also:
- *      IMemoryManager, managers, Ownership
+ *      IMemoryManager, ISharedMemoryManager, managers, ReferenceCountedManager, NeverDeallocateManager
  */
-struct managed(MyType) {
-    // this exists for support for e.g. std.experimental.image
-    alias PayLoadType = MyType;
-
-@trusted:
-    private {
-        final class SPointer {
-            MyType __self = void;
-            alias __self this;
-        }
-
-        version(Windows) {
-            import core.sys.windows.com : IUnknown;
-        }
-        
-        struct __Internal {
-			MyType* selfReUpdate;
-
-			static if (is(MyType == class) || is(MyType == interface) || isArray!MyType) {
-            	MyType self;
-            } else {
-                SPointer self;
-            }
-            
-            IAllocator allocator;
-            IMemoryManager memmgrs;
-        }
-        
-        __Internal __internal;
-    }
-
-    this(this) {
-        // opInc
-        __internal.memmgrs.opInc();
-        
-        static if (__traits(compiles, {__internal.self.opInc();})) {
-            __internal.self.opInc();
-        }
-        version(Windows) {
-            static if (is(MyType == class) && is(MyType : IUnknown)) {
-                __internal.self.AddRef();
-            }
-        }
-    }
-
-	~this() {
-        // check to make sure we are allocated/initialized
-        if (__internal.self is null)
-            return;
-
-        // opDec
-        __internal.memmgrs.opDec();
-        
-        bool beenReleased;
-        
-        static if (__traits(compiles, {__internal.self.opDec();})) {
-            __internal.self.opDec();
-        }
-        version(Windows) {
-            static if (is(MyType == class) && is(MyType : IUnknown)) {
-                beenReleased = __internal.self.Release() == 0;
-            }
-        }
-        
-        if (beenReleased) {
-        } else if (__internal.memmgrs.opShouldDeallocate) {
-            __internal.allocator.dispose(__internal.memmgrs);
-			if (__internal.selfReUpdate is null) {
-				static if (isArray!MyType) {
-					import std.traits : Unqual, ForeachType;
-					__internal.allocator.dispose(cast(Unqual!(ForeachType!MyType)[])__internal.self);
-				} else {
-					__internal.allocator.dispose(cast(Object)__internal.self);
-				}
-			}
-        } else {
-            // do nothing
-            // the default behaviour from opShouldDeallocate if it does not on call is true
-        }
-    }
-
-    static if (is(MyType == class) || is(MyType == interface)) {
-        auto opCast(TMyType2)() {
-			static if (__traits(hasMember, TMyType2, "PayLoadType")) {
-            	alias MyType2 = TMyType2.PayLoadType;
-			} else {
-				alias MyType2 = TMyType2;
-			}
-
-            static if (is(MyType : MyType2)) {
-                managed!MyType2 ret;
-
-                ret.__internal.self = cast(MyType2)__internal.self;
-                ret.__internal.memmgrs = __internal.memmgrs;
-                ret.__internal.allocator = __internal.allocator;
-
-				ret.__internal.memmgrs.opInc();
-				return ret;
-			} else static if (is(MyType2 == interface)) {
-				managed!MyType2 ret;
-
-				if (MyType2 v = cast(MyType2)__internal.self) {
-					ret.__internal.self = cast(MyType2)__internal.self;
-					ret.__internal.memmgrs = __internal.memmgrs;
-					ret.__internal.allocator = __internal.allocator;
-					
-					ret.__internal.memmgrs.opInc();
-				}
-
-				return ret;
-			} else {
-                static assert(0, "A managed object may only be casted to a more generic version");
-            }
-        }
-    } else static if (isArray!MyType && (is(ForeachType!MyType == class) || is(ForeachType!MyType == interface))) {
-        import std.traits : moduleName;
-        
-        auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
-            alias MyType2 = TMyType2.PayLoadType;
-            
-            static if (is(ForeachType!MyType : ForeachType!MyType2)) {
-                managed!MyType2 ret;
-                
-                ret.__internal.self = cast(MyType2)__internal.self;
-                ret.__internal.memmgrs = __internal.memmgrs;
-                ret.__internal.allocator = __internal.allocator;
-                
-				ret.__internal.memmgrs.opInc();
-				return ret;
-            } else {
-                static assert(0, "A managed object may only be casted to a more generic version");
-            }
-        }
-        
-        auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
-            static assert(0, "Managed memory may not be casted from");
-        }
-    } else static if (isArray!MyType && isBasicType!(ForeachType!MyType)) {
-        import std.traits : moduleName, Unqual;
-
-        auto opCast(TMyType2)() if (moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal")) {
-            alias MyType2 = Unqual!(TMyType2.PayLoadType);
-
-            static if ((ForeachType!MyType2).sizeof == (ForeachType!MyType).sizeof) {
-                managed!MyType2 ret;
-                
-                ret.__internal.self = cast(MyType2)__internal.self;
-                ret.__internal.memmgrs = __internal.memmgrs;
-                ret.__internal.allocator = __internal.allocator;
-                
-				ret.__internal.memmgrs.opInc();
-				return ret;
-            } else {
-                static assert(0, "Managed memory may only be cast from if resulting size is identical to original");
-            }
-        }
-
-        auto opCast(TMyType2)() if (!(moduleName!TMyType2 == __MODULE__ && __traits(hasMember, TMyType2, "__internal"))) {
-            static assert(0, "Managed memory may not be casted from");
-        }
-    } else {
-        auto opCast(TMyType2)() {
-            static assert(0, "Managed memory may not be casted from");
-        }
-    }
-    
-    // FIXME: should be scope only
-    /+static if (is(MyType == class) || isArray!MyType) {
-        MyType opScopeAssign() {
-            return __internal.self;
-        }
-    } else {
-        MyType* opScopeAssign() {
-            return __internal.self;
-        }
-    }+/
-    
-    /+static if (isArray!MyType) {
-        // TODO: array specific things
-    } else {
-        // TODO: class, struct and union specific things
-        //       add method indirection as last, memory managers go first in call chain
-    }+/
-
-    static if (!isArray!MyType && __traits(compiles, {MyType v = new MyType;})) {
-        static managed!MyType opCall(IAllocator alloc=theAllocator()) {
-            return opCall(managers(), alloc);
-        }
-        
-        static managed!MyType opCall(MemoryManagerST)(MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
-            managed!MyType ret;
-            ret.__internal.allocator = alloc;
-            static if (is(MemoryManagerST : IMemoryManager)) {
-                ret.__internal.memmgrs = memmgr.dup(alloc);
-            } else {
-                ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-            }
-
-            static if (!isArray!MyType) {
-                ret.__internal.self = alloc.make!(typeof(ret.__internal.self));
-            }
-            ret.__internal.memmgrs.opInc();
-            return ret;
-        }
-    }
-    
-    static if (isArray!MyType) {
-        static managed!MyType opCall(MemoryManagerST)(MyType from, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-            return opCall(from, managers(), ownership, alloc);
-        }
-        
-        static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-            import std.traits : ForeachType, Unqual;
-            
-            managed!MyType ret;
-            ret.__internal.allocator = alloc;
-            static if (is(MemoryManagerST : IMemoryManager)) {
-                ret.__internal.memmgrs = memmgr.dup(alloc);
-            } else {
-                ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-            }
-            
-            // duplicates if needed
-            if (ownership) {
-                ret.__internal.self = cast(MyType)alloc.makeArray!(Unqual!(ForeachType!MyType))(from.length);
-                cast(Unqual!(ForeachType!MyType)[])ret.__internal.self[] = from[];
-            } else {
-                ret.__internal.self = from;
-            }
-            
-            ret.__internal.memmgrs.opInc();
-            return ret;
-        }
-
-		static managed!MyType opCall(MemoryManagerST)(MyType* from, IAllocator alloc=theAllocator()) {
-			return opCall(from, managers(), ownership, alloc);
+struct managed(Type) {
+	static assert(!is(Type==union), "managed!T does not support unions as head type");
+	static assert(!isPointer!Type, "managed!T does not support pointers");
+	
+	static if (ManagedIsShared) {
+		alias AllocatorType = shared(ISharedAllocator);
+		alias __managedAllocator = processAllocator;
+	} else {
+		alias AllocatorType = IAllocator;
+		alias __managedAllocator = theAllocator;
+	}
+	
+	/// Has this instance been initialized?
+	bool isNull() {
+		return __managedInternal.managers is null;
+	}
+	
+	// \/ Construction \/
+	
+	static {
+		/// Constructs managed!T where T is a class
+		managed!Type opCall(MemoryManagers)(Type value, MemoryManagers managers, AllocatorType allocator=__managedAllocator)
+			if (is(Type==class) || is(Type==interface))
+			in {
+				assert(value !is null, "Class instance must not be null.");
+				assert(allocator !is null, "Allocator instance must not be null");
+			} body {
+			managed!Type ret;
+			
+			ManagedInternalData.create(ret, managers, allocator);
+			ret.__managedInternal.value = value;
+			
+			return ret;
 		}
 		
-		static managed!MyType opCall(MemoryManagerST)(MyType* from, MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
-			import std.traits : ForeachType, Unqual;
+		/// Constructs managed!T where T is a struct or basic type
+		managed!Type opCall(MemoryManagers)(Type value, MemoryManagers managers, AllocatorType allocator=__managedAllocator)
+			if (isBasicType!Type || is(Type == struct))
+			in {
+				assert(allocator !is null, "Allocator instance must not be null");
+			} body {
+			managed!Type ret;
 			
-			managed!MyType ret;
-			ret.__internal.allocator = alloc;
-			static if (is(MemoryManagerST : IMemoryManager)) {
-				ret.__internal.memmgrs = memmgr.dup(alloc);
-			} else {
-				ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-			}
+			ManagedInternalData.create(ret, managers, allocator);
+			ret.__managedInternal.value = value;
 			
-			ret.__internal.selfReUpdate = from;
-			ret.__internal.memmgrs.opInc();
 			return ret;
 		}
-    } else static if (is(MyType == class) || is(MyType == interface)) {
-        version(Windows) {
-            static if (is(MyType == class) && is(MyType : IUnknown)) {
-                private enum ___IUKCMT = true;
-                
-                static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr=managers(), IAllocator alloc=theAllocator()) {
-                    import std.traits : ForeachType;
-                    
-                    managed!MyType ret;
-                    ret.__internal.allocator = alloc;
-                    static if (is(MemoryManagerST : IMemoryManager)) {
-                        ret.__internal.memmgrs = memmgr.dup(alloc);
-                    } else {
-                        ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-                    }
-                    
-                    ret.__internal.self = from;
-                    
-                    ret.__internal.memmgrs.opInc();
-                    return ret;
-                }
-            }
-        }
-        
-        static if (!is(___IUKCMT)) {            
-            static managed!MyType opCall(MemoryManagerST)(Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-                return opCall(null, managers(), ownership, alloc);
-            }
-            
-            static managed!MyType opCall(MemoryManagerST)(MyType from, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-                return opCall(from, managers(), ownership, alloc);
-            }
-            
-            static managed!MyType opCall(MemoryManagerST, ArgsT...)(MemoryManagerST memmgr, Tuple!ArgsT args, IAllocator alloc=theAllocator()) {
-                managed!MyType ret;
-                ret.__internal.allocator = alloc;
-                static if (is(MemoryManagerST : IMemoryManager)) {
-                    ret.__internal.memmgrs = memmgr.dup(alloc);
-                } else {
-                    ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-                }
-
-                ret.__internal.self = alloc.make!MyType(args.expand);
-                
-                ret.__internal.memmgrs.opInc();
-                return ret;
-            }
-            
-            static if (__traits(compiles, {IAllocator alloc; MyType v, v2; v2 = v.dup(alloc);})) {
-                static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, Ownership ownership = Ownership.Primary, IAllocator alloc=theAllocator()) {
-                    managed!MyType ret;
-                    ret.__internal.allocator = alloc;
-                    static if (is(MemoryManagerST : IMemoryManager)) {
-                        ret.__internal.memmgrs = memmgr.dup(alloc);
-                    } else {
-                        ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-                    }
-                    
-                    // duplicates if needed
-
-                    if (ownership) {
-						if (from is null) {
-							static if (__traits(compiles, {ret.__internal.self = alloc.make!MyType;})) {
-								ret.__internal.self = alloc.make!MyType;
-							} else {
-								return managed!MyType.init;
-							}
-						} else {
-                        	ret.__internal.self = from.dup(alloc);
-						}
-                    } else {
-                        ret.__internal.self = from;
-                    }
-                    
-                    ret.__internal.memmgrs.opInc();
-                    return ret;
-                }
-            } else {
-                static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, Ownership ownership = Ownership.Secondary, IAllocator alloc=theAllocator()) {
-                    assert(ownership == Ownership.Secondary, "Secondary only for classes that do not support .dup(IAllocator)");
-
-                    managed!MyType ret;
-                    ret.__internal.allocator = alloc;
-                    static if (is(MemoryManagerST : IMemoryManager)) {
-                        ret.__internal.memmgrs = memmgr.dup(alloc);
-                    } else {
-                        ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-                    }
-
-                    ret.__internal.self = from;
-                    ret.__internal.memmgrs.opInc();
-                    return ret;
-                }
-            }
-        }
-    } else static if (is(MyType == struct) || is(MyType == union)) {
-        static managed!MyType opCall(MemoryManagerST)(MyType from, MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
-            import std.traits : ForeachType;
-            
-            managed!MyType ret;
-            ret.__internal.allocator = alloc;
-            static if (is(MemoryManagerST : IMemoryManager)) {
-                ret.__internal.memmgrs = memmgr.dup(alloc);
-            } else {
-                ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-            }
-            
-            ret.__internal.self = alloc.make!SPointer;
-            ret.__internal.self.__self = from;
-            
-            ret.__internal.memmgrs.opInc();
-            return ret;
-        }
-
-		static managed!MyType opCall(MemoryManagerST, ArgsT...)(MemoryManagerST memmgr, Tuple!ArgsT args, IAllocator alloc=theAllocator()) {
-			import std.traits : ForeachType;
+		
+		/// Constructs managed!T where T is an array with elements of class/struct/basic types
+		managed!Type opCall(MemoryManagers)(Type value, MemoryManagers managers, AllocatorType allocator=__managedAllocator)
+			if (isArray!Type)
+			in {
+				assert(value.length > 0, "Value instance must not be empty.");
+				assert(allocator !is null, "Allocator instance must not be null");
+			} body {
+			managed!Type ret;
 			
-			managed!MyType ret;
-			ret.__internal.allocator = alloc;
-			static if (is(MemoryManagerST : IMemoryManager)) {
-				ret.__internal.memmgrs = memmgr.dup(alloc);
-			} else {
-				ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-			}
+			ManagedInternalData.create(ret, managers, allocator);
+			ret.__managedInternal.value = value;
 			
-			ret.__internal.self = alloc.make!SPointer;
-			ret.__internal.self.__self = MyType(args.expand);
-			
-			ret.__internal.memmgrs.opInc();
 			return ret;
 		}
-
-		static managed!MyType opCall(MemoryManagerST)(MemoryManagerST memmgr, IAllocator alloc=theAllocator()) {
-			import std.traits : ForeachType;
+		
+		/// Constructs managed!T where T is a pointer to a class/struct/array/basic type
+		managed!Type opCall(MemoryManagers)(Type* value, MemoryManagers managers, AllocatorType allocator=__managedAllocator)
+		in {
+			assert(value !is null, "Value instance must not be null.");
+			assert(allocator !is null, "Allocator instance must not be null");
+		} body {
+			managed!Type ret;
 			
-			managed!MyType ret;
-			ret.__internal.allocator = alloc;
-			static if (is(MemoryManagerST : IMemoryManager)) {
-				ret.__internal.memmgrs = memmgr.dup(alloc);
-			} else {
-				ret.__internal.memmgrs = alloc.make!(MemoryManager!(MyType, MemoryManagerST))(alloc, memmgr);
-			}
+			ManagedInternalData.create(ret, managers, allocator);
+			ret.__managedInternal.selfReUpdate = value;
 			
-			ret.__internal.self = alloc.make!SPointer;
-			ret.__internal.memmgrs.opInc();
 			return ret;
 		}
-    }
-    
-    // lazy but perhaps that auto can change to scope?
-    // would work still since opScopeAssign would be nullified
-    
-    @property auto __self() {
-		if (__internal.selfReUpdate !is null)
-			__internal.self = *__internal.selfReUpdate;
-        return __internal.self;
-    }
-    
-    alias __self this;
+		
+		/// Constructs managed!T where T is a struct or class type with arguments
+		managed!Type opCall(MemoryManagers, ArgsT...)(MemoryManagers managers, Tuple!ArgsT args, AllocatorType allocator=__managedAllocator)
+			if (is(Type == class) || is(Type == struct))
+			in {
+				assert(allocator !is null, "Allocator instance must not be null");
+			} body {
+			managed!Type ret;
+			
+			ManagedInternalData.create(ret, managers, allocator);
+			
+			static if (is(Type == class)) {
+				ret.__managedInternal.value = allocator.make!Type(args.expand);
+			} else static if (is(Type == struct)) {
+				ret.__managedInternal.value = Type(args.expand);
+			}
+			
+			return ret;
+		}
+	}
+	
+	// /\ Construction /\
+	// \/ Type conversions \/
+	
+	static if (!(is(Type == const) || is(Type == immutable))) {
+		/// Adds const
+		managed!(const(Type)) opCast(Type2)() if (is(Type2==managed!(const(Type)))) {
+			managed!(immutable(Type)) ret;
+			
+			__managedInternal.copyInto(ret);
+			
+			return ret;
+		}
+		
+		/// Adds immutable
+		managed!(immutable(Type)) opCast(Type2)() if (is(Type2==managed!(immutable(Type)))) {
+			managed!(immutable(Type)) ret;
+			
+			__managedInternal.copyInto(ret);
+			
+			return ret;
+		}
+	}
+	
+	static if (is(Type==class) || is(Type==interface)) {
+		/// Casts class to a more generic type
+		managed!(CopyConstness!(Type, Type2)) opCast(Type2:managed!Type2)() if (is(Type:Type2)) {
+			managed!(CopyConstness!(Type, Type2)) ret;
+			
+			__managedInternal.copyInto(ret);
+			
+			if (__managedInternal.selfReUpdate !is null) {
+				ret.__managedInternal.selfReUpdate = cast(Type2*)__managedInternal.selfReUpdate;
+			} else {
+				ret.__managedInternal.value = cast(Type2)__managedInternal.value;
+			}
+			
+			return ret;
+		}
+	} else static if (is(Type:TypeIf_Class[], TypeIf_Class) && (is(TypeIf_Class == class) || is(TypeIf_Class==interface))) {
+		/// Casts an array of classes to a more generic class type
+		managed!(CopyConstness!(Type, Type2)[]) opCast(Type2:managed!(Type2[]))() if (is(Type:Type2)) {
+			managed!(CopyConstness!(Type, Type2)[]) ret;
+			
+			__managedInternal.copyInto(ret);
+			
+			return ret;
+		}
+	} else static if (isBasicType!Type || is(Type == struct)) {
+		/// Casts a basic type to a similar (aka same sized) type
+		managed!(CopyConstness!(Type, Type2)) opCast(Type2:managed!Type2)()
+		if ((isBasicType!Type2 || is(Type2 == struct)) && Type2.sizeof == Type.sizeof) {
+			managed!(CopyConstness!(Type, Type2)) ret;
+			
+			__managedInternal.copyInto(ret);
+			
+			return ret;
+		}
+	} else static if (is(Type:TypeIf_StructBasic[], TypeIf_StructBasic) && (isBasicType!TypeIf_StructBasic || is(TypeIf_StructBasic == struct))) {
+		/// Casts an array of structs or basic types to a similar (aka same sized) type
+		managed!(CopyConstness!(TypeIf_StructBasic, Type2)[]) opCast(Type2:managed!(Type2[]))()
+		if ((isBasicType!Type2 || is(Type2 == struct)) && Type2.sizeof == TypeIf_StructBasic.sizeof) {
+			managed!(CopyConstness!(TypeIf_StructBasic, Type2)[]) ret;
+			
+			__managedInternal.copyInto(ret);
+			
+			return ret;
+		}
+	}
+	
+	// /\ Type convesions /\
+	// \/ Reference counting stuff \/
+	
+	this(this) {
+		if (__managedInternal.managers is null)
+			return;
+		
+		__managedInternal.managers.onIncrement();
+		
+		static if (__traits(compiles, {__managedInternal.value.onIncrement();})) {
+			__managedInternal.value.onIncrement();
+		}
+		
+		version(Windows) {
+			static if (is(MyType == class) && is(MyType : IUnknown)) {
+				__managedInternal.value.AddRef();
+			}
+		}
+	}
+	
+	~this() {
+		if (__managedInternal.managers is null)
+			return;
+		
+		__managedInternal.managers.onDecrement();
+		
+		static if (__traits(compiles, {__managedInternal.value.onDecrement();})) {
+			__managedInternal.value.onDecrement();
+		}
+		
+		bool beenReleased;
+		version(Windows) {
+			static if ((is(Type==class) || is(Type==interface)) && is(Type:IUnknown)) {
+				beenReleased = __managedInternal.value.Release() == 0;
+			}
+		}
+		
+		if (beenReleased) {
+			__managedInternal.allocator.dispose(__managedInternal.managers);
+		} else if (__managedInternal.managers.shouldDeallocate) {
+			if (__managedInternal.selfReUpdate is null && !__managedInternal.managers.typeShouldNeverDeallocate) {
+				static if (is(Type==struct) || isBasicType!Type) {
+				} else static if (isDynamicArray!Type) {
+					__managedInternal.allocator.dispose(cast(Unqual!(ForeachType!Type)[])__managedInternal.value);
+				} else static if (is(Type == class) || is(Type == interface)) {
+					__managedInternal.allocator.dispose(__managedInternal.value);
+				}
+			}
+			__managedInternal.allocator.dispose(__managedInternal.managers);
+		} else {
+			// do nothing
+			// the default behaviour from shouldDeallocate if it does not on call is true
+		}
+	}
+	
+	// /\ Reference counting stuff /\
+	// \/ Getters \/
+	
+	static if (isArray!Type) {
+		
+	}
+	
+	alias __managedGet this;
+	scope ref Type __managedGet() {
+		if (__managedInternal.selfReUpdate is null)
+			return __managedInternal.value;
+		else return *__managedInternal.selfReUpdate;
+	}
+	
+	// /\ Getters /\
+	// \/ Internal stuff \/
+	
+	private {
+		enum ManagedIsShared = is(Type == shared);
+		ManagedInternalData __managedInternal;
+		
+		struct ManagedInternalData {
+			Type value;
+			Type* selfReUpdate;
+			
+			static if (ManagedIsShared) {
+				shared(ISharedAllocator) allocator;
+				shared(ISharedMemoryManager) managers;
+				
+				static void create(MemoryManagerST)(ref managed!Type ctx, MemoryManagerST managers, shared(ISharedAllocator) allocator) {
+					ctx.__managedInternal.allocator = allocator;
+					
+					static if (is(MemoryManagerST : IMemoryManager)) {
+						ctx.__managedInternal.managers = managers.dup(alloc);
+					} else {
+						ctx.__managedInternal.managers = allocator.make!(MemoryManager!(Type, MemoryManagerST))
+							(allocator, managers);
+					}
+					
+					ctx.__managedInternal.managers.onIncrement();
+				}
+			} else {
+				IAllocator allocator;
+				IMemoryManager managers;
+				
+				static void create(MemoryManagerST)(ref managed!Type ctx, MemoryManagerST managers, IAllocator allocator) {
+					ctx.__managedInternal.allocator = allocator;
+					
+					static if (is(MemoryManagerST : IMemoryManager)) {
+						ctx.__managedInternal.managers = managers.dup(alloc);
+					} else {
+						ctx.__managedInternal.managers = allocator.make!(MemoryManager!(Type, MemoryManagerST))
+							(allocator, managers);
+					}
+					
+					ctx.__managedInternal.managers.onIncrement();
+				}
+			}
+			
+			void copyInto(Into)(ref managed!Into destination) {
+				destination.__managedInternal.value = cast(Into)value;
+				destination.__managedInternal.selfReUpdate = cast(Into*)selfReUpdate;
+				destination.__managedInternal.allocator = allocator;
+				destination.__managedInternal.managers = managers;
+				destination.__managedInternal.managers.onIncrement();
+			}
+		}
+	}
+	
+	// /\ Internal stuff /\
+}
+
+///
+interface IMemoryManager {
+	IMemoryManager dup(IAllocator alloc);
+	
+	/**
+	 * on ~this() call
+	 */
+	bool shouldDeallocate() @safe nothrow;
+	
+	/**
+	 * Is the type even allowed to be deallocated?
+	 */
+	bool typeShouldNeverDeallocate() @safe nothrow;
+	
+	/**
+	 * this()
+	 */
+	void onIncrement() @safe nothrow;
+	/**
+	 * ~this()
+	 */
+	void onDecrement() @safe nothrow;
+}
+
+///
+interface ISharedMemoryManager {
+	shared(ISharedMemoryManager) dup(shared(ISharedAllocator) alloc) shared;
+	
+	
+	/**
+	 * Is the type even allowed to be deallocated?
+	 */
+	bool typeShouldNeverDeallocate() @safe nothrow shared;
+	
+	/**
+	 * on ~this() call
+	 */
+	bool shouldDeallocate() @safe nothrow shared;
+	
+	/**
+	 * this()
+	 */
+	void onIncrement() @safe nothrow shared;
+	/**
+	 * ~this()
+	 */
+	void onDecrement() @safe nothrow shared;
+}
+
+///
+struct ReferenceCountedManager {
+	private import core.atomic : atomicOp;
+	shared(int) counter;
+	
+	@safe nothrow {
+		bool shouldDeallocate() { return counter <= 0; }
+		bool shouldDeallocate() shared { return counter <= 0; }
+		
+		void onIncrement() { atomicOp!"+="(counter, 1); }
+		void onIncrement() shared { atomicOp!"+="(counter, 1); }
+		
+		void onDecrement() { atomicOp!"-="(counter, 1); }
+		void onDecrement() shared { atomicOp!"-="(counter, 1); }
+	}
+}
+
+///
+struct NeverDeallocateManager {
+	bool typeShouldNeverDeallocate() @safe nothrow {
+		return true;
+	}
+	
+	bool typeShouldNeverDeallocate() @safe nothrow shared {
+		return true;
+	}
 }
 
 private {
-    string managersAliasFixUp(MyType, T...)() pure {
-        import std.traits : moduleName;
-        import std.conv : text;
-        string ret, retI;
-        
-        ret ~= "alias O = Tuple!(";
-        
-        foreach(i, U; T) {
-            retI ~= "static import TI_" ~ i.text ~ " = " ~ moduleName!(U) ~ ";\n";
-            
-            static if (__traits(compiles, U!MyType)) {
-                ret ~= "TI_" ~ i.text ~ "." ~ __traits(identifier, U) ~ "!MyType, ";
-            } else {
-                ret ~= "TI_" ~ i.text ~ "." ~ U.stringof ~ ", ";
-            }
-        }
-        
-        return retI ~ ret ~ ");";
-    }
-    
-    final class MemoryManager(MyType, S) : IMemoryManager {
-        S __mgrs, __origMgrs;
-
-        static if (__traits(compiles, {size_t v = S.managers.length;}) && S.managers.length > 0) {
-            enum TLEN = S.managers.length;
-        } else static if (!__traits(compiles, {size_t v = S.managers.length;}) && !is(S.managers == void)) {
-            enum TLEN = 1;
-        } else {
-            enum TLEN = 0;
-        }
-
-        bool[TLEN] __doDeAllocateMemMgrs;
-        IAllocator __alloc;
-        
-        this(IAllocator alloc, S s) {
-            __origMgrs = s;
-            __mgrs = s;
-            __alloc = alloc;
-
-            static if (TLEN >= 1) {
-                foreach(i, ref mgr; __mgrs.managers) {
-                    static if (is(typeof(mgr) == class)) {
-                        if (mgr is null) {
-                            mgr = alloc.make!(typeof(mgr));
-                            __doDeAllocateMemMgrs[i] = true;
-                        }
-                    }
-                    
-                    static if (__traits(compiles, {mgr.init(alloc);})) {
-                        mgr.init(alloc);
-                    }
-                }
-            }
-        }
-        
-        bool opShouldDeallocate() {
-            bool hadOne;
-
-            static if (TLEN >= 1) {
-                foreach(ref mgr; __mgrs.managers) {
-                    static if (__traits(compiles, {bool ret = mgr.opShouldDeallocate();})) {
-                        bool ret = mgr.opShouldDeallocate();
-                        hadOne = true;
-                        
-                        if (ret)
-                            return ret;
-                    }
-                }
-            }
-            
-            return !hadOne;
-        }
-        
-        void opInc() {
-            static if (TLEN >= 1) {
-                foreach(ref mgr; __mgrs.managers) {
-                    static if (__traits(compiles, {mgr.opInc();})) {
-                        mgr.opInc();
-                    }
-                }
-            }
-        }
-        
-        void opDec() {
-            static if (TLEN >= 1) {
-                foreach(ref mgr; __mgrs.managers) {
-                    static if (__traits(compiles, {mgr.opDec();})) {
-                        mgr.opDec();
-                    }
-                }
-            }
-        }
-        
-        ~this() {
-            static if (TLEN >= 1) {
-                foreach(i, ref mgr; __mgrs.managers) {
-                    static if (is(typeof(mgr) == class)) {
-                        if (__doDeAllocateMemMgrs[i]) {
-                            __alloc.dispose(mgr);
-                        }
-                    }
-                }
-            }
-        }
-        
-        IMemoryManager dup(IAllocator alloc) {
-            return alloc.make!(MemoryManager!(MyType, S))(alloc, __origMgrs);
-        }
-    }
-    
-    struct MemoryManagerS(Type) {
-        Type managers;
-        alias managers this;
-
-        this(Type v) {
-            managers = v;
-        }
-    }
-}
-
-/// Provides a basic but resonable ref counted manager
-struct ManagedRefCount {
-    uint refCount;
-    
-    void opInc() {
-        refCount++;
-    }
-    
-    void opDec() {
-        refCount--;
-    }
-    
-    bool opShouldDeallocate() {
-		return refCount == 0;
-    }
-}
-
-/// Provides a basic prevention mechanism for deallocation
-struct ManagedNoDeallocation {
-    bool opShouldDeallocate() {
-        return false;
-    }
+	struct MemoryManagerS(Type) {
+		Type managers;
+		alias managers this;
+		
+		this(Type v) {
+			managers = v;
+		}
+	}
+	
+	final class MemoryManager(UserType, UserManagers) : IMemoryManager if (!is(UserType == shared) &&
+		isValidUserManagers!(UserType, UserManagers)) {
+		
+		UserManagers managers, originalManagers;
+		bool[UserManagers.length] doDeAllocateMemMgrs;
+		IAllocator allocator;
+		
+		this(IAllocator allocator, UserManagers managers) {
+			this.allocator = allocator;
+			this.managers = managers;
+			this.originalManagers = managers;
+			
+			foreach(i, ref manager; managers) {
+				static if (is(typeof(manager) == class)) {
+					if (manager is null) {
+						manager = allocator.make!(typeof(manager));
+						doDeAllocateMemMgrs[i] = true;
+					}
+				}
+			}
+		}
+		
+		bool shouldDeallocate() @safe nothrow {
+			bool hadOne;
+			
+			static if (UserManagers.length >= 1) {
+				foreach(ref manager; managers) {
+					static if (__traits(compiles, {bool ret = manager.shouldDeallocate();})) {
+						bool ret = manager.shouldDeallocate();
+						hadOne = true;
+						
+						if (ret)
+							return ret;
+					}
+				}
+			}
+			
+			return !hadOne;
+		}
+		
+		bool typeShouldNeverDeallocate() @safe nothrow {
+			bool hadOne;
+			
+			static if (UserManagers.length >= 1) {
+				foreach(ref manager; managers) {
+					static if (__traits(compiles, {bool ret = manager.typeShouldNeverDeallocate();})) {
+						bool ret = manager.typeShouldNeverDeallocate();
+						hadOne = true;
+						
+						if (!ret)
+							return ret;
+					}
+				}
+			}
+			
+			return hadOne;
+		}
+		
+		void onIncrement() @safe nothrow {
+			foreach(ref manager; managers) {
+				static if (__traits(compiles, {manager.onIncrement();})) {
+					manager.onIncrement();
+				}
+			}
+		}
+		
+		void onDecrement() @safe nothrow {
+			foreach(ref manager; managers) {
+				static if (__traits(compiles, {manager.onDecrement();})) {
+					manager.onDecrement();
+				}
+			}
+		}
+		
+		IMemoryManager dup(IAllocator alloc) {
+			return alloc.make!(MemoryManager!(UserType, UserManagers))(alloc, originalManagers);
+		}
+		
+		~this() {
+			foreach(i, ref manager; managers) {
+				static if (is(typeof(manager) == class)) {
+					if (doDeAllocateMemMgrs[i]) {
+						allocator.dispose(manager);
+					}
+				}
+			}
+		}
+	}
+	
+	final class MemoryManager(UserType, UserManagers) : ISharedMemoryManager if (is(UserType == shared) &&
+		isValidUserManagers!(UserType, UserManagers)) {
+		
+		UserManagers managers, originalManagers;
+		bool[UserManagers.length] doDeAllocateMemMgrs;
+		shared(ISharedAllocator) allocator;
+		
+		this(shared(ISharedAllocator) allocator, UserManagers managers) shared {
+			this.allocator = allocator;
+			this.managers = managers;
+			this.originalManagers = managers;
+			
+			foreach(i, ref manager; managers) {
+				static if (is(typeof(manager) == class)) {
+					if (manager is null) {
+						manager = allocator.make!(typeof(manager));
+						doDeAllocateMemMgrs[i] = true;
+					}
+				}
+			}
+		}
+		
+		bool shouldDeallocate() @safe nothrow shared {
+			bool hadOne;
+			
+			static if (UserManagers.length >= 1) {
+				foreach(ref manager; managers) {
+					static if (__traits(compiles, {bool ret = manager.shouldDeallocate();})) {
+						bool ret = manager.shouldDeallocate();
+						hadOne = true;
+						
+						if (!ret)
+							return ret;
+					}
+				}
+			}
+			
+			return !hadOne;
+		}
+		
+		
+		bool typeShouldNeverDeallocate() @safe nothrow shared {
+			bool hadOne;
+			
+			static if (UserManagers.length >= 1) {
+				foreach(ref manager; managers) {
+					static if (__traits(compiles, {bool ret = manager.typeShouldNeverDeallocate();})) {
+						bool ret = manager.typeShouldNeverDeallocate();
+						hadOne = true;
+						
+						if (ret)
+							return ret;
+					}
+				}
+			}
+			
+			return hadOne;
+		}
+		
+		void onIncrement() @safe nothrow shared {
+			foreach(ref manager; managers) {
+				static if (__traits(compiles, {manager.onIncrement();})) {
+					manager.onIncrement();
+				}
+			}
+		}
+		
+		void onDecrement() @safe nothrow shared {
+			foreach(ref manager; managers) {
+				static if (__traits(compiles, {manager.onDecrement();})) {
+					manager.onDecrement();
+				}
+			}
+		}
+		
+		shared(ISharedMemoryManager) dup(shared(ISharedAllocator) alloc) shared {
+			return alloc.make!(shared(MemoryManager!(UserType, UserManagers)))(alloc, originalManagers);
+		}
+		
+		~this() shared {
+			foreach(i, ref manager; managers) {
+				static if (is(typeof(manager) == class)) {
+					if (doDeAllocateMemMgrs[i]) {
+						allocator.dispose(manager);
+					}
+				}
+			}
+		}
+	}
+	
+	bool isValidUserManagers(UserType, Ts)() pure {
+		bool ret = true;
+		
+		foreach(T; Ts.Types) {
+			static if ((is(UserType == shared) == is(T == shared)) && !(is(T == class) || is(T == struct))) {
+				ret = false;
+			}
+		}
+		
+		return ret;
+	}
 }

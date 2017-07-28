@@ -25,8 +25,8 @@ private
     char[] tCopyBuffer;
 
     static this() {
-        import std.experimental.allocator : processAllocator;
-        _allocatedBy = processAllocator();
+        import std.experimental.allocator : theAllocator;
+		_allocatedBy = theAllocator();
 
         charBuffer = _allocatedBy.makeArray!char(1024);
         charIndexBuffer = _allocatedBy.makeArray!size_t(128);

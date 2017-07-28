@@ -266,7 +266,7 @@ final class OSFileEntry : IFileEntry {
             buff = f.rawRead(buff);
 
             f.close;
-            return managed!(ubyte[])(buff, managers(), Ownership.Primary, provider.allocator);
+            return managed!(ubyte[])(buff, managers(ReferenceCountedManager()), provider.allocator);
         }
 
         ///
@@ -309,13 +309,13 @@ final class OSFileEntry : IFileEntry {
     managed!(ubyte[]) opSlice() {
         if (mmfile is null)
             createMemoryMapped();
-        return managed!(ubyte[])(cast(ubyte[])mmfile.opSlice(), managers!(ubyte[], ManagedNoDeallocation), Ownership.Secondary, alloc);
+        return managed!(ubyte[])(cast(ubyte[])mmfile.opSlice(), managers(NeverDeallocateManager()), alloc);
     }
     
     managed!(ubyte[]) opSlice(size_t i1, size_t i2) {
         if (mmfile is null)
             createMemoryMapped();
-        return managed!(ubyte[])(cast(ubyte[])mmfile.opSlice(i1, i2), managers!(ubyte[], ManagedNoDeallocation), Ownership.Secondary, alloc);
+		return managed!(ubyte[])(cast(ubyte[])mmfile.opSlice(i1, i2), managers(NeverDeallocateManager()), alloc);
     }
     
     ubyte opIndex(size_t i) {
