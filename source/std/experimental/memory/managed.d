@@ -209,6 +209,23 @@ struct managed(Type) {
 			
 			return ret;
 		}
+
+		/// Unsafe-ish dynamic cast, check if is null!
+		managed!(CopyConstness!(Type, Type2)) opCast(Type2:managed!Type2)() if (!is(Type:Type2) && (is(Type2 == interface) || is(Type2 == class))) {
+			managed!(CopyConstness!(Type, Type2)) ret;
+
+			if (CopyConstness!(Type, Type2) v = cast(CopyConstness!(Type, Type2))__managedGet()) {
+				__managedInternal.copyInto(ret);
+				
+				if (__managedInternal.selfReUpdate !is null) {
+					ret.__managedInternal.selfReUpdate = cast(Type2*)__managedInternal.selfReUpdate;
+				} else {
+					ret.__managedInternal.value = cast(Type2)__managedInternal.value;
+				}
+			}
+
+			return ret;
+		}
 	} else static if (is(Type:TypeIf_Class[], TypeIf_Class) && (is(TypeIf_Class == class) || is(TypeIf_Class==interface))) {
 		/// Casts an array of classes to a more generic class type
 		managed!(CopyConstness!(Type, Type2)[]) opCast(Type2:managed!(Type2[]))() if (is(Type:Type2)) {
@@ -330,7 +347,7 @@ struct managed(Type) {
 					static if (is(MemoryManagerST : IMemoryManager)) {
 						ctx.__managedInternal.managers = managers.dup(alloc);
 					} else {
-						ctx.__managedInternal.managers = allocator.make!(MemoryManager!(Type, MemoryManagerST))
+						ctx.__managedInternal.managers = allocator.make!(shared(MemoryManager!(Type, MemoryManagerST)))
 							(allocator, managers);
 					}
 					

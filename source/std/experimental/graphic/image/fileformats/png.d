@@ -1427,7 +1427,7 @@ struct PNGFileFormat(Color) if (isColor!Color || is(Color == HeadersOnly)) {
             
 			GC.enable;
 			allocator.dispose(buffer);
-            return managed!(ubyte[])(ret, managers(ReferenceCountedManager(), NeverDeallocateManager()), alloc);
+            return managed!(ubyte[])(ret, managers(ReferenceCountedManager()), alloc);
         }
         
         void writeChunk_IHDR(ubyte[] buffer, void delegate(char[4], ubyte[]) write) @trusted {

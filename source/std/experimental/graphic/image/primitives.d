@@ -37,7 +37,7 @@ bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T 
 	import std.traits : ReturnType, isIntegral, isUnsigned, Parameters;
     import std.experimental.graphic.color : isColor;
 
-    static if (__traits(compiles, {Image image = Image.init;}) && is(Image == class) || is(Image == interface) || is(Image == struct)) {
+	static if (__traits(compiles, {Image image = Image.init;}) && is(Image == class) || is(Image == interface) || is(Image == struct)) {
         // check that we can get the color type
         static if (!__traits(compiles, {alias Color = ReturnType!(Image.getPixel);}))
             return false;
@@ -45,10 +45,10 @@ bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T 
             // make the color type easily worked on
             alias Color = ReturnType!(Image.getPixel);
 
-            static if (!isColor!Color)
+			static if (!isColor!Color)
                 return false;
             else {
-               static if (!__traits(compiles, {
+				static if (!__traits(compiles, {
                     Image image = void;
                     Color c = image.getPixel(0, 0);
                     image.setPixel(0, 0, c);
@@ -58,13 +58,7 @@ bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T 
                     bool didResize = image.resize(2, 2);
                 })) {
                     // mutation, is it possible?
-                    return false;
-                } else static if (!__traits(compiles, {
-                    import std.experimental.allocator : theAllocator;
-                    auto theImage = new Image(1, 1, theAllocator());
-                }) && !(is(SwappableImage!Color == Image) || is(ImageStorage!Color == Image))) {
-                    // check the constructor is valid
-                    return false;
+					return false;
 				} else static if(!(isIntegral!(ReturnType!(Image.width)) && isUnsigned!(ReturnType!(Image.width)) && is(ReturnType!(Image.width) == ReturnType!(Image.height)))) {
 					// length must be unsigned integer (of some kind)
 					return false;
@@ -82,7 +76,7 @@ bool isImage(Image)() pure if (!isPointer!Image && !__traits(compiles, {alias T 
             }
         }
     } else {
-        return false;
+		return false;
     }
 }
 

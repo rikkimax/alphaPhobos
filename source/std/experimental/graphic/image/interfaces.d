@@ -9,7 +9,7 @@
 module std.experimental.graphic.image.interfaces;
 import std.experimental.graphic.image.primitives;
 import std.experimental.graphic.color;
-import std.experimental.allocator : IAllocator, theAllocator;
+import std.experimental.allocator : IAllocator, ISharedAllocator, theAllocator, processAllocator;
 import std.traits : isPointer, PointerTarget, isUnsigned;
 
 /**
@@ -28,10 +28,14 @@ import std.traits : isPointer, PointerTarget, isUnsigned;
 interface ImageStorage(Color) if (isColor!Color) {
     @property {
         /// Gets the width of the image
-        size_t width() @nogc nothrow @safe;
+		size_t width() @nogc nothrow @safe;
+		/// Ditto
+		size_t width() @nogc nothrow @safe shared;
         
         /// Gets the height of the image
-        size_t height() @nogc nothrow @safe;
+		size_t height() @nogc nothrow @safe;
+		/// Ditto
+		size_t height() @nogc nothrow @safe shared;
     }    
 
     /**
@@ -47,7 +51,9 @@ interface ImageStorage(Color) if (isColor!Color) {
      * Returns:
      *      The pixel color at point.
      */
-    Color getPixel(size_t x, size_t y) @nogc @safe;
+	Color getPixel(size_t x, size_t y) @nogc @safe;
+	/// Ditto
+	Color getPixel(size_t x, size_t y) @nogc @safe shared;
 
     /**
      * Sets a pixel given the position.
@@ -60,7 +66,9 @@ interface ImageStorage(Color) if (isColor!Color) {
      * Throws:
      *      If $(D x) or $(D y) coordinate is outside of the image boundries.
      */
-    void setPixel(size_t x, size_t y, Color value) @nogc @safe;
+	void setPixel(size_t x, size_t y, Color value) @nogc @safe;
+	/// Ditto
+	void setPixel(size_t x, size_t y, Color value) @nogc @safe shared;
 
     /**
      * Get a pixel given the position.
@@ -78,7 +86,9 @@ interface ImageStorage(Color) if (isColor!Color) {
      * See_Also:
      *      getPixel
      */
-    Color opIndex(size_t x, size_t y) @nogc @safe;
+	Color opIndex(size_t x, size_t y) @nogc @safe;
+	/// Ditto
+	Color opIndex(size_t x, size_t y) @nogc @safe shared;
 
     /**
      * Sets a pixel given the position.
@@ -94,7 +104,9 @@ interface ImageStorage(Color) if (isColor!Color) {
      * See_Also:
      *      setPixel
      */
-    void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe;
+	void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe;
+	/// Ditto
+	void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe shared;
 
     /**
      * Resizes the data store.
@@ -108,7 +120,9 @@ interface ImageStorage(Color) if (isColor!Color) {
      * Returns:
      *      If the data store was successfully resized
      */
-    bool resize(size_t newWidth, size_t newHeight) @safe;
+	bool resize(size_t newWidth, size_t newHeight) @safe;
+	/// Ditto
+	bool resize(size_t newWidth, size_t newHeight) @safe shared;
 }
 
 /**
@@ -135,7 +149,9 @@ interface ImageStorage(Color) if (isColor!Color) {
 interface ImageStorageOffset(Color) {
     @property {
         /// The number of pixels in total
-        size_t count() @nogc nothrow @safe;
+		size_t count() @nogc nothrow @safe;
+		/// Ditto
+		size_t count() @nogc nothrow @safe shared;
     }
 
     /**
@@ -150,7 +166,9 @@ interface ImageStorageOffset(Color) {
      * Returns:
      *      The pixel color at point.
      */
-    Color getPixelAtOffset(size_t offset) @nogc @safe;
+	Color getPixelAtOffset(size_t offset) @nogc @safe;
+	/// Ditto
+	Color getPixelAtOffset(size_t offset) @nogc @safe shared;
 
     /**
      * Set a pixel given the position.
@@ -162,7 +180,9 @@ interface ImageStorageOffset(Color) {
      * Throws:
      *      If $(D offset) coordinate is outside of the image boundary.
      */
-    void setPixelAtOffset(size_t offset, Color value) @nogc @safe;
+	void setPixelAtOffset(size_t offset, Color value) @nogc @safe;
+	/// Ditto
+	void setPixelAtOffset(size_t offset, Color value) @nogc @safe shared;
 
     /**
      * Get a pixel given the position.
@@ -179,7 +199,9 @@ interface ImageStorageOffset(Color) {
      * See_Also:
      *      getPixelAtOffset
      */
-    Color opIndex(size_t offset) @nogc @safe;
+	Color opIndex(size_t offset) @nogc @safe;
+	/// Ditto
+	Color opIndex(size_t offset) @nogc @safe shared;
 
     /**
      * Set a pixel given the position.
@@ -194,7 +216,9 @@ interface ImageStorageOffset(Color) {
      * See_Also:
      *      setPixelAtOffset
      */
-    void opIndexAssign(Color value, size_t offset) @nogc @safe;
+	void opIndexAssign(Color value, size_t offset) @nogc @safe;
+	/// Ditto
+	void opIndexAssign(Color value, size_t offset) @nogc @safe shared;
 }
 
 /**
@@ -695,6 +719,7 @@ struct PixelPoint(Color) if (isColor!Color) {
 
 /// Wraps a struct image storage type into a class
 final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
+	import std.traits : Unqual;
     alias Color = ImageColor!Impl;
 
     // If I could make this private, I would...
@@ -702,32 +727,56 @@ final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == st
         swpInst = instance;
     }
 
-    // Ditto
-    this()(size_t width, size_t height, IAllocator allocator = theAllocator()) @trusted {
-        import std.experimental.allocator : make;
-        swpInst = allocator.make!Impl(width, height, allocator);
-        _alloc = allocator;
-    }
+	static if (is(Impl == shared) && __traits(compiles, {new shared Impl(0, 0, cast(shared(ISharedAllocator))null);})) {
+		// Ditto
+		this(size_t width, size_t height, shared(ISharedAllocator) allocator = processAllocator()) @trusted shared {
+			import std.experimental.allocator : make;
+			swpInst = cast(shared)allocator.make!(Unqual!Impl)(width, height, allocator);
+			_salloc = allocator;
+		}
+	} else static if (!is(Impl == shared) && __traits(compiles, {new Impl(0, 0, cast(IAllocator)null);})) {
+		// Ditto
+		this(size_t width, size_t height, IAllocator allocator = theAllocator()) @trusted {
+			import std.experimental.allocator : make;
+			swpInst = allocator.make!Impl(width, height, allocator);
+			_alloc = allocator;
+		}
+	}
 
     @property {
-        size_t width() @nogc nothrow @safe {return swpInst.width;}
-        size_t height() @nogc nothrow @safe {return swpInst.height;}
+		size_t width() @nogc nothrow @safe {return swpInst.width;}
+		size_t width() @nogc nothrow @trusted shared {return (cast(Unqual!Impl*)swpInst).width;}
+		size_t height() @nogc nothrow @safe {return swpInst.height;}
+		size_t height() @nogc nothrow @trusted shared {return (cast(Unqual!Impl*)swpInst).height;}
     }    
     
-    Color getPixel(size_t x, size_t y) @nogc @safe {return swpInst.getPixel(x, y);}
-    void setPixel(size_t x, size_t y, Color value) @nogc @safe {swpInst.setPixel(x, y, value);}
-    Color opIndex(size_t x, size_t y) @nogc @safe {return swpInst.opIndex(x, y);}
-    void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe {swpInst.opIndexAssign(value, x, y);}
-    bool resize(size_t newWidth, size_t newHeight) @safe {return swpInst.resize(newWidth, newHeight);}
+	Color getPixel(size_t x, size_t y) @nogc @safe {return swpInst.getPixel(x, y);}
+	Color getPixel(size_t x, size_t y) @nogc @trusted shared {return (cast(Unqual!Impl*)swpInst).getPixel(x, y);}
+	void setPixel(size_t x, size_t y, Color value) @nogc @safe {swpInst.setPixel(x, y, value);}
+	void setPixel(size_t x, size_t y, Color value) @nogc @trusted shared {(cast(Unqual!Impl*)swpInst).setPixel(x, y, value);}
+	Color opIndex(size_t x, size_t y) @nogc @safe {return swpInst.opIndex(x, y);}
+	Color opIndex(size_t x, size_t y) @nogc @trusted shared {return (cast(Unqual!Impl*)swpInst).opIndex(x, y);}
+	void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe {swpInst.opIndexAssign(value, x, y);}
+	void opIndexAssign(Color value, size_t x, size_t y) @nogc @trusted shared {(cast(Unqual!Impl*)swpInst).opIndexAssign(value, x, y);}
+	bool resize(size_t newWidth, size_t newHeight) @safe {return swpInst.resize(newWidth, newHeight);}
+	bool resize(size_t newWidth, size_t newHeight) @trusted shared {return (cast(Unqual!Impl*)swpInst).resize(newWidth, newHeight);}
 
     private {
-        IAllocator _alloc;
+		import std.traits : Unqual;
+
+		IAllocator _alloc;
+		shared(ISharedAllocator) _salloc;
         Impl* swpInst;
 
         ~this() {
             import std.experimental.allocator : dispose;
-            if (_alloc !is null)
-                _alloc.dispose(swpInst);
+			static if (is(Impl == shared)) {
+				if (_salloc !is null)
+					_salloc.dispose(cast(Unqual!Impl*)swpInst);
+			} else {
+            	if (_alloc !is null)
+             	   _alloc.dispose(swpInst);
+			}
         }
     }
 }
@@ -746,9 +795,17 @@ final class ImageObject(Impl) : ImageStorage!(ImageColor!Impl) if (is(Impl == st
  * See_Also:
  *      ImageObject
  */
-auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
+auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAllocator) @trusted
+if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof && !is(Impl==shared)) {
     import std.experimental.allocator : make;
     return allocator.make!(ImageObject!Impl)(width, height, allocator);
+}
+
+/// Ditto
+auto imageObject(Impl)(size_t width, size_t height, shared(ISharedAllocator) allocator = processAllocator) @trusted
+if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof && is(Impl==shared)) {
+	import std.experimental.allocator : make;
+	return allocator.make!(shared(ImageObject!Impl))(width, height, allocator);
 }
 
 /**
@@ -764,9 +821,17 @@ auto imageObject(Impl)(size_t width, size_t height, IAllocator allocator = theAl
  * See_Also:
  *      ImageObject
  */
-auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
+auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @trusted
+if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof && !is(Impl==shared)) {
     import std.experimental.allocator : make;
     return allocator.make!(ImageObject!Impl)(instance);
+}
+
+/// Ditto
+auto imageObject(Impl)(Impl* instance, shared(ISharedAllocator) allocator = processAllocator) @trusted
+if (is(Impl == struct) && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof && is(Impl==shared)) {
+	import std.experimental.allocator : make;
+	return allocator.make!(shared(ImageObject!Impl))(instance);
 }
 
 /**
@@ -782,9 +847,19 @@ auto imageObject(Impl)(Impl* instance, IAllocator allocator = theAllocator) @tru
  * See_Also:
  *      ImageObject
  */
-auto imageObjectFrom(Impl, Image)(Image from, IAllocator allocator = theAllocator) @trusted if (is(Impl == struct) && isImage!Impl && isImage!Image && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof) {
+auto imageObjectFrom(Impl, Image)(Image from, IAllocator allocator = theAllocator) @trusted
+if (is(Impl == struct) && isImage!Impl && isImage!Image && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof && !is(Impl==shared)) {
     import std.experimental.graphic.image.primitives : copyTo;
     import std.experimental.allocator : make;
 
     return from.copyTo(imageObject!Impl(from.width, from.height, allocator));
+}
+
+/// Ditto
+auto imageObjectFrom(Impl, Image)(Image from, shared(ISharedAllocator) allocator = processAllocator) @trusted
+if (is(Impl == struct) && isImage!Impl && isImage!Image && isUnsigned!(ImageIndexType!Impl) && (ImageIndexType!Impl).sizeof <= (void*).sizeof && is(Impl==shared)) {
+	import std.experimental.graphic.image.primitives : copyTo;
+	import std.experimental.allocator : make;
+	
+	return from.copyTo(imageObject!Impl(from.width, from.height, allocator));
 }

@@ -6,7 +6,7 @@
  */
 module std.experimental.graphic.image.storage.base;
 import std.experimental.graphic.color : isColor;
-import std.experimental.allocator : IAllocator, theAllocator;
+import std.experimental.allocator : IAllocator, ISharedAllocator, theAllocator, processAllocator;
 
 /**
  * A fairly simple image storage type using a horizontal scan line memory order.
@@ -42,6 +42,21 @@ struct ImageStorageHorizontal(Color) if (isColor!Color) {
         }
     }
 
+	///
+	this(size_t width, size_t height, shared(ISharedAllocator) allocator) @trusted shared {
+		/+import std.experimental.allocator : makeArray;
+		this.allocator = allocator;
+		
+		width_ = width;
+		height_ = height;
+		
+		data = allocator.makeArray!(Color[])(width);
+		
+		foreach(_; 0 .. width) {
+			data[_] = allocator.makeArray!Color(height);
+		}+/
+	}
+
 	~this() @trusted {
 		import std.experimental.allocator : dispose;
 
@@ -54,23 +69,36 @@ struct ImageStorageHorizontal(Color) if (isColor!Color) {
 
     @property {
         ///
-        size_t width() @nogc nothrow @safe { return width_; }
+		size_t width() @nogc nothrow @safe { return width_; }
+		///
+		size_t width() @nogc nothrow @safe shared { return width_; }
 
         ///
-        size_t height() @nogc nothrow @safe { return height_; }
+		size_t height() @nogc nothrow @safe { return height_; }
+		///
+		size_t height() @nogc nothrow @safe shared { return height_; }
     }
 
     ///
-    Color getPixel(size_t x, size_t y) @nogc @safe { return data[x][y]; }
+	Color getPixel(size_t x, size_t y) @nogc @safe { return data[x][y]; }
+	///
+	Color getPixel(size_t x, size_t y) @nogc @safe shared { return data[x][y]; }
 
     ///
-    void setPixel(size_t x, size_t y, Color value) @nogc  @safe{ data[x][y] = value; }
+	void setPixel(size_t x, size_t y, Color value) @nogc @safe { data[x][y] = value; }
+	///
+	void setPixel(size_t x, size_t y, Color value) @nogc @safe shared { data[x][y] = value; }
 
     ///
-    Color opIndex(size_t x, size_t y) @nogc  @safe{ return getPixel(x, y); }
+	Color opIndex(size_t x, size_t y) @nogc @safe { return getPixel(x, y); }
+	Color opIndex(size_t x, size_t y) @nogc @safe shared { return getPixel(x, y); }
 
     ///
-    void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe { setPixel(x, y, value); }
+	void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe { setPixel(x, y, value); }
+	void opIndexAssign(Color value, size_t x, size_t y) @nogc @safe shared { setPixel(x, y, value); }
+
+	bool resize(size_t newWidth, size_t newHeight) @trusted shared
+	{ return (cast()this).resize(newWidth, newHeight); }
 
     ///
     bool resize(size_t newWidth, size_t newHeight) @trusted
